@@ -16,17 +16,6 @@ LUI is what happens when you stop building around apps and start building around
 
 ---
 
-## Design Philosophy: Calm Power
-
-Black, white, gray. DM Sans for text, JetBrains Mono for the logo. No color, no gradients, no visual competition.
-
-**The surface is calm.** You pick up your phone and see nothing fighting for your attention.
-**Underneath is a storm.** An on-device LLM, a keyword interceptor, a voice pipeline with streaming TTS, and a growing set of headless device actions — all invisible.
-
-LUI handles the complexity so you never have to look at it.
-
----
-
 ## What LUI Does Today
 
 - **Replaces your home screen** with a monochrome conversational canvas
