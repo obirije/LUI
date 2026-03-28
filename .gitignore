@@ -22,3 +22,4 @@ out/
 *.gguf
 llama/src/main/cpp/llama.cpp
 idea.md
+*.aar

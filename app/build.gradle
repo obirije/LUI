@@ -55,6 +55,9 @@ dependencies {
     // llama.cpp Android
     implementation project(':llama')
 
+    // Sherpa-ONNX (STT + VAD + TTS)
+    implementation files('libs/sherpa-onnx.aar')
+
     // Coroutines
     implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1'
 }

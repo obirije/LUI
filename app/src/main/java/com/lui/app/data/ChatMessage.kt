@@ -6,5 +6,5 @@ data class ChatMessage(
     val timestamp: Long = System.currentTimeMillis(),
     val streaming: Boolean = false
 ) {
-    enum class Sender { USER, LUI, WELCOME }
+    enum class Sender { USER, LUI, WELCOME, THINKING }
 }

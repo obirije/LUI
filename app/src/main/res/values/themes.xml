@@ -14,7 +14,7 @@
         <item name="android:windowBackground">@color/lui_black</item>
         <item name="android:textColorPrimary">@color/lui_white</item>
         <item name="android:textColorSecondary">@color/lui_gray</item>
-        <item name="android:fontFamily">@font/inter</item>
-        <item name="fontFamily">@font/inter</item>
+        <item name="android:fontFamily">@font/dm_sans</item>
+        <item name="fontFamily">@font/dm_sans</item>
     </style>
 </resources>

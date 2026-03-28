@@ -16,6 +16,7 @@ import com.lui.app.interceptor.actions.ActionResult
 import com.lui.app.llm.LocalModel
 import com.lui.app.llm.ModelManager
 import com.lui.app.llm.SystemPrompt
+import com.lui.app.voice.VoiceEngine
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.launch
@@ -32,6 +33,7 @@ class LuiViewModel(application: Application) : AndroidViewModel(application) {
     val llmStatus: LiveData<String> = _llmStatus
 
     private val localModel = LocalModel(application)
+    val voiceEngine = VoiceEngine(application)
     private var generationJob: Job? = null
 
     init {
@@ -46,7 +48,7 @@ class LuiViewModel(application: Application) : AndroidViewModel(application) {
             prefs.edit().putBoolean("wallpaper_set", true).apply()
         }
 
-        // Check for model and initialize LLM
+        // Initialize LLM
         viewModelScope.launch {
             _llmStatus.value = "Checking for model..."
             val found = ModelManager.ensureModel(application)
@@ -63,6 +65,35 @@ class LuiViewModel(application: Application) : AndroidViewModel(application) {
                 _llmStatus.value = "no_model"
             }
         }
+
+        // Initialize voice engine
+        viewModelScope.launch {
+            ModelManager.ensureVoiceModels(application)
+            ModelManager.ensureTtsModel(application)
+            voiceEngine.initialize()
+        }
+
+        // Collect voice transcription events
+        viewModelScope.launch {
+            voiceEngine.transcription.collect { partial ->
+                updateVoiceTranscript(partial)
+            }
+        }
+
+        viewModelScope.launch {
+            voiceEngine.finalTranscript.collect { final ->
+                finalizeVoiceInput(final)
+            }
+        }
+
+        // When conversation mode auto-restarts listening
+        viewModelScope.launch {
+            voiceEngine.autoListenStarted.collect {
+                voiceMessageActive = true
+                voiceBubbleAdded = false
+                // Don't add bubble — wait for actual speech
+            }
+        }
     }
 
     fun handleUserInput(text: String) {
@@ -70,7 +101,6 @@ class LuiViewModel(application: Application) : AndroidViewModel(application) {
 
         addMessage(ChatMessage(text = text.trim(), sender = Sender.USER))
 
-        // Keyword interceptor first — instant, reliable
         val toolCall = Interceptor.parse(text)
         if (toolCall != null) {
             val result = ActionExecutor.execute(getApplication(), toolCall)
@@ -79,41 +109,122 @@ class LuiViewModel(application: Application) : AndroidViewModel(application) {
                 is ActionResult.Failure -> result.message
             }
             addMessage(ChatMessage(text = response, sender = Sender.LUI))
+            // Speak action result in conversation mode
+            if (voiceEngine.conversationMode) {
+                voiceEngine.speak(response)
+            }
             return
         }
 
-        // LLM for everything else
         if (localModel.isReady) {
             generateWithLlm(text)
         } else {
-            addMessage(ChatMessage(
-                text = "I heard you, but my brain isn't loaded yet. For now I can do: flashlight, alarms, timers, open apps, make calls, wifi/bluetooth settings.",
-                sender = Sender.LUI
-            ))
+            val msg = "I heard you, but my brain isn't loaded yet. For now I can do: flashlight, alarms, timers, open apps, make calls, wifi/bluetooth settings."
+            addMessage(ChatMessage(text = msg, sender = Sender.LUI))
+            if (voiceEngine.conversationMode) voiceEngine.speak(msg)
+        }
+    }
+
+    // Voice state
+    private var voiceMessageActive = false
+    private var voiceBubbleAdded = false
+
+    fun startVoiceInput(conversationMode: Boolean = false) {
+        voiceEngine.conversationMode = conversationMode
+        voiceEngine.startListening()
+        voiceMessageActive = true
+        voiceBubbleAdded = false
+        // Don't add a user bubble yet — wait for actual partial text
+    }
+
+    private fun updateVoiceTranscript(partial: String) {
+        if (!voiceMessageActive) return
+
+        if (!voiceBubbleAdded) {
+            // First partial result — add the user bubble now
+            addMessage(ChatMessage(text = partial, sender = Sender.USER, streaming = true))
+            voiceBubbleAdded = true
+        } else {
+            updateLastMessage(partial, streaming = true)
+        }
+    }
+
+    private fun finalizeVoiceInput(text: String) {
+        if (!voiceMessageActive) return
+        voiceMessageActive = false
+
+        if (!voiceBubbleAdded) {
+            // Never got partials — add the final text directly
+            addMessage(ChatMessage(text = text, sender = Sender.USER))
+        } else {
+            updateLastMessage(text, streaming = false)
+        }
+        voiceBubbleAdded = false
+        processAfterVoice(text)
+    }
+
+    private fun processAfterVoice(text: String) {
+        val toolCall = Interceptor.parse(text)
+        if (toolCall != null) {
+            val result = ActionExecutor.execute(getApplication(), toolCall)
+            val response = when (result) {
+                is ActionResult.Success -> result.message
+                is ActionResult.Failure -> result.message
+            }
+            addMessage(ChatMessage(text = response, sender = Sender.LUI))
+            if (voiceEngine.conversationMode) voiceEngine.speak(response)
+            return
+        }
+
+        if (localModel.isReady) {
+            generateWithLlm(text)
+        } else {
+            val msg = "Keyword mode only. Try: flashlight, alarm, open app, call."
+            addMessage(ChatMessage(text = msg, sender = Sender.LUI))
+            if (voiceEngine.conversationMode) voiceEngine.speak(msg)
         }
     }
 
     private fun generateWithLlm(userText: String) {
-        // Add streaming placeholder with pulsing dots
-        addMessage(ChatMessage(text = "\u2026", sender = Sender.LUI, streaming = true))
+        addMessage(ChatMessage(text = "", sender = Sender.THINKING))
 
         val responseBuilder = StringBuilder()
+        var lastSpokenIndex = 0
+        var pipelineStarted = false
 
         generationJob = viewModelScope.launch {
             localModel.generateStreaming(userText)
                 .catch { e ->
                     Log.e("LuiVM", "Generation error", e)
-                    updateLastMessage("Something went wrong: ${e.message}", streaming = false)
+                    replaceLastWithLui("Something went wrong: ${e.message}", streaming = false)
                 }
                 .collect { token ->
                     responseBuilder.append(token)
                     val cleaned = SystemPrompt.cleanResponse(responseBuilder.toString())
                     if (cleaned.isNotBlank()) {
-                        updateLastMessage(cleaned, streaming = true)
+                        replaceLastWithLui(cleaned, streaming = true)
+
+                        // Start TTS pipeline once, then feed sentences as they complete
+                        if (voiceEngine.conversationMode) {
+                            if (!pipelineStarted) {
+                                voiceEngine.startPipeline()
+                                pipelineStarted = true
+                            }
+
+                            val newText = cleaned.substring(lastSpokenIndex)
+                            val splitIdx = newText.indexOfAny(charArrayOf('.', '!', '?'))
+                            if (splitIdx >= 0 && newText.length > 10) {
+                                val chunk = newText.substring(0, splitIdx + 1).trim()
+                                if (chunk.isNotBlank()) {
+                                    voiceEngine.speakSentence(chunk)
+                                    lastSpokenIndex += splitIdx + 1
+                                }
+                            }
+                        }
                     }
                 }
 
-            // Generation complete — finalize the message
+            // Generation complete
             val fullResponse = SystemPrompt.cleanResponse(responseBuilder.toString())
             val llmToolCall = Interceptor.parse(fullResponse)
             if (llmToolCall != null) {
@@ -122,9 +233,15 @@ class LuiViewModel(application: Application) : AndroidViewModel(application) {
                     is ActionResult.Success -> result.message
                     is ActionResult.Failure -> result.message
                 }
-                updateLastMessage(actionResponse, streaming = false)
+                replaceLastWithLui(actionResponse, streaming = false)
+                if (voiceEngine.conversationMode) voiceEngine.speak(actionResponse)
             } else {
-                updateLastMessage(fullResponse, streaming = false)
+                replaceLastWithLui(fullResponse, streaming = false)
+                if (voiceEngine.conversationMode) {
+                    val remaining = fullResponse.substring(lastSpokenIndex).trim()
+                    if (remaining.isNotBlank()) voiceEngine.speakSentence(remaining)
+                    voiceEngine.speakDone()
+                }
             }
         }
     }
@@ -134,6 +251,23 @@ class LuiViewModel(application: Application) : AndroidViewModel(application) {
         current.add(message)
         _messages.value = current
         _scrollToBottom.value = Unit
+    }
+
+    /**
+     * Replace the last message (which may be THINKING) with a LUI message.
+     */
+    private fun replaceLastWithLui(text: String, streaming: Boolean = false) {
+        val current = _messages.value.orEmpty().toMutableList()
+        if (current.isNotEmpty()) {
+            current[current.size - 1] = ChatMessage(
+                text = text,
+                sender = Sender.LUI,
+                timestamp = current.last().timestamp,
+                streaming = streaming
+            )
+            _messages.value = current
+            _scrollToBottom.value = Unit
+        }
     }
 
     private fun updateLastMessage(text: String, streaming: Boolean = false) {
@@ -149,6 +283,7 @@ class LuiViewModel(application: Application) : AndroidViewModel(application) {
     override fun onCleared() {
         generationJob?.cancel()
         localModel.close()
+        voiceEngine.release()
         super.onCleared()
     }
 }

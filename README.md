@@ -103,7 +103,9 @@ Replaces the Android notification shade with an intelligent intercept system:
 | Frontend Shell | Kotlin, Android XML layouts, Navigation Component |
 | Local LLM | llama.cpp (native C++ via JNI) |
 | Models | Qwen3.5 0.8B Q4_K_M (GGUF, 508MB) |
-| Fonts | JetBrains Mono (logo), Inter (body) |
+| STT | Android SpeechRecognizer (on-device, streaming) |
+| TTS | Kyutai Pocket TTS (100M params, INT8, via sherpa-onnx) |
+| Fonts | JetBrains Mono (logo), DM Sans (body) |
 | Agent Bridge | WebSocket (WSS), REST, MCP (Phase 2) |
 | Security | Android Keystore (hardware-backed), mTLS (Phase 2) |
 | Notifications | `NotificationListenerService` (Phase 2) |
@@ -115,7 +117,10 @@ Replaces the Android notification shade with an intelligent intercept system:
 ## Roadmap
 
 ### Phase 1: Core Terminal (MVP) -- COMPLETE
-Native Android launcher with conversational canvas. On-device LLM (Qwen3.5 0.8B via llama.cpp). Keyword interceptor for device actions (flashlight, alarms, timers, app launch, calls, Wi-Fi/BT). App drawer with search. LUI-branded wallpaper, Dream Service, lock screen widget. Streaming response animation with typing indicator.
+Native Android launcher with conversational canvas. On-device LLM (Qwen3.5 0.8B via llama.cpp). Keyword interceptor for device actions (flashlight, alarms, timers, app launch, calls, Wi-Fi/BT). App drawer with search. LUI-branded wallpaper, Dream Service, lock screen widget. Streaming response animation with thinking indicator.
+
+### Phase 1.5: Voice -- COMPLETE
+Full voice pipeline: Android SpeechRecognizer for STT (real-time, on-device), Pocket TTS for natural speech synthesis (voice cloning, sherpa-onnx). Conversation mode with producer/player streaming pipeline — TTS starts speaking during LLM text generation. Barge-in support (tap mic to interrupt). Hardware volume control for TTS output.
 
 ### Phase 2: The Agentic Bridge
 Connection Hub UI. Android Keystore integration. Secure WebSocket streaming to external agent frameworks. Standardized JSON tool-calling schema.

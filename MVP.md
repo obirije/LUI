@@ -13,6 +13,15 @@ The original bet: can a quantized small model running on a phone reliably handle
 
 **Answer: Hybrid approach wins.** Qwen3 1.7B was too slow on a mid-range phone (Dimensity 7030, 8GB RAM). Qwen3.5 0.8B is fast and conversational. The keyword interceptor handles device actions instantly and reliably — the LLM handles freeform conversation. Each does what it's best at.
 
+## Voice Pipeline — RESOLVED
+
+Full on-device voice conversation working:
+- **STT**: Android SpeechRecognizer — best accuracy, real-time partial results, zero model overhead
+- **TTS**: Kyutai Pocket TTS (100M params, INT8) via sherpa-onnx — natural voice with voice cloning from reference audio
+- **Architecture**: Producer/player pipeline with sentence-level streaming. TTS starts generating audio for the first sentence while the LLM is still producing text. Pre-generates next sentence while current plays.
+- **Conversation mode**: Long-press mic. Auto-listens after TTS finishes. Tap mic to exit.
+- Models tested and rejected: Sherpa-ONNX Zipformer 20M (poor accuracy), Piper VITS (too robotic), Kokoro 82M fp32 (too slow), Android built-in TTS (robotic)
+
 ---
 
 ## Development Sequence
