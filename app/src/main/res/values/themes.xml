@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="LuiTheme" parent="Theme.MaterialComponents.NoActionBar">
+        <item name="colorPrimary">@color/lui_white</item>
+        <item name="colorPrimaryVariant">@color/lui_gray</item>
+        <item name="colorOnPrimary">@color/lui_black</item>
+        <item name="colorSecondary">@color/lui_accent</item>
+        <item name="colorOnSecondary">@color/lui_black</item>
+        <item name="android:colorBackground">@color/lui_black</item>
+        <item name="colorSurface">@color/lui_surface</item>
+        <item name="colorOnSurface">@color/lui_white</item>
+        <item name="android:statusBarColor">@color/lui_black</item>
+        <item name="android:navigationBarColor">@color/lui_black</item>
+        <item name="android:windowBackground">@color/lui_black</item>
+        <item name="android:textColorPrimary">@color/lui_white</item>
+        <item name="android:textColorSecondary">@color/lui_gray</item>
+        <item name="android:fontFamily">@font/inter</item>
+        <item name="fontFamily">@font/inter</item>
+    </style>
+</resources>

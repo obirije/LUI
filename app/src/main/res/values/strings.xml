@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">LUI</string>
+    <string name="input_hint">Ask LUI anything\u2026</string>
+    <string name="welcome_message">Welcome to LUI. Type anything to get started.</string>
+    <string name="thinking">Thinking\u2026</string>
+    <string name="action_executed">Done.</string>
+    <string name="action_failed">I couldn\'t do that. %1$s</string>
+    <string name="app_not_found">App not found.</string>
+    <string name="permission_required">I need permission to do that. Check your settings.</string>
+    <string name="long_press_for_apps">Long-press for app drawer</string>
+    <string name="widget_description">Minimal clock with LUI branding</string>
+</resources>

@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- LUI Calm Power palette: black, white, gray -->
+    <color name="lui_black">#FF0A0A0A</color>
+    <color name="lui_surface">#FF121212</color>
+    <color name="lui_surface_elevated">#FF1E1E1E</color>
+    <color name="lui_white">#FFFAFAFA</color>
+    <color name="lui_gray">#FF9E9E9E</color>
+    <color name="lui_gray_light">#FFB0B0B0</color>
+    <color name="lui_gray_dark">#FF616161</color>
+    <color name="lui_accent">#FFE0E0E0</color>
+    <color name="lui_input_bg">#FF1A1A1A</color>
+    <color name="lui_user_bubble">#FF2A2A2A</color>
+    <color name="lui_divider">#FF2C2C2C</color>
+    <color name="lui_green">#FF4CAF50</color>
+    <color name="lui_amber">#FFFFC107</color>
+</resources>

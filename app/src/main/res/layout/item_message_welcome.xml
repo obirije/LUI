@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:gravity="center_horizontal"
+    android:orientation="vertical"
+    android:paddingTop="80dp"
+    android:paddingBottom="32dp">
+
+    <TextView
+        android:id="@+id/logoText"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:fontFamily="@font/jetbrains_mono_bold"
+        android:letterSpacing="0.3"
+        android:text="LUI"
+        android:textColor="@color/lui_white"
+        android:textSize="42sp" />
+
+    <TextView
+        android:id="@+id/messageText"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        
+        android:gravity="center"
+        android:maxWidth="260dp"
+        android:textColor="@color/lui_gray"
+        android:textSize="13sp" />
+
+</LinearLayout>
