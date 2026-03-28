@@ -21,3 +21,4 @@ out/
 /llama/.cxx/
 *.gguf
 llama/src/main/cpp/llama.cpp
+idea.md
