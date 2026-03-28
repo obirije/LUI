@@ -8,6 +8,20 @@
     android:fitsSystemWindows="true"
     android:background="@color/lui_black">
 
+    <!-- Background watermark -->
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:fontFamily="@font/jetbrains_mono_bold"
+        android:letterSpacing="0.3"
+        android:text="LUI"
+        android:textColor="#03FFFFFF"
+        android:textSize="120sp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+
     <!-- Chat messages -->
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/messageList"

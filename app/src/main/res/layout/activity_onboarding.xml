@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/lui_black"
+    android:gravity="center"
+    android:orientation="vertical"
+    android:padding="32dp">
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:fontFamily="@font/jetbrains_mono_bold"
+        android:letterSpacing="0.3"
+        android:text="LUI"
+        android:textColor="@color/lui_white"
+        android:textSize="48sp" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
+        android:gravity="center"
+        android:text="Your calm, intelligent launcher."
+        android:textColor="@color/lui_gray"
+        android:textSize="16sp" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="48dp"
+        android:gravity="center"
+        android:text="LUI needs a few permissions to work best. You can skip any of these."
+        android:textColor="@color/lui_gray_dark"
+        android:textSize="13sp" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="32dp"
+        android:orientation="vertical">
+
+        <Button
+            android:id="@+id/btnDefaultLauncher"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:background="@drawable/btn_outlined"
+            android:text="Set as default launcher"
+            android:textColor="@color/lui_white"
+            android:textSize="14sp"
+            android:textAllCaps="false" />
+
+        <Button
+            android:id="@+id/btnMicPermission"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:layout_marginTop="8dp"
+            android:background="@drawable/btn_outlined"
+            android:text="Enable microphone"
+            android:textColor="@color/lui_white"
+            android:textSize="14sp"
+            android:textAllCaps="false" />
+
+        <Button
+            android:id="@+id/btnPhonePermission"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:layout_marginTop="8dp"
+            android:background="@drawable/btn_outlined"
+            android:text="Enable phone calls"
+            android:textColor="@color/lui_white"
+            android:textSize="14sp"
+            android:textAllCaps="false" />
+
+    </LinearLayout>
+
+    <Button
+        android:id="@+id/btnGetStarted"
+        android:layout_width="match_parent"
+        android:layout_height="52dp"
+        android:layout_marginTop="32dp"
+        android:background="@drawable/btn_filled"
+        android:text="Get Started"
+        android:textColor="@color/lui_black"
+        android:textSize="16sp"
+        android:textAllCaps="false"
+        android:textStyle="bold" />
+
+</LinearLayout>

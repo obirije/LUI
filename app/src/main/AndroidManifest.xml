@@ -26,6 +26,9 @@
     <!-- Voice input -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
 
+    <!-- DND control -->
+    <uses-permission android:name="android.permission.ACCESS_NOTIFICATION_POLICY" />
+
     <application
         android:allowBackup="true"
         android:icon="@mipmap/ic_launcher"
@@ -35,6 +38,18 @@
         android:theme="@style/LuiTheme"
         tools:ignore="UnusedAttribute">
 
+        <!-- Onboarding (first launch only) -->
+        <activity
+            android:name=".ui.onboarding.OnboardingActivity"
+            android:exported="true"
+            android:theme="@style/LuiTheme">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <!-- Main launcher -->
         <activity
             android:name=".MainActivity"
             android:configChanges="uiMode"
@@ -47,7 +62,6 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.HOME" />
                 <category android:name="android.intent.category.DEFAULT" />
-                <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
 

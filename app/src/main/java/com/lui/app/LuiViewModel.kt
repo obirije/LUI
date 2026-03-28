@@ -9,6 +9,7 @@ import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.viewModelScope
 import com.lui.app.data.ChatMessage
 import com.lui.app.data.ChatMessage.Sender
+import com.lui.app.data.ChatRepository
 import com.lui.app.helper.WallpaperHelper
 import com.lui.app.interceptor.ActionExecutor
 import com.lui.app.interceptor.Interceptor
@@ -33,14 +34,24 @@ class LuiViewModel(application: Application) : AndroidViewModel(application) {
     val llmStatus: LiveData<String> = _llmStatus
 
     private val localModel = LocalModel(application)
+    private val chatRepo = ChatRepository(application)
     val voiceEngine = VoiceEngine(application)
     private var generationJob: Job? = null
 
     init {
-        addMessage(ChatMessage(
-            text = application.getString(R.string.welcome_message),
-            sender = Sender.WELCOME
-        ))
+        // Load chat history then show welcome
+        viewModelScope.launch {
+            val history = chatRepo.getHistory()
+            if (history.isNotEmpty()) {
+                _messages.value = history
+                _scrollToBottom.value = Unit
+            } else {
+                addMessage(ChatMessage(
+                    text = application.getString(R.string.welcome_message),
+                    sender = Sender.WELCOME
+                ))
+            }
+        }
 
         val prefs = application.getSharedPreferences("lui_prefs", Context.MODE_PRIVATE)
         if (!prefs.getBoolean("wallpaper_set", false)) {
@@ -63,6 +74,10 @@ class LuiViewModel(application: Application) : AndroidViewModel(application) {
                 }
             } else {
                 _llmStatus.value = "no_model"
+                addMessage(ChatMessage(
+                    text = "No LLM model found. I'm in keyword mode — I can still handle flashlight, alarms, timers, apps, calls, volume, brightness, DND, and rotation. To enable full AI chat, sideload the model file to your phone.",
+                    sender = Sender.LUI
+                ))
             }
         }
 
@@ -98,6 +113,19 @@ class LuiViewModel(application: Application) : AndroidViewModel(application) {
 
     fun handleUserInput(text: String) {
         if (text.isBlank()) return
+
+        // Special commands
+        val lower = text.trim().lowercase()
+        if (lower == "clear" || lower == "clear chat" || lower == "clear history") {
+            viewModelScope.launch {
+                chatRepo.clearHistory()
+                _messages.value = listOf(ChatMessage(
+                    text = getApplication<Application>().getString(R.string.welcome_message),
+                    sender = Sender.WELCOME
+                ))
+            }
+            return
+        }
 
         addMessage(ChatMessage(text = text.trim(), sender = Sender.USER))
 
@@ -251,22 +279,23 @@ class LuiViewModel(application: Application) : AndroidViewModel(application) {
         current.add(message)
         _messages.value = current
         _scrollToBottom.value = Unit
+        // Persist USER and LUI messages
+        if (message.sender == Sender.USER || message.sender == Sender.LUI) {
+            viewModelScope.launch { chatRepo.saveMessage(message) }
+        }
     }
 
-    /**
-     * Replace the last message (which may be THINKING) with a LUI message.
-     */
     private fun replaceLastWithLui(text: String, streaming: Boolean = false) {
         val current = _messages.value.orEmpty().toMutableList()
         if (current.isNotEmpty()) {
-            current[current.size - 1] = ChatMessage(
-                text = text,
-                sender = Sender.LUI,
-                timestamp = current.last().timestamp,
-                streaming = streaming
-            )
+            val msg = ChatMessage(text = text, sender = Sender.LUI, timestamp = current.last().timestamp, streaming = streaming)
+            current[current.size - 1] = msg
             _messages.value = current
             _scrollToBottom.value = Unit
+            // Persist final (non-streaming) LUI response
+            if (!streaming && text.isNotBlank()) {
+                viewModelScope.launch { chatRepo.saveMessage(msg) }
+            }
         }
     }
 
