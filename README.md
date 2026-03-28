@@ -5,26 +5,36 @@
 <h1 align="center">LUI: The Language User Interface</h1>
 
 <p align="center">
-  <strong>An open-source Android launcher that replaces the app grid with an AI-native conversational terminal.</strong>
+  <strong>The open-source Android launcher that replaces your app grid with an AI-native conversational terminal.</strong>
 </p>
 
 ---
 
-Your home screen is a dark canvas. No app grid, no widgets, no noise. You type or speak what you want, and it happens. A small language model runs entirely on your phone — no cloud, no API keys, no data leaving your device.
+The GUI is dead. For 15 years, your phone has been a grid of dopamine-driven icons — each one a walled garden designed to trap your attention. Meanwhile, the real revolution is happening headlessly. You're building agent swarms with OpenClaw and Hermes, orchestrating complex workflows through MCP, running local models on consumer hardware. But when you reach for your phone, you're back to tapping through legacy UIs like it's 2012.
 
-LUI is what happens when you stop building around apps and start building around intent. Instead of navigating through screens to reach a function, you state what you need. The phone figures out the rest.
+LUI is the native mobile terminal for the agentic web. It replaces your Android home screen with a single dark canvas — no icons, no widgets, no noise. You speak or type your intent, and the phone executes it. A quantized LLM runs locally on your device. A keyword interceptor handles device actions at zero latency. A full voice pipeline lets you have real-time spoken conversations with your phone, completely offline.
+
+Today it's a launcher that thinks locally and acts instantly. Tomorrow it's the display layer for your entire agent infrastructure — your self-hosted swarms get a body with first-class access to Android's hardware, sensors, notifications, and system APIs, all streaming through a secure WebSocket bridge.
+
+**Your agents deserve better than a Telegram bot.**
 
 ---
 
-## What LUI Does Today
+## What It Does Now
 
 - **Replaces your home screen** with a monochrome conversational canvas
-- **Runs a local LLM** (Qwen3.5 0.8B) entirely on-device via llama.cpp
-- **Executes 12 device actions** instantly through a keyword interceptor — flashlight, alarms, timers, volume, brightness, DND, screen rotation, app launch, phone calls, Wi-Fi/Bluetooth settings, wallpaper
-- **Full voice pipeline** — tap mic for a single query, long-press for continuous conversation. On-device speech recognition, natural TTS with voice cloning (Pocket TTS). Streaming playback starts while the LLM is still generating text.
-- **Persistent memory** — conversations survive app restarts
-- **App drawer** — long-press for a searchable list of installed apps
-- **Integrated experience** — auto-sets a matching dark wallpaper, screen saver (Dream Service), and lock screen widget
+- **On-device LLM** (Qwen3.5 0.8B via llama.cpp) — no cloud, no API keys, fully private
+- **12 headless device actions** via keyword interceptor — flashlight, alarms, timers, volume, brightness, DND, rotation, app launch, calls, Wi-Fi/BT, wallpaper — all instant, no LLM round-trip
+- **Full voice pipeline** — real-time STT, natural TTS with voice cloning (Pocket TTS), streaming conversation mode where the voice starts speaking while the LLM is still generating
+- **Persistent conversations** across restarts (Room/SQLite)
+- **Searchable app drawer** (long-press), first-launch onboarding, matching wallpaper + widget + screen saver
+
+## What's Coming
+
+- **BYOS (Bring Your Own Swarm)** — WebSocket bridge to your self-hosted OpenClaw, Hermes, or any MCP-compatible agent framework. Your swarm gets access to Android hardware: geofencing, 2FA interception, biometric gates, ambient device context.
+- **The Bouncer** — Notification triage. LUI intercepts your notification stream, passes through the urgent ones, batches the noise into an AI digest, and auto-handles 2FA codes.
+- **Generative UI** — When the canvas needs to show you something visual (shopping results, flight options, a chart), native Android components inflate directly in the chat stream, then collapse when you're done.
+- **Cloud tier** — Optional. For when you need frontier-model reasoning without self-hosting. Burns credits, not your privacy by default.
 
 ---
 
@@ -56,7 +66,7 @@ You (voice / text)
 └──────────────────────────────────┘
 ```
 
-The interceptor fires first. "Turn on the flashlight" executes instantly — no LLM round-trip. The model only handles what the interceptor can't: open questions, conversation, anything that needs reasoning.
+The interceptor fires first. "Turn on the flashlight" executes in milliseconds — no inference, no latency. The LLM only handles what the interceptor can't: open questions, conversation, reasoning.
 
 ---
 
@@ -68,7 +78,7 @@ The interceptor fires first. "Turn on the flashlight" executes instantly — no 
 | LLM | llama.cpp (native C++ via JNI), Qwen3.5 0.8B Q4_K_M |
 | STT | Android SpeechRecognizer (on-device, streaming) |
 | TTS | Kyutai Pocket TTS INT8 via sherpa-onnx |
-| Storage | Room (SQLite) for chat history, SharedPreferences |
+| Storage | Room (SQLite) for chat history |
 | Fonts | JetBrains Mono (logo), DM Sans (body) |
 
 ---
@@ -78,33 +88,26 @@ The interceptor fires first. "Turn on the flashlight" executes instantly — no 
 Requires JDK 17, Android SDK 35, NDK 28, CMake 3.31+.
 
 ```bash
-# Clone llama.cpp source (required for native build)
 git clone --depth 1 https://github.com/ggerganov/llama.cpp.git /tmp/llama-cpp
 ln -sf /tmp/llama-cpp llama/src/main/cpp/llama.cpp
 
-# Build
 ./gradlew assembleDebug
-
-# Install
 adb install app/build/outputs/apk/debug/app-debug.apk
 ```
 
-The LLM, STT, and TTS models are not bundled in the APK. They need to be pushed to the device separately — see [MVP.md](MVP.md) for model download instructions and staging paths.
+Models (LLM, TTS) are not bundled — push to device separately. See [MVP.md](MVP.md) for model downloads and staging paths.
 
-**Tested on:** Motorola Edge 40 Neo (Dimensity 7030, 8GB RAM, Android 15). Qwen3.5 0.8B runs well. Qwen3 1.7B was benchmarked and rejected — too slow on mid-range hardware.
+**Tested on:** Motorola Edge 40 Neo (Dimensity 7030, 8GB RAM). Qwen3.5 0.8B runs well. Qwen3 1.7B was benchmarked and rejected — too slow on mid-range silicon.
 
 ---
 
 ## Roadmap
 
-### Shipped
-Launcher shell. On-device LLM. Voice conversation (STT + TTS + streaming). 12 headless device actions. Chat persistence. First-launch onboarding. Wallpaper, widget, screen saver.
+**Shipped:** On-device launcher, LLM, voice conversation, 12 device actions, chat persistence, onboarding.
 
-### Next (Phase 2)
-BYOS WebSocket bridge to remote agent frameworks (OpenClaw, Hermes). Connection Hub UI. Android Keystore for secrets. Notification triage (The Bouncer). Geofencing and ambient context.
+**Next:** BYOS WebSocket bridge. Notification triage. Geofencing. Ambient context.
 
-### Later (Phase 3+)
-Cloud API fallback. Credit wallet. Generative UI. Web agent with WebView piloting. Accessibility scraping for walled-garden apps.
+**Later:** Cloud tier. Credit wallet. Generative UI. Web agent. Accessibility scraping.
 
 ---
 
