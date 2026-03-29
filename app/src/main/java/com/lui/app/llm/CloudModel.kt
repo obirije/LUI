@@ -14,7 +14,7 @@ import java.io.InputStreamReader
 import java.net.HttpURLConnection
 import java.net.URL
 
-class CloudModel(private val keyStore: SecureKeyStore) : LlmProvider {
+class CloudModel(private val keyStore: SecureKeyStore, private val appContext: android.content.Context) : LlmProvider {
 
     companion object {
         private const val TAG = "CloudModel"
@@ -80,7 +80,7 @@ class CloudModel(private val keyStore: SecureKeyStore) : LlmProvider {
         val contents = JSONArray()
 
         // System instruction
-        contents.put(JSONObject().put("role", "user").put("parts", JSONArray().put(JSONObject().put("text", SystemPrompt.CLOUD_PROMPT))))
+        contents.put(JSONObject().put("role", "user").put("parts", JSONArray().put(JSONObject().put("text", SystemPrompt.buildCloudPrompt(appContext)))))
         contents.put(JSONObject().put("role", "model").put("parts", JSONArray().put(JSONObject().put("text", "Understood."))))
 
         // History
@@ -129,7 +129,7 @@ class CloudModel(private val keyStore: SecureKeyStore) : LlmProvider {
         val body = JSONObject()
             .put("model", model)
             .put("max_tokens", 1024)
-            .put("system", SystemPrompt.CLOUD_PROMPT)
+            .put("system", SystemPrompt.buildCloudPrompt(appContext))
             .put("messages", messages)
             .put("stream", true)
 
@@ -158,7 +158,7 @@ class CloudModel(private val keyStore: SecureKeyStore) : LlmProvider {
         }
 
         val messages = JSONArray()
-        messages.put(JSONObject().put("role", "system").put("content", SystemPrompt.CLOUD_PROMPT))
+        messages.put(JSONObject().put("role", "system").put("content", SystemPrompt.buildCloudPrompt(appContext)))
         for (msg in history.takeLast(10)) {
             val role = if (msg.sender == ChatMessage.Sender.USER) "user" else "assistant"
             messages.put(JSONObject().put("role", role).put("content", msg.text))

@@ -12,12 +12,24 @@ object SystemActions {
 
     private var flashlightOn = false
 
-    fun toggleFlashlight(context: Context): ActionResult {
+    fun toggleFlashlight(context: Context, desiredState: String? = null): ActionResult {
         return try {
             val cameraManager = context.getSystemService(Context.CAMERA_SERVICE) as CameraManager
             val cameraId = cameraManager.cameraIdList.firstOrNull()
                 ?: return ActionResult.Failure("No camera found.")
-            flashlightOn = !flashlightOn
+
+            flashlightOn = when (desiredState) {
+                "on" -> {
+                    if (flashlightOn) return ActionResult.Success("Flashlight is already on.")
+                    true
+                }
+                "off" -> {
+                    if (!flashlightOn) return ActionResult.Success("Flashlight is already off.")
+                    false
+                }
+                else -> !flashlightOn // toggle
+            }
+
             cameraManager.setTorchMode(cameraId, flashlightOn)
             ActionResult.Success("Flashlight ${if (flashlightOn) "on" else "off"}.")
         } catch (e: Exception) {
@@ -45,6 +57,17 @@ object SystemActions {
             ActionResult.Success("Opening Bluetooth settings.")
         } catch (e: Exception) {
             ActionResult.Failure("Couldn't open Bluetooth settings.")
+        }
+    }
+
+    fun openSettings(context: Context): ActionResult {
+        return try {
+            val intent = Intent(Settings.ACTION_SETTINGS)
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            context.startActivity(intent)
+            ActionResult.Success("Opening settings.")
+        } catch (e: Exception) {
+            ActionResult.Failure("Couldn't open settings.")
         }
     }
 

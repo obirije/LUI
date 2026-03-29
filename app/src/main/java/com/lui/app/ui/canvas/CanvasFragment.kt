@@ -39,6 +39,12 @@ class CanvasFragment : Fragment() {
         if (granted) viewModel.startVoiceInput()
     }
 
+    private val actionPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        viewModel.onPermissionResult(granted)
+    }
+
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
         _binding = FragmentCanvasBinding.inflate(inflater, container, false)
         return binding.root
@@ -226,6 +232,13 @@ class CanvasFragment : Fragment() {
                         ContextCompat.getColorStateList(requireContext(), R.color.lui_amber)
                     binding.inputField.hint = status
                 }
+            }
+        }
+
+        // Just-in-time permission requests
+        viewModel.permissionRequest.observe(viewLifecycleOwner) { req ->
+            if (req != null) {
+                actionPermissionLauncher.launch(req.permission)
             }
         }
 

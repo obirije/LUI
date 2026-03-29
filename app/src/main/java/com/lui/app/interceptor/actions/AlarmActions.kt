@@ -45,6 +45,31 @@ object AlarmActions {
         }
     }
 
+    fun dismissAlarm(context: Context): ActionResult {
+        return try {
+            val intent = Intent(AlarmClock.ACTION_DISMISS_ALARM).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            context.startActivity(intent)
+            ActionResult.Success("Dismissing alarm.")
+        } catch (e: Exception) {
+            ActionResult.Failure("Couldn't dismiss alarm: ${e.message}")
+        }
+    }
+
+    fun cancelTimer(context: Context): ActionResult {
+        return try {
+            // There's no direct cancel intent — dismiss works for active timers
+            val intent = Intent(AlarmClock.ACTION_DISMISS_TIMER).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            context.startActivity(intent)
+            ActionResult.Success("Cancelling timer.")
+        } catch (e: Exception) {
+            ActionResult.Failure("Couldn't cancel timer: ${e.message}")
+        }
+    }
+
     /**
      * Parse time strings like "7:30", "7:30am", "730", "7.30 pm", "19:30"
      * Returns Pair(hour in 24h, minutes)

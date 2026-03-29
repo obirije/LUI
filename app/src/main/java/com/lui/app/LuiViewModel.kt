@@ -10,6 +10,7 @@ import androidx.lifecycle.viewModelScope
 import com.lui.app.data.ChatMessage
 import com.lui.app.data.ChatMessage.Sender
 import com.lui.app.data.ChatRepository
+import com.lui.app.helper.PermissionHelper
 import com.lui.app.helper.WallpaperHelper
 import com.lui.app.interceptor.ActionExecutor
 import com.lui.app.interceptor.Interceptor
@@ -35,9 +36,14 @@ class LuiViewModel(application: Application) : AndroidViewModel(application) {
     private val _llmStatus = MutableLiveData<String>()
     val llmStatus: LiveData<String> = _llmStatus
 
+    // Permission request: emitted when an action needs a runtime permission
+    private val _permissionRequest = MutableLiveData<PermissionHelper.PermissionRequest?>()
+    val permissionRequest: LiveData<PermissionHelper.PermissionRequest?> = _permissionRequest
+    private var pendingToolCall: com.lui.app.data.ToolCall? = null
+
     private val localModel = LocalModel(application)
     private val keyStore = com.lui.app.data.SecureKeyStore(application)
-    private val cloudModel = CloudModel(keyStore)
+    private val cloudModel = CloudModel(keyStore, application)
     private val router = LlmRouter(localModel, cloudModel, keyStore)
     private val chatRepo = ChatRepository(application)
     val voiceEngine = VoiceEngine(application)
@@ -137,27 +143,65 @@ class LuiViewModel(application: Application) : AndroidViewModel(application) {
 
         addMessage(ChatMessage(text = text.trim(), sender = Sender.USER))
 
-        val toolCall = Interceptor.parse(text)
-        if (toolCall != null) {
-            val result = ActionExecutor.execute(getApplication(), toolCall)
-            val response = when (result) {
-                is ActionResult.Success -> result.message
-                is ActionResult.Failure -> result.message
-            }
-            addMessage(ChatMessage(text = response, sender = Sender.LUI))
-            // Speak action result in conversation mode
-            if (voiceEngine.conversationMode) {
-                voiceEngine.speak(response)
-            }
+        // When a cloud model is available, the LLM orchestrates everything — it sees
+        // conversation history, understands context/pronouns, chains tools, and asks
+        // follow-ups. The interceptor is only the fast path for local-only/offline mode.
+        if (cloudModel.isReady) {
+            generateWithLlm(text)
             return
         }
 
-        if (router.isReady) {
+        // Local/offline: interceptor handles what it can, local LLM gets the rest
+        val toolCall = Interceptor.parse(text)
+        if (toolCall != null) {
+            executeToolCall(toolCall)
+            return
+        }
+
+        if (localModel.isReady) {
             generateWithLlm(text)
         } else {
             val msg = "I heard you, but my brain isn't loaded yet. For now I can do: flashlight, alarms, timers, open apps, make calls, wifi/bluetooth settings."
             addMessage(ChatMessage(text = msg, sender = Sender.LUI))
             if (voiceEngine.conversationMode) voiceEngine.speak(msg)
+        }
+    }
+
+    private fun executeToolCall(toolCall: com.lui.app.data.ToolCall) {
+        // Cancel any running generation to prevent overlap
+        generationJob?.cancel()
+        generationJob = null
+        voiceEngine.stopSpeaking()
+
+        // Check if this action needs a runtime permission
+        val permReq = PermissionHelper.getRequiredPermission(toolCall.tool)
+        if (permReq != null && !PermissionHelper.hasPermission(getApplication(), permReq.permission)) {
+            pendingToolCall = toolCall
+            addMessage(ChatMessage(text = permReq.explanation, sender = Sender.LUI))
+            _permissionRequest.value = permReq
+            return
+        }
+
+        val result = ActionExecutor.execute(getApplication(), toolCall)
+        val response = when (result) {
+            is ActionResult.Success -> result.message
+            is ActionResult.Failure -> result.message
+        }
+        addMessage(ChatMessage(text = response, sender = Sender.LUI))
+        if (voiceEngine.conversationMode) voiceEngine.speak(response)
+    }
+
+    /** Called by the fragment after permission is granted/denied */
+    fun onPermissionResult(granted: Boolean) {
+        _permissionRequest.value = null
+        val toolCall = pendingToolCall ?: return
+        pendingToolCall = null
+
+        if (granted) {
+            executeToolCall(toolCall)
+        } else {
+            addMessage(ChatMessage(text = "I need that permission to do this. Opening settings so you can enable it.", sender = Sender.LUI))
+            PermissionHelper.openAppPermissionSettings(getApplication())
         }
     }
 
@@ -205,19 +249,20 @@ class LuiViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     private fun processAfterVoice(text: String) {
-        val toolCall = Interceptor.parse(text)
-        if (toolCall != null) {
-            val result = ActionExecutor.execute(getApplication(), toolCall)
-            val response = when (result) {
-                is ActionResult.Success -> result.message
-                is ActionResult.Failure -> result.message
-            }
-            addMessage(ChatMessage(text = response, sender = Sender.LUI))
-            if (voiceEngine.conversationMode) voiceEngine.speak(response)
+        // Cloud available: LLM orchestrates everything
+        if (cloudModel.isReady) {
+            generateWithLlm(text)
             return
         }
 
-        if (router.isReady) {
+        // Local/offline: interceptor first
+        val toolCall = Interceptor.parse(text)
+        if (toolCall != null) {
+            executeToolCall(toolCall)
+            return
+        }
+
+        if (localModel.isReady) {
             generateWithLlm(text)
         } else {
             val msg = "Keyword mode only. Try: flashlight, alarm, open app, call."
@@ -273,13 +318,71 @@ class LuiViewModel(application: Application) : AndroidViewModel(application) {
             val fullResponse = SystemPrompt.cleanResponse(responseBuilder.toString())
             val llmToolCall = Interceptor.parse(fullResponse)
             if (llmToolCall != null) {
+                // LLM decided to call a tool — execute it
                 val result = ActionExecutor.execute(getApplication(), llmToolCall)
-                val actionResponse = when (result) {
+                val actionMsg = when (result) {
                     is ActionResult.Success -> result.message
                     is ActionResult.Failure -> result.message
                 }
-                replaceLastWithLui(actionResponse, streaming = false)
-                if (voiceEngine.conversationMode) voiceEngine.speak(actionResponse)
+
+                // If cloud model, feed result back — it may chain another tool or interpret
+                if (router.isUsingCloud) {
+                    replaceLastWithLui("", streaming = true)
+                    val chainHistory = _messages.value.orEmpty().filter {
+                        it.sender == Sender.USER || it.sender == Sender.LUI
+                    }.takeLast(10).toMutableList()
+                    chainHistory.add(ChatMessage(text = "Tool result for '${llmToolCall.tool}': $actionMsg", sender = Sender.USER))
+
+                    // Allow up to 3 chained tool calls
+                    var lastResult = actionMsg
+                    var lastToolName = llmToolCall.tool
+                    var chainCount = 0
+                    val maxChains = 3
+
+                    while (chainCount < maxChains) {
+                        val chainBuilder = StringBuilder()
+                        router.generateStreaming(
+                            "Tool '$lastToolName' returned: $lastResult. " +
+                            "If you need to call another tool to complete the user's request, output ONLY the JSON. " +
+                            "Otherwise, summarize the result naturally for the user in 1-2 sentences.",
+                            chainHistory
+                        ).collect { token ->
+                            chainBuilder.append(token)
+                            val cleaned = SystemPrompt.cleanResponse(chainBuilder.toString())
+                            if (cleaned.isNotBlank()) replaceLastWithLui(cleaned, streaming = true)
+                        }
+
+                        val chainResponse = SystemPrompt.cleanResponse(chainBuilder.toString())
+                        val nextTool = Interceptor.parse(chainResponse)
+
+                        if (nextTool != null) {
+                            // Chain: execute next tool
+                            lastToolName = nextTool.tool
+                            val nextResult = ActionExecutor.execute(getApplication(), nextTool)
+                            lastResult = when (nextResult) {
+                                is ActionResult.Success -> nextResult.message
+                                is ActionResult.Failure -> nextResult.message
+                            }
+                            chainHistory.add(ChatMessage(text = "Tool result for '${nextTool.tool}': $lastResult", sender = Sender.USER))
+                            replaceLastWithLui("", streaming = true)
+                            chainCount++
+                        } else {
+                            // No more tools — this is the final interpretation
+                            replaceLastWithLui(chainResponse.ifBlank { lastResult }, streaming = false)
+                            if (voiceEngine.conversationMode) voiceEngine.speak(chainResponse.ifBlank { lastResult })
+                            break
+                        }
+                    }
+
+                    // Safety: if we hit max chains, show the last result
+                    if (chainCount >= maxChains) {
+                        replaceLastWithLui(lastResult, streaming = false)
+                        if (voiceEngine.conversationMode) voiceEngine.speak(lastResult)
+                    }
+                } else {
+                    replaceLastWithLui(actionMsg, streaming = false)
+                    if (voiceEngine.conversationMode) voiceEngine.speak(actionMsg)
+                }
             } else {
                 replaceLastWithLui(fullResponse, streaming = false)
                 if (voiceEngine.conversationMode) {

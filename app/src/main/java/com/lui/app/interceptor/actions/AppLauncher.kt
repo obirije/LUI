@@ -1,11 +1,14 @@
 package com.lui.app.interceptor.actions
 
+import android.Manifest
 import android.content.Context
 import android.content.Intent
 import android.content.pm.LauncherApps
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Process
+import android.provider.ContactsContract
+import androidx.core.content.ContextCompat
 
 object AppLauncher {
 
@@ -34,29 +37,64 @@ object AppLauncher {
 
     fun makeCall(context: Context, target: String): ActionResult {
         val digits = target.replace(Regex("[^0-9+]"), "")
-        return if (digits.length >= 3) {
-            try {
-                val intent = Intent(Intent.ACTION_CALL, Uri.parse("tel:$digits")).apply {
-                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                }
-                context.startActivity(intent)
-                ActionResult.Success("Calling $digits.")
-            } catch (e: SecurityException) {
-                ActionResult.Failure("I need phone call permission to do that.")
-            } catch (e: Exception) {
-                ActionResult.Failure("Couldn't make call: ${e.message}")
-            }
-        } else {
-            try {
-                val intent = Intent(Intent.ACTION_DIAL).apply {
-                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                }
-                context.startActivity(intent)
-                ActionResult.Success("Opening the dialer. I can't search contacts yet.")
-            } catch (e: Exception) {
-                ActionResult.Failure("Couldn't open dialer.")
-            }
+        if (digits.length >= 3) {
+            return dialNumber(context, digits)
         }
+
+        // Target is a name — try to resolve via contacts
+        val resolved = resolveContactNumber(context, target)
+        if (resolved != null) {
+            return dialNumber(context, resolved.second, resolved.first)
+        }
+
+        // Can't resolve — open dialer
+        return try {
+            val intent = Intent(Intent.ACTION_DIAL).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            context.startActivity(intent)
+            ActionResult.Success("Couldn't find \"$target\" in contacts. Opening dialer.")
+        } catch (e: Exception) {
+            ActionResult.Failure("Couldn't open dialer.")
+        }
+    }
+
+    private fun dialNumber(context: Context, number: String, name: String? = null): ActionResult {
+        return try {
+            val intent = Intent(Intent.ACTION_CALL, Uri.parse("tel:$number")).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            context.startActivity(intent)
+            ActionResult.Success("Calling ${name ?: number}.")
+        } catch (e: SecurityException) {
+            ActionResult.Failure("I need phone call permission to do that.")
+        } catch (e: Exception) {
+            ActionResult.Failure("Couldn't make call: ${e.message}")
+        }
+    }
+
+    /** Returns Pair(displayName, phoneNumber) or null */
+    private fun resolveContactNumber(context: Context, name: String): Pair<String, String>? {
+        if (ContextCompat.checkSelfPermission(context, Manifest.permission.READ_CONTACTS)
+            != PackageManager.PERMISSION_GRANTED) return null
+
+        return try {
+            val uri = ContactsContract.CommonDataKinds.Phone.CONTENT_URI
+            val projection = arrayOf(
+                ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME,
+                ContactsContract.CommonDataKinds.Phone.NUMBER
+            )
+            val selection = "${ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME} LIKE ?"
+            val args = arrayOf("%$name%")
+
+            context.contentResolver.query(uri, projection, selection, args, null)?.use { cursor ->
+                if (cursor.moveToFirst()) {
+                    val displayName = cursor.getString(0)
+                    val number = cursor.getString(1)
+                    Pair(displayName, number)
+                } else null
+            }
+        } catch (e: Exception) { null }
     }
 
     fun getInstalledApps(context: Context): List<AppInfo> {
