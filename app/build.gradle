@@ -53,6 +53,9 @@ dependencies {
     implementation libs.navigation.fragment.ktx
     implementation libs.material
 
+    // Security (encrypted prefs for API keys)
+    implementation libs.security.crypto
+
     // Room
     implementation libs.room.runtime
     implementation libs.room.ktx

@@ -1,0 +1,80 @@
+package com.lui.app.data
+
+import android.content.Context
+import android.content.SharedPreferences
+import android.util.Log
+import androidx.security.crypto.EncryptedSharedPreferences
+import androidx.security.crypto.MasterKey
+import com.lui.app.llm.CloudProvider
+import com.lui.app.llm.SpeechProvider
+
+class SecureKeyStore(context: Context) {
+
+    companion object {
+        private const val TAG = "SecureKeyStore"
+        private const val PREFS_NAME = "lui_secure_prefs"
+    }
+
+    private val prefs: SharedPreferences = try {
+        val masterKey = MasterKey.Builder(context)
+            .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
+            .build()
+        EncryptedSharedPreferences.create(
+            context, PREFS_NAME, masterKey,
+            EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+            EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
+        )
+    } catch (e: Exception) {
+        Log.e(TAG, "EncryptedSharedPreferences failed, falling back", e)
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    }
+
+    // ---- LLM ----
+
+    var selectedProvider: CloudProvider?
+        get() = CloudProvider.fromName(prefs.getString("cloud_provider", null))
+        set(value) = prefs.edit().putString("cloud_provider", value?.name).apply()
+
+    var isCloudFirst: Boolean
+        get() = prefs.getString("llm_mode", "local_first") == "cloud_first"
+        set(value) = prefs.edit().putString("llm_mode", if (value) "cloud_first" else "local_first").apply()
+
+    fun getApiKey(provider: CloudProvider): String? =
+        prefs.getString("api_key_${provider.name}", null)?.takeIf { it.isNotBlank() }
+
+    fun setApiKey(provider: CloudProvider, key: String?) =
+        prefs.edit().putString("api_key_${provider.name}", key ?: "").apply()
+
+    val hasCloudConfigured: Boolean
+        get() {
+            val provider = selectedProvider ?: return false
+            return getApiKey(provider) != null
+        }
+
+    // ---- Speech (unified STT + TTS) ----
+
+    var speechProvider: SpeechProvider
+        get() = SpeechProvider.fromName(prefs.getString("speech_provider", null)) ?: SpeechProvider.DEEPGRAM
+        set(value) = prefs.edit().putString("speech_provider", value.name).apply()
+
+    var cloudSpeechEnabled: Boolean
+        get() = prefs.getBoolean("cloud_speech_enabled", false)
+        set(value) = prefs.edit().putBoolean("cloud_speech_enabled", value).apply()
+
+    fun getSpeechKey(provider: SpeechProvider): String? =
+        prefs.getString("speech_key_${provider.name}", null)?.takeIf { it.isNotBlank() }
+
+    fun setSpeechKey(provider: SpeechProvider, key: String?) =
+        prefs.edit().putString("speech_key_${provider.name}", key ?: "").apply()
+
+    var selectedVoiceId: String?
+        get() = prefs.getString("speech_voice_id", null)
+        set(value) = prefs.edit().putString("speech_voice_id", value).apply()
+
+    var selectedVoiceName: String?
+        get() = prefs.getString("speech_voice_name", null)
+        set(value) = prefs.edit().putString("speech_voice_name", value).apply()
+
+    val hasCloudSpeechConfigured: Boolean
+        get() = cloudSpeechEnabled && getSpeechKey(speechProvider) != null
+}

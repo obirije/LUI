@@ -11,7 +11,7 @@ import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.withContext
 import java.io.File
 
-class LocalModel(private val context: Context) {
+class LocalModel(private val context: Context) : LlmProvider {
 
     companion object {
         private const val TAG = "LuiLLM"
@@ -20,7 +20,7 @@ class LocalModel(private val context: Context) {
 
     private val engine: InferenceEngine = AiChat.getInferenceEngine(context)
 
-    val isReady: Boolean get() = engine.state.value.isModelLoaded
+    override val isReady: Boolean get() = engine.state.value.isModelLoaded
 
     fun getModelPath(): String {
         return File(context.filesDir, "models/$MODEL_FILENAME").absolutePath
@@ -49,7 +49,7 @@ class LocalModel(private val context: Context) {
         }
     }
 
-    fun generateStreaming(userMessage: String): Flow<String> {
+    override fun generateStreaming(userMessage: String): Flow<String> {
         if (!isReady) return emptyFlow()
         return engine.sendUserPrompt(userMessage, 256)
     }

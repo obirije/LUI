@@ -14,6 +14,8 @@ import com.lui.app.helper.WallpaperHelper
 import com.lui.app.interceptor.ActionExecutor
 import com.lui.app.interceptor.Interceptor
 import com.lui.app.interceptor.actions.ActionResult
+import com.lui.app.llm.CloudModel
+import com.lui.app.llm.LlmRouter
 import com.lui.app.llm.LocalModel
 import com.lui.app.llm.ModelManager
 import com.lui.app.llm.SystemPrompt
@@ -34,6 +36,9 @@ class LuiViewModel(application: Application) : AndroidViewModel(application) {
     val llmStatus: LiveData<String> = _llmStatus
 
     private val localModel = LocalModel(application)
+    private val keyStore = com.lui.app.data.SecureKeyStore(application)
+    private val cloudModel = CloudModel(keyStore)
+    private val router = LlmRouter(localModel, cloudModel, keyStore)
     private val chatRepo = ChatRepository(application)
     val voiceEngine = VoiceEngine(application)
     private var generationJob: Job? = null
@@ -67,15 +72,18 @@ class LuiViewModel(application: Application) : AndroidViewModel(application) {
                 _llmStatus.value = "Loading model..."
                 val result = localModel.initialize()
                 if (result.isSuccess) {
-                    _llmStatus.value = "ready"
+                    // Check if cloud should take priority
+                    _llmStatus.value = if (keyStore.isCloudFirst && cloudModel.isReady) "cloud" else "ready"
                 } else {
                     _llmStatus.value = "Model failed to load. Using keyword mode."
                     Log.e("LuiVM", "Model init failed", result.exceptionOrNull())
                 }
+            } else if (cloudModel.isReady) {
+                _llmStatus.value = "cloud"
             } else {
                 _llmStatus.value = "no_model"
                 addMessage(ChatMessage(
-                    text = "No LLM model found. I'm in keyword mode — I can still handle flashlight, alarms, timers, apps, calls, volume, brightness, DND, and rotation. To enable full AI chat, sideload the model file to your phone.",
+                    text = "No LLM model found. I'm in keyword mode — I can handle flashlight, alarms, timers, apps, calls, volume, brightness, DND, and rotation. For full AI chat, sideload the model or configure a cloud API key (tap the status dot).",
                     sender = Sender.LUI
                 ))
             }
@@ -85,7 +93,7 @@ class LuiViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             ModelManager.ensureVoiceModels(application)
             ModelManager.ensureTtsModel(application)
-            voiceEngine.initialize()
+            voiceEngine.initialize(keyStore)
         }
 
         // Collect voice transcription events
@@ -144,7 +152,7 @@ class LuiViewModel(application: Application) : AndroidViewModel(application) {
             return
         }
 
-        if (localModel.isReady) {
+        if (router.isReady) {
             generateWithLlm(text)
         } else {
             val msg = "I heard you, but my brain isn't loaded yet. For now I can do: flashlight, alarms, timers, open apps, make calls, wifi/bluetooth settings."
@@ -182,10 +190,15 @@ class LuiViewModel(application: Application) : AndroidViewModel(application) {
         voiceMessageActive = false
 
         if (!voiceBubbleAdded) {
-            // Never got partials — add the final text directly
+            // Never got partials — add the final text directly (saves to Room)
             addMessage(ChatMessage(text = text, sender = Sender.USER))
         } else {
+            // Update in-memory bubble with final text
             updateLastMessage(text, streaming = false)
+            // Save final text to Room (the partial that was saved earlier is incomplete)
+            viewModelScope.launch {
+                chatRepo.saveMessage(ChatMessage(text = text, sender = Sender.USER))
+            }
         }
         voiceBubbleAdded = false
         processAfterVoice(text)
@@ -204,7 +217,7 @@ class LuiViewModel(application: Application) : AndroidViewModel(application) {
             return
         }
 
-        if (localModel.isReady) {
+        if (router.isReady) {
             generateWithLlm(text)
         } else {
             val msg = "Keyword mode only. Try: flashlight, alarm, open app, call."
@@ -221,7 +234,11 @@ class LuiViewModel(application: Application) : AndroidViewModel(application) {
         var pipelineStarted = false
 
         generationJob = viewModelScope.launch {
-            localModel.generateStreaming(userText)
+            // Pass history for cloud models that need conversation context
+            val history = _messages.value.orEmpty().filter {
+                it.sender == Sender.USER || it.sender == Sender.LUI
+            }.takeLast(10)
+            router.generateStreaming(userText, history)
                 .catch { e ->
                     Log.e("LuiVM", "Generation error", e)
                     replaceLastWithLui("Something went wrong: ${e.message}", streaming = false)
@@ -279,8 +296,8 @@ class LuiViewModel(application: Application) : AndroidViewModel(application) {
         current.add(message)
         _messages.value = current
         _scrollToBottom.value = Unit
-        // Persist USER and LUI messages
-        if (message.sender == Sender.USER || message.sender == Sender.LUI) {
+        // Persist USER and LUI messages — but NOT streaming partials (voice mid-transcription)
+        if ((message.sender == Sender.USER || message.sender == Sender.LUI) && !message.streaming) {
             viewModelScope.launch { chatRepo.saveMessage(message) }
         }
     }
@@ -306,6 +323,15 @@ class LuiViewModel(application: Application) : AndroidViewModel(application) {
             current[current.size - 1] = last.copy(text = text, streaming = streaming)
             _messages.value = current
             _scrollToBottom.value = Unit
+        }
+    }
+
+    fun refreshCloudConfig() {
+        _llmStatus.value = when {
+            router.isUsingCloud -> "cloud"
+            localModel.isReady -> "ready"
+            cloudModel.isReady -> "cloud"
+            else -> "no_model"
         }
     }
 

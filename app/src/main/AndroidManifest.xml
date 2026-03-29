@@ -38,9 +38,9 @@
         android:theme="@style/LuiTheme"
         tools:ignore="UnusedAttribute">
 
-        <!-- Onboarding (first launch only) -->
+        <!-- Splash screen -->
         <activity
-            android:name=".ui.onboarding.OnboardingActivity"
+            android:name=".ui.SplashActivity"
             android:exported="true"
             android:theme="@style/LuiTheme">
             <intent-filter>
@@ -48,6 +48,12 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!-- Onboarding -->
+        <activity
+            android:name=".ui.onboarding.OnboardingActivity"
+            android:exported="false"
+            android:theme="@style/LuiTheme" />
 
         <!-- Main launcher -->
         <activity

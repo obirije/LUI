@@ -10,6 +10,7 @@ recyclerview = "1.4.0"
 constraintlayout = "2.2.1"
 room = "2.6.1"
 ksp = "2.1.20-1.0.32"
+securityCrypto = "1.1.0-alpha06"
 
 [libraries]
 appcompat = { module = "androidx.appcompat:appcompat", version.ref = "appcompat" }
@@ -26,3 +27,4 @@ room-runtime = { module = "androidx.room:room-runtime", version.ref = "room" }
 room-ktx = { module = "androidx.room:room-ktx", version.ref = "room" }
 room-compiler = { module = "androidx.room:room-compiler", version.ref = "room" }
 ksp-plugin = { module = "com.google.devtools.ksp:com.google.devtools.ksp.gradle.plugin", version.ref = "ksp" }
+security-crypto = { module = "androidx.security:security-crypto", version.ref = "securityCrypto" }

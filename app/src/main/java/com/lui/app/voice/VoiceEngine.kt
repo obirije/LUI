@@ -46,6 +46,7 @@ class VoiceEngine(private val context: Context) {
 
     private var speechRecognizer: SpeechRecognizer? = null
     private var tts: OfflineTts? = null
+    private var cloudTts: CloudTts? = null
     private var audioTrack: AudioTrack? = null
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private var referenceAudio: FloatArray? = null
@@ -62,9 +63,15 @@ class VoiceEngine(private val context: Context) {
 
     val isReady: Boolean get() = SpeechRecognizer.isRecognitionAvailable(context)
 
-    fun initialize() {
-        try { initPocketTts() } catch (e: Exception) { Log.e(TAG, "TTS init failed", e) }
+    fun initialize(keyStore: com.lui.app.data.SecureKeyStore? = null) {
+        try { initPocketTts() } catch (e: Exception) { Log.e(TAG, "Local TTS init failed", e) }
+        if (keyStore != null) {
+            cloudTts = CloudTts(keyStore)
+            Log.i(TAG, "Cloud TTS available: ${cloudTts?.isEnabled}")
+        }
     }
+
+    private val useCloudTts: Boolean get() = cloudTts?.isEnabled == true
 
     private fun initPocketTts() {
         val ttsDir = File(context.filesDir, "models/tts/sherpa-onnx-pocket-tts-int8-2026-01-26")
@@ -225,28 +232,86 @@ class VoiceEngine(private val context: Context) {
         }
     }
 
+    // Cloud TTS sentence queue — ensures sequential playback
+    private val cloudSentenceQueue = kotlinx.coroutines.channels.Channel<String>(kotlinx.coroutines.channels.Channel.UNLIMITED)
+    private var cloudPlayerJob: Job? = null
+
+    private fun ensureCloudPlayer() {
+        if (cloudPlayerJob?.isActive == true) return
+        cloudPlayerJob = scope.launch {
+            for (sentence in cloudSentenceQueue) {
+                if (!isActive) break
+                if (sentence == "__CLOUD_DONE__") {
+                    withContext(Dispatchers.Main) {
+                        _state.value = State.IDLE
+                        if (conversationMode) autoListen()
+                    }
+                    continue
+                }
+                withContext(Dispatchers.Main) {
+                    if (_state.value != State.SPEAKING) _state.value = State.SPEAKING
+                }
+                cloudTts!!.speakStreaming(sentence) { track -> audioTrack = track }
+            }
+        }
+    }
+
     /**
-     * Queue a sentence into the running pipeline.
+     * Queue a sentence. Routes to cloud TTS or local pipeline.
      */
     fun speakSentence(sentence: String) {
-        if (tts == null || referenceAudio == null || sentence.isBlank()) return
-        // Auto-start if not running
+        if (sentence.isBlank()) return
+
+        Log.w(TAG, "speakSentence: useCloud=$useCloudTts, cloudEnabled=${cloudTts?.isEnabled}, sentence=${sentence.take(30)}")
+
+        if (useCloudTts) {
+            ensureCloudPlayer()
+            cloudSentenceQueue.trySend(sentence)
+            return
+        }
+
+        // Local: use producer/player pipeline
+        if (tts == null || referenceAudio == null) return
         if (sentenceChannel == null || sentenceChannel!!.isClosedForSend) startPipeline()
         scope.launch { sentenceChannel?.trySend(sentence) }
     }
 
     /**
-     * Signal that all sentences have been queued.
+     * Signal all sentences queued.
      */
     fun speakDone() {
+        if (useCloudTts) {
+            // Queue a sentinel, then after it's consumed transition state
+            scope.launch {
+                // Wait for queue to drain by sending and receiving a marker
+                cloudSentenceQueue.send("__CLOUD_DONE__")
+            }
+            return
+        }
         sentenceChannel?.close()
     }
 
     /**
-     * Speak complete text as one shot.
+     * Speak complete text.
      */
     fun speak(text: String) {
-        if (tts == null || referenceAudio == null || text.isBlank()) {
+        if (text.isBlank()) {
+            _state.value = State.IDLE; if (conversationMode) autoListen(); return
+        }
+
+        if (useCloudTts) {
+            scope.launch {
+                withContext(Dispatchers.Main) { _state.value = State.SPEAKING }
+                cloudTts!!.speakStreaming(text) { track -> audioTrack = track }
+                withContext(Dispatchers.Main) {
+                    _state.value = State.IDLE
+                    if (conversationMode) autoListen()
+                }
+            }
+            return
+        }
+
+        if (tts == null || referenceAudio == null) {
             _state.value = State.IDLE; if (conversationMode) autoListen(); return
         }
         startPipeline()
@@ -265,6 +330,9 @@ class VoiceEngine(private val context: Context) {
     }
 
     fun stopSpeaking() {
+        // Cancel cloud player
+        cloudPlayerJob?.cancel(); cloudPlayerJob = null
+        // Cancel local pipeline
         producerJob?.cancel(); playerJob?.cancel()
         producerJob = null; playerJob = null
         sentenceChannel?.close(); audioChannel?.close()

@@ -66,15 +66,23 @@
             android:paddingStart="6dp"
             android:paddingEnd="0dp">
 
-            <!-- Status dot -->
-            <View
-                android:id="@+id/statusDot"
-                android:layout_width="6dp"
-                android:layout_height="6dp"
-                android:layout_marginStart="8dp"
-                android:layout_marginEnd="6dp"
-                android:background="@drawable/status_dot"
-                android:visibility="gone" />
+            <!-- Status dot (large tap target wrapping small dot) -->
+            <FrameLayout
+                android:id="@+id/statusDotTapTarget"
+                android:layout_width="36dp"
+                android:layout_height="36dp"
+                android:layout_marginStart="2dp"
+                android:background="?attr/selectableItemBackgroundBorderless">
+
+                <View
+                    android:id="@+id/statusDot"
+                    android:layout_width="6dp"
+                    android:layout_height="6dp"
+                    android:layout_gravity="center"
+                    android:background="@drawable/status_dot"
+                    android:visibility="gone" />
+
+            </FrameLayout>
 
             <!-- Text input -->
             <EditText

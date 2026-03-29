@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/lui_black">
+
+    <TextView
+        android:id="@+id/splashLogo"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:fontFamily="@font/jetbrains_mono_bold"
+        android:letterSpacing="0.3"
+        android:text="LUI"
+        android:textColor="@color/lui_white"
+        android:textSize="52sp"
+        android:alpha="0" />
+
+</FrameLayout>

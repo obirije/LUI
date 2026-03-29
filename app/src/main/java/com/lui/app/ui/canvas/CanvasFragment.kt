@@ -51,6 +51,7 @@ class CanvasFragment : Fragment() {
 
         setupRecyclerView()
         setupInput()
+        setupStatusDot()
         setupGestures()
         observeViewModel()
     }
@@ -119,6 +120,17 @@ class CanvasFragment : Fragment() {
         }
     }
 
+    private fun setupStatusDot() {
+        binding.statusDotTapTarget.setOnClickListener {
+            try {
+                findNavController().navigate(R.id.action_canvas_to_hub)
+            } catch (e: Exception) { e.printStackTrace() }
+        }
+    }
+
+    // S-gesture tracking
+    private val gesturePoints = mutableListOf<Pair<Float, Float>>()
+
     private fun setupGestures() {
         binding.canvasRoot.setOnLongClickListener {
             try {
@@ -128,6 +140,58 @@ class CanvasFragment : Fragment() {
             }
             true
         }
+
+        // Track finger movement on the canvas for S-gesture
+        binding.messageList.setOnTouchListener { _, event ->
+            when (event.action) {
+                android.view.MotionEvent.ACTION_DOWN -> {
+                    gesturePoints.clear()
+                    gesturePoints.add(Pair(event.x, event.y))
+                }
+                android.view.MotionEvent.ACTION_MOVE -> {
+                    gesturePoints.add(Pair(event.x, event.y))
+                }
+                android.view.MotionEvent.ACTION_UP -> {
+                    if (isSGesture(gesturePoints)) {
+                        try {
+                            findNavController().navigate(R.id.action_canvas_to_hub)
+                        } catch (e: Exception) { e.printStackTrace() }
+                    }
+                    gesturePoints.clear()
+                }
+            }
+            false // Don't consume — let RecyclerView scroll normally
+        }
+    }
+
+    /**
+     * Detect an S-shape: stroke goes right then left (or left then right)
+     * with enough vertical movement and at least one horizontal direction change.
+     */
+    private fun isSGesture(points: List<Pair<Float, Float>>): Boolean {
+        if (points.size < 20) return false
+
+        val startY = points.first().second
+        val endY = points.last().second
+        val verticalDistance = endY - startY
+
+        // Must move down at least 200px
+        if (verticalDistance < 200) return false
+
+        // Split into top half and bottom half
+        val midIdx = points.size / 2
+        val topHalf = points.subList(0, midIdx)
+        val bottomHalf = points.subList(midIdx, points.size)
+
+        // Calculate average horizontal direction for each half
+        val topDeltaX = topHalf.last().first - topHalf.first().first
+        val bottomDeltaX = bottomHalf.last().first - bottomHalf.first().first
+
+        // S-shape: top and bottom halves move in opposite horizontal directions
+        // and each half has meaningful horizontal movement (>40px)
+        val minHorizontal = 40f
+        return (topDeltaX > minHorizontal && bottomDeltaX < -minHorizontal) ||
+               (topDeltaX < -minHorizontal && bottomDeltaX > minHorizontal)
     }
 
     private fun observeViewModel() {
@@ -144,13 +208,18 @@ class CanvasFragment : Fragment() {
             when (status) {
                 "ready" -> {
                     binding.statusDot.backgroundTintList =
+                        ContextCompat.getColorStateList(requireContext(), R.color.lui_blue)
+                    binding.inputField.hint = getString(R.string.input_hint)
+                }
+                "cloud" -> {
+                    binding.statusDot.backgroundTintList =
                         ContextCompat.getColorStateList(requireContext(), R.color.lui_green)
                     binding.inputField.hint = getString(R.string.input_hint)
                 }
                 "no_model" -> {
                     binding.statusDot.backgroundTintList =
                         ContextCompat.getColorStateList(requireContext(), R.color.lui_gray_dark)
-                    binding.inputField.hint = "Keyword mode (no model loaded)"
+                    binding.inputField.hint = "Keyword mode — tap dot to configure"
                 }
                 else -> {
                     binding.statusDot.backgroundTintList =

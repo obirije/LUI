@@ -16,11 +16,24 @@
             app:exitAnim="@android:anim/fade_out"
             app:popEnterAnim="@android:anim/fade_in"
             app:popExitAnim="@android:anim/fade_out" />
+
+        <action
+            android:id="@+id/action_canvas_to_hub"
+            app:destination="@id/connectionHubFragment"
+            app:enterAnim="@android:anim/fade_in"
+            app:exitAnim="@android:anim/fade_out"
+            app:popEnterAnim="@android:anim/fade_in"
+            app:popExitAnim="@android:anim/fade_out" />
     </fragment>
 
     <fragment
         android:id="@+id/drawerFragment"
         android:name="com.lui.app.ui.drawer.AppDrawerFragment"
         android:label="Apps" />
+
+    <fragment
+        android:id="@+id/connectionHubFragment"
+        android:name="com.lui.app.ui.hub.ConnectionHubFragment"
+        android:label="Connection Hub" />
 
 </navigation>

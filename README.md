@@ -101,13 +101,42 @@ Models (LLM, TTS) are not bundled — push to device separately. See [MVP.md](MV
 
 ---
 
+## Cloud Configuration
+
+LUI works fully offline by default. For stronger reasoning and natural voice, you can optionally connect cloud services via the **Connection Hub** (tap the status dot or draw an "S" on the canvas).
+
+### LLM (Reasoning)
+
+| Provider | Free Tier | How to get a key |
+|:---------|:----------|:-----------------|
+| **Gemini** | 15 RPM free | [aistudio.google.com](https://aistudio.google.com/apikey) |
+| **Claude** | None (paid) | [console.anthropic.com](https://console.anthropic.com/) |
+| **OpenAI** | None (paid) | [platform.openai.com](https://platform.openai.com/api-keys) |
+
+Toggle **Cloud-first** to use the cloud model by default. When off, LUI uses the local Qwen3.5 0.8B and only falls back to cloud if the local model isn't loaded.
+
+### Speech (TTS + STT)
+
+| Provider | Free Tier | How to get a key |
+|:---------|:----------|:-----------------|
+| **Deepgram** | $200 credit | [console.deepgram.com](https://console.deepgram.com/) |
+| **ElevenLabs** | 10K chars/month | [elevenlabs.io](https://elevenlabs.io/) |
+
+Enable **Cloud Speech**, select a provider, paste your key, and pick a voice from the dropdown. Deepgram voices work immediately. ElevenLabs requires adding voices to "My Voices" in their dashboard first — library voices need a paid plan.
+
+When cloud speech is off, LUI uses on-device Android SpeechRecognizer (STT) and Kyutai Pocket TTS (TTS).
+
+**Gemini free tier is the easiest way to get started** — 15 requests per minute, no credit card, and it dramatically improves reasoning over the local 0.8B model.
+
+---
+
 ## Roadmap
 
-**Shipped:** On-device launcher, LLM, voice conversation, 12 device actions, chat persistence, onboarding.
+**Shipped:** On-device launcher + LLM, voice conversation, 12 device actions, chat persistence, onboarding, cloud API fallback (Gemini/Claude/OpenAI), cloud TTS (Deepgram/ElevenLabs), Connection Hub, splash screen.
 
 **Next:** BYOS WebSocket bridge. Notification triage. Geofencing. Ambient context.
 
-**Later:** Cloud tier. Credit wallet. Generative UI. Web agent. Accessibility scraping.
+**Later:** Credit wallet. Generative UI. Web agent. Accessibility scraping.
 
 ---
 
