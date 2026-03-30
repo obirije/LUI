@@ -184,7 +184,7 @@ class LuiViewModel(application: Application) : AndroidViewModel(application) {
         // Force real-time tool calls for live-state queries even in cloud mode.
         // LLMs cache previous "no results" responses and skip re-checking.
         val forceToolCall = getForcedToolCall(lower)
-        if (forceToolCall != null && cloudModel.isReady) {
+        if (forceToolCall != null && router.isUsingCloud) {
             // Check permission first
             val permReq = PermissionHelper.getRequiredPermission(forceToolCall.tool)
             if (permReq != null && !PermissionHelper.hasPermission(getApplication(), permReq.permission)) {
@@ -235,8 +235,8 @@ class LuiViewModel(application: Application) : AndroidViewModel(application) {
             return
         }
 
-        // When a cloud model is available, the LLM orchestrates everything
-        if (cloudModel.isReady) {
+        // When cloud is the active model, the LLM orchestrates everything
+        if (router.isUsingCloud) {
             LuiLogger.llmRoute(router.activeProviderName, keyStore.isCloudFirst, cloudModel.isReady, localModel.isReady)
             generateWithLlm(text)
             return
@@ -463,8 +463,8 @@ class LuiViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     private fun processAfterVoice(text: String) {
-        // Cloud available: LLM orchestrates everything
-        if (cloudModel.isReady) {
+        // Cloud active: LLM orchestrates everything
+        if (router.isUsingCloud) {
             generateWithLlm(text)
             return
         }
@@ -493,8 +493,8 @@ class LuiViewModel(application: Application) : AndroidViewModel(application) {
                 it.sender == Sender.USER || it.sender == Sender.LUI
             }.takeLast(10)
 
-            // Use native tool use if cloud is available
-            if (cloudModel.isReady) {
+            // Use native tool use if cloud is the active model
+            if (router.isUsingCloud) {
                 generateWithNativeTools(userText, history)
             } else {
                 generateWithLocalLlm(userText)

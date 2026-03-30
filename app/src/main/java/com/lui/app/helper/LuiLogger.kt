@@ -58,7 +58,11 @@ object LuiLogger {
     fun i(category: String, message: String) = log("I", category, message)
     fun w(category: String, message: String) = log("W", category, message)
     fun e(category: String, message: String, throwable: Throwable? = null) {
-        val msg = if (throwable != null) "$message | ${throwable.message}" else message
+        val rawMsg = if (throwable != null) "$message | ${throwable.message}" else message
+        // Sanitize API keys from error messages
+        val msg = rawMsg.replace(Regex("[?&]key=[A-Za-z0-9_-]+"), "?key=***")
+            .replace(Regex("x-api-key:\\s*[A-Za-z0-9_-]+"), "x-api-key: ***")
+            .replace(Regex("Bearer\\s+[A-Za-z0-9_.-]+"), "Bearer ***")
         log("E", category, msg)
     }
 

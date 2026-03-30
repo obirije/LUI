@@ -262,7 +262,7 @@ object Interceptor {
 
         // ── SMS reading ──
 
-        Regex("(?:read|show|check|what are)\\s+(?:my\\s+)?(?:last\\s+)?(?:texts?|sms|messages?)\\s*(?:from\\s+)?(.+)?", RegexOption.IGNORE_CASE).find(lower)?.let {
+        Regex("(?:read|show|check|what(?:'s| is| are))\\s+(?:my\\s+)?(?:last|recent|latest|new)?\\s*(?:texts?|sms|text\\s+messages?)\\s*(?:from\\s+)?(.+)?", RegexOption.IGNORE_CASE).find(lower)?.let {
             val from = it.groupValues[1].trim().ifBlank { null }
             val params = mutableMapOf<String, String>()
             if (from != null) params["from"] = from
@@ -306,7 +306,7 @@ object Interceptor {
         // ── Notifications ──
 
         if (lower.matches(Regex(".*(?:read|show|check|what are)\\s*(?:my\\s+)?(?:notifications?|notifs?).*")) ||
-            lower.matches(Regex(".*(?:any\\s+)?(?:new\\s+)?(?:messages?|notifications?)\\??.*")))
+            lower.matches(Regex(".*(?:any\\s+)?(?:new\\s+)?notifications?\\??.*")))
             return ToolCall("read_notifications")
         if (lower.matches(Regex(".*(?:clear|dismiss|remove)\\s*(?:all\\s+)?(?:notifications?|notifs?).*")))
             return ToolCall("clear_notifications")
