@@ -76,6 +76,7 @@ object ActionExecutor {
             "scroll_down" -> ScreenActions.scrollDown(context)
             "press_back" -> ScreenActions.pressBack(context)
             "press_home" -> ScreenActions.pressHome(context)
+            "open_lui" -> ScreenActions.openLui(context)
 
             "get_location" -> LocationActions.getLocation(context)
             "get_distance" -> LocationActions.getDistance(context, destination = toolCall.params["destination"] ?: "")

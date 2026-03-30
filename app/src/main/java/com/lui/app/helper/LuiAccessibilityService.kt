@@ -52,7 +52,7 @@ class LuiAccessibilityService : AccessibilityService() {
     /**
      * Read the current screen hierarchy and return a text description of visible elements.
      */
-    fun readScreen(maxDepth: Int = 4): List<ScreenElement> {
+    fun readScreen(maxDepth: Int = 15): List<ScreenElement> {
         val root = rootInActiveWindow ?: return emptyList()
         val elements = mutableListOf<ScreenElement>()
         traverseNode(root, elements, 0, maxDepth)
@@ -69,6 +69,11 @@ class LuiAccessibilityService : AccessibilityService() {
         val depth: Int
     )
 
+    /** Public wrapper for ScreenActions to traverse arbitrary root nodes */
+    fun traverseNodePublic(node: AccessibilityNodeInfo, elements: MutableList<ScreenElement>, depth: Int, maxDepth: Int) {
+        traverseNode(node, elements, depth, maxDepth)
+    }
+
     private fun traverseNode(node: AccessibilityNodeInfo, elements: MutableList<ScreenElement>, depth: Int, maxDepth: Int) {
         if (depth > maxDepth) return
 
@@ -76,19 +81,24 @@ class LuiAccessibilityService : AccessibilityService() {
         val desc = node.contentDescription?.toString() ?: ""
         val className = node.className?.toString()?.substringAfterLast(".") ?: ""
 
+        // Collect nodes with any readable content or interactivity
         if (text.isNotBlank() || desc.isNotBlank() || node.isClickable) {
             val bounds = Rect()
             node.getBoundsInScreen(bounds)
-            elements.add(ScreenElement(
-                text = text,
-                description = desc,
-                className = className,
-                isClickable = node.isClickable,
-                bounds = bounds,
-                depth = depth
-            ))
+            // Skip zero-size elements
+            if (bounds.width() > 0 && bounds.height() > 0) {
+                elements.add(ScreenElement(
+                    text = text,
+                    description = desc,
+                    className = className,
+                    isClickable = node.isClickable,
+                    bounds = bounds,
+                    depth = depth
+                ))
+            }
         }
 
+        // Always recurse into children regardless of whether this node had content
         for (i in 0 until node.childCount) {
             val child = node.getChild(i) ?: continue
             traverseNode(child, elements, depth + 1, maxDepth)

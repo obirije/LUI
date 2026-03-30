@@ -181,6 +181,51 @@ class LuiViewModel(application: Application) : AndroidViewModel(application) {
 
         addMessage(ChatMessage(text = text.trim(), sender = Sender.USER))
 
+        // Force real-time tool calls for live-state queries even in cloud mode.
+        // LLMs cache previous "no results" responses and skip re-checking.
+        val forceToolCall = getForcedToolCall(lower)
+        if (forceToolCall != null && cloudModel.isReady) {
+            LuiLogger.i("FORCE", "Forcing tool call: ${forceToolCall.tool}")
+            addMessage(ChatMessage(text = "", sender = Sender.THINKING))
+            generationJob = viewModelScope.launch {
+                val result = ActionExecutor.execute(getApplication(), forceToolCall)
+                val resultMsg = when (result) {
+                    is ActionResult.Success -> result.message
+                    is ActionResult.Failure -> result.message
+                }
+                lastActionResult = resultMsg
+                // Let LLM interpret the result naturally
+                val history = _messages.value.orEmpty().filter {
+                    it.sender == Sender.USER || it.sender == Sender.LUI
+                }.takeLast(10)
+                val toolCallObj = LlmToolCall(forceToolCall.tool, forceToolCall.params)
+                val toolResults = listOf(Pair(toolCallObj, resultMsg))
+                try {
+                    val responseBuilder = StringBuilder()
+                    cloudModel.generateWithTools("", history, toolResults).collect { r ->
+                        when (r) {
+                            is GenerationResult.TextToken -> {
+                                responseBuilder.append(r.token)
+                                val cleaned = SystemPrompt.cleanResponse(responseBuilder.toString())
+                                if (cleaned.isNotBlank()) replaceLastWithLui(cleaned, streaming = true)
+                            }
+                            is GenerationResult.Done -> {
+                                val cleaned = SystemPrompt.cleanResponse(r.text)
+                                replaceLastWithLui(cleaned.ifBlank { resultMsg }, streaming = false)
+                                if (voiceEngine.conversationMode) voiceEngine.speak(cleaned.ifBlank { resultMsg })
+                            }
+                            is GenerationResult.ToolUse -> {} // shouldn't chain here
+                        }
+                    }
+                    val final = SystemPrompt.cleanResponse(responseBuilder.toString())
+                    if (final.isNotBlank()) replaceLastWithLui(final, streaming = false)
+                } catch (e: Exception) {
+                    replaceLastWithLui(resultMsg, streaming = false)
+                }
+            }
+            return
+        }
+
         // When a cloud model is available, the LLM orchestrates everything
         if (cloudModel.isReady) {
             LuiLogger.llmRoute(router.activeProviderName, keyStore.isCloudFirst, cloudModel.isReady, localModel.isReady)
@@ -303,6 +348,27 @@ class LuiViewModel(application: Application) : AndroidViewModel(application) {
         val msg = when (undoResult) { is ActionResult.Success -> "Undone. ${undoResult.message}"; is ActionResult.Failure -> undoResult.message }
         addMessage(ChatMessage(text = msg, sender = Sender.LUI))
         if (voiceEngine.conversationMode) voiceEngine.speak(msg)
+    }
+
+    /**
+     * For live-state queries, force the tool call directly instead of hoping
+     * the LLM will call it. LLMs cache previous results in conversation context
+     * and skip re-checking. Any tool that reads real-time device/system state
+     * must be forced here.
+     */
+    private fun getForcedToolCall(input: String): com.lui.app.data.ToolCall? {
+        // Delegate to the keyword interceptor — it already has comprehensive patterns
+        // for all live-state tools. Only force for read-only state queries.
+        val toolCall = Interceptor.parse(input) ?: return null
+        val liveStateTools = setOf(
+            "read_notifications", "read_calendar", "read_sms", "read_clipboard",
+            "get_time", "get_date", "device_info", "battery",
+            "get_location", "get_distance",
+            "now_playing", "screen_time",
+            "get_2fa_code", "get_digest",
+            "read_screen"
+        )
+        return if (toolCall.tool in liveStateTools) toolCall else null
     }
 
     private fun replaceLastWithThinking() {

@@ -123,6 +123,7 @@ object ToolRegistry {
         ToolDef("scroll_down", "Scroll down on the current screen"),
         ToolDef("press_back", "Press the Android back button"),
         ToolDef("press_home", "Press the Android home button"),
+        ToolDef("open_lui", "Switch back to LUI chat interface. Use when the user says 'switch back', 'go back to chat', 'come back', 'open LUI', or similar."),
 
         // The Bouncer (Notification Triage)
         ToolDef("get_digest", "Get the Evening Digest — batched noise notifications that were silently collected"),

@@ -31,6 +31,8 @@ RULES:
 - open_app_search works with Spotify, YouTube, Netflix, Chrome, Amazon, Reddit, TikTok, Twitter/X, and many more.
 - When the user's request is missing critical info, ask a short follow-up.
 - Some requests need multiple tools — chain them. Example: search contacts, then call the number found.
+- CRITICAL: ALWAYS call the tool when the user asks about notifications, battery, time, location, or any live device state. NEVER answer from memory or previous conversation. Device state changes every second. Even if you just checked 5 seconds ago, call the tool again.
+- If the user says "check again", "what about now", "any new", or any variation — you MUST call the tool.
 """.trimIndent()
     }
 

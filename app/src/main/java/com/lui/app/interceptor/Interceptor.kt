@@ -17,7 +17,7 @@ object Interceptor {
         "read_notifications", "clear_notifications", "undo",
         "get_location", "get_distance", "read_calendar", "read_sms",
         "now_playing", "read_clipboard", "screen_time",
-        "read_screen", "find_and_tap", "type_text", "scroll_down", "press_back", "press_home",
+        "read_screen", "find_and_tap", "type_text", "scroll_down", "press_back", "press_home", "open_lui",
         "get_digest", "clear_digest", "get_2fa_code", "config_triage"
     )
 
@@ -333,8 +333,15 @@ object Interceptor {
             return ToolCall("scroll_down")
         if (lower == "go back" || lower == "back" || lower.matches(Regex(".*press\\s+back.*")))
             return ToolCall("press_back")
-        if (lower.matches(Regex(".*(?:go|press)\\s+home.*")) && !lower.contains("screen"))
+        if (lower.matches(Regex(".*(?:go|press)\\s+home.*")) && !lower.contains("screen") && !lower.contains("chat") && !lower.contains("lui"))
             return ToolCall("press_home")
+
+        // ── Switch back to LUI ──
+
+        if (lower.matches(Regex(".*(?:switch|go|come|get)\\s+(?:back\\s+)?(?:to\\s+)?(?:lui|our\\s+chat|the\\s+chat|chat|home\\s+screen).*")) ||
+            lower.matches(Regex(".*(?:open|show)\\s+lui.*")) ||
+            lower == "switch back" || lower == "come back" || lower == "go home")
+            return ToolCall("open_lui")
 
         // ── Deep link app search — "play X on Spotify", "search X on YouTube" ──
 
