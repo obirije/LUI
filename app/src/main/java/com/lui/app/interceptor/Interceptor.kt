@@ -16,7 +16,9 @@ object Interceptor {
         "navigate", "search_map", "open_app_search", "copy_clipboard",
         "read_notifications", "clear_notifications", "undo",
         "get_location", "get_distance", "read_calendar", "read_sms",
-        "now_playing", "read_clipboard", "screen_time"
+        "now_playing", "read_clipboard", "screen_time",
+        "read_screen", "find_and_tap", "type_text", "scroll_down", "press_back", "press_home",
+        "get_digest", "clear_digest", "get_2fa_code", "config_triage"
     )
 
     /** Parse user input — tries JSON extraction then keyword matching */
@@ -305,6 +307,34 @@ object Interceptor {
             return ToolCall("read_notifications")
         if (lower.matches(Regex(".*(?:clear|dismiss|remove)\\s*(?:all\\s+)?(?:notifications?|notifs?).*")))
             return ToolCall("clear_notifications")
+
+        // ── Bouncer: digest, 2FA ──
+
+        if (lower.matches(Regex(".*(?:digest|evening\\s+digest|batched|noise\\s+notifications?).*")) ||
+            lower.matches(Regex(".*(?:what\\s+did\\s+i\\s+miss|missed\\s+notifications?).*")))
+            return ToolCall("get_digest")
+        if (lower.matches(Regex(".*(?:clear|delete)\\s+(?:the\\s+)?digest.*")))
+            return ToolCall("clear_digest")
+        if (lower.matches(Regex(".*(?:2fa|otp|verification|verify)\\s*(?:code)?.*")) ||
+            lower.matches(Regex(".*(?:what(?:'s| is)\\s+(?:the|my)\\s+(?:code|otp|2fa)).*")))
+            return ToolCall("get_2fa_code")
+
+        // ── Screen control (Accessibility) ──
+
+        if (lower.matches(Regex(".*(?:read|what(?:'s| is)\\s+on)\\s+(?:the\\s+)?screen.*")) ||
+            lower.matches(Regex(".*(?:what\\s+do\\s+(?:i|you)\\s+see).*")))
+            return ToolCall("read_screen")
+        Regex("(?:tap|click|press|hit)\\s+(?:on\\s+)?(?:the\\s+)?[\"']?(.+?)[\"']?\\s*$", RegexOption.IGNORE_CASE).find(lower)?.let {
+            val query = it.groupValues[1].trim()
+            if (query.isNotBlank() && query != "back" && query != "home")
+                return ToolCall("find_and_tap", mapOf("query" to query))
+        }
+        if (lower.matches(Regex(".*(?:scroll|swipe)\\s+down.*")))
+            return ToolCall("scroll_down")
+        if (lower == "go back" || lower == "back" || lower.matches(Regex(".*press\\s+back.*")))
+            return ToolCall("press_back")
+        if (lower.matches(Regex(".*(?:go|press)\\s+home.*")) && !lower.contains("screen"))
+            return ToolCall("press_home")
 
         // ── Deep link app search — "play X on Spotify", "search X on YouTube" ──
 

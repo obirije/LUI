@@ -63,6 +63,19 @@ object ActionExecutor {
 
             "read_notifications" -> NotificationActions.readNotifications(context)
             "clear_notifications" -> NotificationActions.clearNotifications(context)
+            "get_digest" -> NotificationActions.getDigest(context)
+            "clear_digest" -> NotificationActions.clearDigest(context)
+            "get_2fa_code" -> NotificationActions.get2faCode(context)
+            "config_triage" -> NotificationActions.configTriage(
+                app = toolCall.params["app"] ?: "",
+                bucket = toolCall.params["bucket"] ?: "urgent")
+
+            "read_screen" -> ScreenActions.readScreen(context)
+            "find_and_tap" -> ScreenActions.findAndTap(context, query = toolCall.params["query"] ?: "")
+            "type_text" -> ScreenActions.typeText(context, text = toolCall.params["text"] ?: "")
+            "scroll_down" -> ScreenActions.scrollDown(context)
+            "press_back" -> ScreenActions.pressBack(context)
+            "press_home" -> ScreenActions.pressHome(context)
 
             "get_location" -> LocationActions.getLocation(context)
             "get_distance" -> LocationActions.getDistance(context, destination = toolCall.params["destination"] ?: "")

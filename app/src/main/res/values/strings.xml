@@ -10,4 +10,5 @@
     <string name="permission_required">I need permission to do that. Check your settings.</string>
     <string name="long_press_for_apps">Long-press for app drawer</string>
     <string name="widget_description">Minimal clock with LUI branding</string>
+    <string name="accessibility_description">LUI uses accessibility to read screen content and interact with apps on your behalf. This enables hands-free control of any app through voice or text commands.</string>
 </resources>

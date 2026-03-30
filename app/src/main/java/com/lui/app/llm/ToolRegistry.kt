@@ -114,6 +114,24 @@ object ToolRegistry {
         ToolDef("open_settings_bluetooth", "Open Bluetooth settings"),
         ToolDef("set_wallpaper", "Set the LUI wallpaper"),
 
+        // Screen Control (Accessibility — Tier 4)
+        ToolDef("read_screen", "Read the current screen content of whatever app is open. Returns visible text, buttons, and interactive elements."),
+        ToolDef("find_and_tap", "Find a UI element on screen by text or label and tap it. Use this to interact with any app — e.g., tap a Play button, tap a search result, tap a menu item.",
+            listOf(ParamDef("query", description = "Text or label of the element to tap", required = true))),
+        ToolDef("type_text", "Type text into the currently focused input field on screen",
+            listOf(ParamDef("text", description = "Text to type", required = true))),
+        ToolDef("scroll_down", "Scroll down on the current screen"),
+        ToolDef("press_back", "Press the Android back button"),
+        ToolDef("press_home", "Press the Android home button"),
+
+        // The Bouncer (Notification Triage)
+        ToolDef("get_digest", "Get the Evening Digest — batched noise notifications that were silently collected"),
+        ToolDef("clear_digest", "Clear the notification digest"),
+        ToolDef("get_2fa_code", "Get the most recently captured 2FA/verification code from notifications"),
+        ToolDef("config_triage", "Configure which apps are urgent (pass through) or noise (batched to digest)",
+            listOf(ParamDef("app", description = "App package name or common name", required = true),
+                   ParamDef("bucket", description = "urgent or noise", required = true, enum = listOf("urgent", "noise")))),
+
         // Meta
         ToolDef("undo", "Undo/reverse the last action where possible")
     )

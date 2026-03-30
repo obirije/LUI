@@ -108,6 +108,20 @@
                 android:resource="@xml/widget_lui_info" />
         </receiver>
 
+        <!-- Accessibility Service (Tier 4: screen reading + tap simulation) -->
+        <service
+            android:name=".helper.LuiAccessibilityService"
+            android:exported="true"
+            android:label="LUI"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/accessibility_config" />
+        </service>
+
         <!-- Notification Listener -->
         <service
             android:name=".helper.LuiNotificationListener"
