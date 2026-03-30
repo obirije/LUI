@@ -17,7 +17,9 @@ import com.lui.app.interceptor.ActionExecutor
 import com.lui.app.interceptor.Interceptor
 import com.lui.app.interceptor.actions.ActionResult
 import com.lui.app.llm.CloudModel
+import com.lui.app.llm.GenerationResult
 import com.lui.app.llm.LlmRouter
+import com.lui.app.llm.LlmToolCall
 import com.lui.app.llm.LocalModel
 import com.lui.app.llm.ModelManager
 import com.lui.app.llm.SystemPrompt
@@ -303,6 +305,15 @@ class LuiViewModel(application: Application) : AndroidViewModel(application) {
         if (voiceEngine.conversationMode) voiceEngine.speak(msg)
     }
 
+    private fun replaceLastWithThinking() {
+        val current = _messages.value.orEmpty().toMutableList()
+        if (current.isNotEmpty()) {
+            current[current.size - 1] = ChatMessage(text = "", sender = Sender.THINKING)
+            _messages.value = current
+            _scrollToBottom.value = Unit
+        }
+    }
+
     private fun getConfirmationMessage(toolCall: com.lui.app.data.ToolCall): String? {
         return when (toolCall.tool) {
             "send_sms" -> {
@@ -400,33 +411,141 @@ class LuiViewModel(application: Application) : AndroidViewModel(application) {
     private fun generateWithLlm(userText: String) {
         addMessage(ChatMessage(text = "", sender = Sender.THINKING))
 
+        generationJob = viewModelScope.launch {
+            val history = _messages.value.orEmpty().filter {
+                it.sender == Sender.USER || it.sender == Sender.LUI
+            }.takeLast(10)
+
+            // Use native tool use if cloud is available
+            if (cloudModel.isReady) {
+                generateWithNativeTools(userText, history)
+            } else {
+                generateWithLocalLlm(userText)
+            }
+        }
+    }
+
+    /**
+     * Native tool-use flow: the LLM returns structured tool calls, we execute them,
+     * send results back, and loop until the LLM returns text.
+     * No JSON parsing from text. No keyword matching on LLM output.
+     */
+    private suspend fun generateWithNativeTools(userText: String, history: List<ChatMessage>) {
+        val toolResults = mutableListOf<Pair<LlmToolCall, String>>()
+        var isFirstRound = true
+        val maxRounds = 5
+
+        for (round in 0 until maxRounds) {
+            val responseBuilder = StringBuilder()
+            var lastSpokenIndex = 0
+            var pipelineStarted = false
+            var pendingToolCall: LlmToolCall? = null
+
+            try {
+                cloudModel.generateWithTools(
+                    userText, history,
+                    if (isFirstRound) null else toolResults
+                ).collect { result ->
+                    when (result) {
+                        is GenerationResult.TextToken -> {
+                            responseBuilder.append(result.token)
+                            val cleaned = SystemPrompt.cleanResponse(responseBuilder.toString())
+                            if (cleaned.isNotBlank()) {
+                                replaceLastWithLui(cleaned, streaming = true)
+
+                                if (voiceEngine.conversationMode) {
+                                    if (!pipelineStarted) {
+                                        voiceEngine.startPipeline()
+                                        pipelineStarted = true
+                                    }
+                                    val newText = cleaned.substring(lastSpokenIndex)
+                                    val splitIdx = newText.indexOfAny(charArrayOf('.', '!', '?'))
+                                    if (splitIdx >= 0 && newText.length > 10) {
+                                        val chunk = newText.substring(0, splitIdx + 1).trim()
+                                        if (chunk.isNotBlank()) {
+                                            voiceEngine.speakSentence(chunk)
+                                            lastSpokenIndex += splitIdx + 1
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        is GenerationResult.ToolUse -> {
+                            pendingToolCall = result.toolCall
+                        }
+                        is GenerationResult.Done -> {
+                            // Final text response — display and finish
+                            val fullResponse = SystemPrompt.cleanResponse(result.text)
+                            LuiLogger.llmResponse(fullResponse)
+                            lastActionResult = fullResponse
+                            replaceLastWithLui(fullResponse, streaming = false)
+                            if (voiceEngine.conversationMode) {
+                                val remaining = fullResponse.substring(lastSpokenIndex).trim()
+                                if (remaining.isNotBlank()) voiceEngine.speakSentence(remaining)
+                                voiceEngine.speakDone()
+                            }
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                LuiLogger.error("LLM", "Generation error: ${e.message}", e)
+                replaceLastWithLui("Something went wrong: ${e.message}", streaming = false)
+                return
+            }
+
+            // If no tool call, we're done
+            if (pendingToolCall == null) return
+
+            // Execute the tool call
+            val tc = pendingToolCall!!
+            LuiLogger.toolExecute(tc.name, tc.args)
+            replaceLastWithThinking()
+
+            val toolCallData = com.lui.app.data.ToolCall(tc.name, tc.args)
+            val actionResult = ActionExecutor.execute(getApplication(), toolCallData)
+            val resultMsg = when (actionResult) {
+                is ActionResult.Success -> actionResult.message
+                is ActionResult.Failure -> actionResult.message
+            }
+            LuiLogger.toolResult(tc.name, actionResult is ActionResult.Success, resultMsg)
+            LuiLogger.toolChain(round + 1, tc.name, resultMsg)
+
+            // Track for undo
+            if (actionResult is ActionResult.Success) {
+                lastExecutedTool = toolCallData
+            }
+
+            // Add to tool results and loop — the LLM will see the result and decide what to do next
+            toolResults.add(Pair(tc, resultMsg))
+            isFirstRound = false
+        }
+
+        // If we hit max rounds, show the last result
+        val lastResult = toolResults.lastOrNull()?.second ?: "Done."
+        lastActionResult = lastResult
+        replaceLastWithLui(lastResult, streaming = false)
+        if (voiceEngine.conversationMode) voiceEngine.speak(lastResult)
+    }
+
+    /** Local model fallback — no native tool use, just text streaming */
+    private suspend fun generateWithLocalLlm(userText: String) {
         val responseBuilder = StringBuilder()
         var lastSpokenIndex = 0
         var pipelineStarted = false
 
-        generationJob = viewModelScope.launch {
-            // Pass history for cloud models that need conversation context
-            val history = _messages.value.orEmpty().filter {
-                it.sender == Sender.USER || it.sender == Sender.LUI
-            }.takeLast(10)
-            router.generateStreaming(userText, history)
-                .catch { e ->
-                    LuiLogger.error("LLM", "Generation error: ${e.message}", e)
-                    replaceLastWithLui("Something went wrong: ${e.message}", streaming = false)
-                }
+        try {
+            router.generateStreaming(userText)
                 .collect { token ->
                     responseBuilder.append(token)
                     val cleaned = SystemPrompt.cleanResponse(responseBuilder.toString())
                     if (cleaned.isNotBlank()) {
                         replaceLastWithLui(cleaned, streaming = true)
 
-                        // Start TTS pipeline once, then feed sentences as they complete
                         if (voiceEngine.conversationMode) {
                             if (!pipelineStarted) {
                                 voiceEngine.startPipeline()
                                 pipelineStarted = true
                             }
-
                             val newText = cleaned.substring(lastSpokenIndex)
                             val splitIdx = newText.indexOfAny(charArrayOf('.', '!', '?'))
                             if (splitIdx >= 0 && newText.length > 10) {
@@ -439,90 +558,19 @@ class LuiViewModel(application: Application) : AndroidViewModel(application) {
                         }
                     }
                 }
+        } catch (e: Exception) {
+            LuiLogger.error("LLM", "Local generation error: ${e.message}", e)
+            replaceLastWithLui("Something went wrong: ${e.message}", streaming = false)
+            return
+        }
 
-            // Generation complete
-            val fullResponse = SystemPrompt.cleanResponse(responseBuilder.toString())
-            LuiLogger.llmResponse(fullResponse)
-            val llmToolCall = Interceptor.parseLlmOutput(fullResponse)
-            if (llmToolCall != null) {
-                // LLM decided to call a tool — execute it
-                LuiLogger.interceptorMatch(llmToolCall.tool, llmToolCall.params, "llm-json")
-                LuiLogger.toolExecute(llmToolCall.tool, llmToolCall.params)
-                val result = ActionExecutor.execute(getApplication(), llmToolCall)
-                val actionMsg = when (result) {
-                    is ActionResult.Success -> result.message
-                    is ActionResult.Failure -> result.message
-                }
-
-                // If cloud model, feed result back — it may chain another tool or interpret
-                if (router.isUsingCloud) {
-                    replaceLastWithLui("", streaming = true)
-                    val chainHistory = _messages.value.orEmpty().filter {
-                        it.sender == Sender.USER || it.sender == Sender.LUI
-                    }.takeLast(10).toMutableList()
-                    chainHistory.add(ChatMessage(text = "Tool result for '${llmToolCall.tool}': $actionMsg", sender = Sender.USER))
-
-                    // Allow up to 3 chained tool calls
-                    var lastResult = actionMsg
-                    var lastToolName = llmToolCall.tool
-                    var chainCount = 0
-                    val maxChains = 3
-
-                    while (chainCount < maxChains) {
-                        val chainBuilder = StringBuilder()
-                        router.generateStreaming(
-                            "Tool '$lastToolName' returned: $lastResult. " +
-                            "If you need to call another tool to complete the user's request, output ONLY the JSON. " +
-                            "Otherwise, summarize the result naturally for the user in 1-2 sentences.",
-                            chainHistory
-                        ).collect { token ->
-                            chainBuilder.append(token)
-                            val cleaned = SystemPrompt.cleanResponse(chainBuilder.toString())
-                            if (cleaned.isNotBlank()) replaceLastWithLui(cleaned, streaming = true)
-                        }
-
-                        val chainResponse = SystemPrompt.cleanResponse(chainBuilder.toString())
-                        val nextTool = Interceptor.parseLlmOutput(chainResponse)
-
-                        if (nextTool != null) {
-                            // Chain: execute next tool
-                            LuiLogger.toolChain(chainCount + 1, nextTool.tool, "executing")
-                            lastToolName = nextTool.tool
-                            val nextResult = ActionExecutor.execute(getApplication(), nextTool)
-                            lastResult = when (nextResult) {
-                                is ActionResult.Success -> nextResult.message
-                                is ActionResult.Failure -> nextResult.message
-                            }
-                            chainHistory.add(ChatMessage(text = "Tool result for '${nextTool.tool}': $lastResult", sender = Sender.USER))
-                            replaceLastWithLui("", streaming = true)
-                            chainCount++
-                        } else {
-                            // No more tools — this is the final interpretation
-                            val finalMsg = chainResponse.ifBlank { lastResult }
-                            lastActionResult = finalMsg
-                            replaceLastWithLui(finalMsg, streaming = false)
-                            if (voiceEngine.conversationMode) voiceEngine.speak(finalMsg)
-                            break
-                        }
-                    }
-
-                    // Safety: if we hit max chains, show the last result
-                    if (chainCount >= maxChains) {
-                        replaceLastWithLui(lastResult, streaming = false)
-                        if (voiceEngine.conversationMode) voiceEngine.speak(lastResult)
-                    }
-                } else {
-                    replaceLastWithLui(actionMsg, streaming = false)
-                    if (voiceEngine.conversationMode) voiceEngine.speak(actionMsg)
-                }
-            } else {
-                replaceLastWithLui(fullResponse, streaming = false)
-                if (voiceEngine.conversationMode) {
-                    val remaining = fullResponse.substring(lastSpokenIndex).trim()
-                    if (remaining.isNotBlank()) voiceEngine.speakSentence(remaining)
-                    voiceEngine.speakDone()
-                }
-            }
+        val fullResponse = SystemPrompt.cleanResponse(responseBuilder.toString())
+        LuiLogger.llmResponse(fullResponse)
+        replaceLastWithLui(fullResponse, streaming = false)
+        if (voiceEngine.conversationMode) {
+            val remaining = fullResponse.substring(lastSpokenIndex).trim()
+            if (remaining.isNotBlank()) voiceEngine.speakSentence(remaining)
+            voiceEngine.speakDone()
         }
     }
 

@@ -14,7 +14,9 @@ object Interceptor {
         "battery", "share_text", "open_settings",
         "dismiss_alarm", "cancel_timer", "get_time", "get_date", "device_info",
         "navigate", "search_map", "open_app_search", "copy_clipboard",
-        "read_notifications", "clear_notifications", "undo"
+        "read_notifications", "clear_notifications", "undo",
+        "get_location", "get_distance", "read_calendar", "read_sms",
+        "now_playing", "read_clipboard", "screen_time"
     )
 
     /** Parse user input — tries JSON extraction then keyword matching */
@@ -35,14 +37,26 @@ object Interceptor {
             val jsonEnd = input.lastIndexOf('}')
             if (jsonStart < 0 || jsonEnd <= jsonStart) return null
 
-            // If there's significant text before the JSON, this is conversation
-            // that mentions a tool — not an actual tool call.
-            // Real tool calls start at or very near the beginning of the response.
-            val textBefore = input.substring(0, jsonStart).trim()
-            com.lui.app.helper.LuiLogger.d("JSON_PARSE", "textBefore(${textBefore.length}): '${textBefore.take(60)}' | json at $jsonStart")
-            if (textBefore.length > 20) return null
+            // Strip common LLM wrapping: ```json ... ```, markdown code fences
+            val cleaned = input.trim()
+                .removePrefix("```json").removePrefix("```").removeSuffix("```").trim()
+            val cleanedStart = cleaned.indexOf('{')
+            val cleanedEnd = cleaned.lastIndexOf('}')
 
-            val json = JSONObject(input.substring(jsonStart, jsonEnd + 1))
+            // If there's significant non-tool text before the JSON, this is conversation
+            // that happens to mention a tool — not an actual tool call.
+            val textBefore = if (cleanedStart >= 0) cleaned.substring(0, cleanedStart).trim() else input.substring(0, jsonStart).trim()
+            com.lui.app.helper.LuiLogger.d("JSON_PARSE", "textBefore(${textBefore.length}): '${textBefore.take(60)}' | json at $jsonStart")
+            // Allow short preambles like "Sure." or "Here:" but block full sentences
+            if (textBefore.length > 40) return null
+
+            // Use cleaned positions if available
+            val actualStart = if (cleanedStart >= 0) cleanedStart else jsonStart
+            val actualEnd = if (cleanedEnd >= 0) cleanedEnd else jsonEnd
+            val jsonStr = if (cleanedStart >= 0) cleaned.substring(actualStart, actualEnd + 1)
+                          else input.substring(jsonStart, jsonEnd + 1)
+
+            val json = JSONObject(jsonStr)
             val tool = json.optString("tool", "").lowercase()
             if (tool.isBlank() || tool !in KNOWN_TOOLS) return null
             val params = mutableMapOf<String, String>()
@@ -220,6 +234,59 @@ object Interceptor {
 
         if (lower.matches(Regex("^(?:undo|undo that|undo it|cancel that|take that back|revert)$")))
             return ToolCall("undo")
+
+        // ── Location ──
+
+        if (lower.matches(Regex(".*(?:where\\s+am\\s+i|my\\s+location|current\\s+location).*")))
+            return ToolCall("get_location")
+        Regex("(?:how\\s+far|distance|how\\s+long).*?(?:to|from|is)\\s+(.+)", RegexOption.IGNORE_CASE).find(lower)?.let {
+            return ToolCall("get_distance", mapOf("destination" to it.groupValues[1].trim()))
+        }
+
+        // ── Calendar reading ──
+
+        if (lower.matches(Regex(".*(?:what(?:'s| is)\\s+(?:on\\s+)?my\\s+(?:calendar|schedule|agenda)).*")) ||
+            lower.matches(Regex(".*(?:any|do i have)\\s+(?:events?|meetings?|appointments?).*(?:today|tomorrow)?.*")))  {
+            val date = when {
+                lower.contains("tomorrow") -> "tomorrow"
+                lower.contains("today") || !lower.matches(Regex(".*(?:next\\s+\\w+).*")) -> "today"
+                else -> Regex("next\\s+\\w+").find(lower)?.value ?: "today"
+            }
+            return ToolCall("read_calendar", mapOf("date" to date))
+        }
+
+        // ── SMS reading ──
+
+        Regex("(?:read|show|check|what are)\\s+(?:my\\s+)?(?:last\\s+)?(?:texts?|sms|messages?)\\s*(?:from\\s+)?(.+)?", RegexOption.IGNORE_CASE).find(lower)?.let {
+            val from = it.groupValues[1].trim().ifBlank { null }
+            val params = mutableMapOf<String, String>()
+            if (from != null) params["from"] = from
+            return ToolCall("read_sms", params)
+        }
+
+        // ── Now playing ──
+
+        if (lower.matches(Regex(".*(?:what(?:'s| is)\\s+(?:this\\s+)?(?:song|track|playing|music)).*")) ||
+            lower.matches(Regex(".*(?:what\\s+am\\s+i\\s+listening).*")) ||
+            lower.matches(Regex(".*(?:now\\s+playing|current\\s+(?:song|track)).*")))
+            return ToolCall("now_playing")
+
+        // ── Clipboard reading ──
+
+        if (lower.matches(Regex(".*(?:what(?:'s| is| did i)\\s+(?:on\\s+(?:my\\s+)?|in\\s+(?:my\\s+)?)?(?:clipboard|copied|copy)).*")) ||
+            lower.matches(Regex("^(?:paste|what did i copy|clipboard)$")))
+            return ToolCall("read_clipboard")
+
+        // ── Screen time ──
+
+        Regex("(?:how\\s+(?:much|long)|screen\\s*time|usage|time\\s+(?:on|spent|using)).*?(?:on\\s+|using\\s+|in\\s+)?([\\w\\s]+)?$", RegexOption.IGNORE_CASE).find(lower)?.let {
+            if (lower.contains("screen") || lower.contains("usage") || lower.contains("time spent") || lower.contains("how much time") || lower.contains("how long")) {
+                val app = it.groupValues[1].trim().ifBlank { null }
+                val params = mutableMapOf<String, String>()
+                if (app != null && app !in listOf("today", "phone", "my phone")) params["app"] = app
+                return ToolCall("screen_time", params)
+            }
+        }
 
         // ── Navigation ──
 

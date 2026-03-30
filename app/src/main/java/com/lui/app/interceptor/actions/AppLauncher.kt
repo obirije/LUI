@@ -99,32 +99,74 @@ object AppLauncher {
 
     /** Deep-link into an app with a search query — "play Despacito on Spotify" */
     fun openAppWithQuery(context: Context, app: String, query: String): ActionResult {
-        val deepLink = getDeepLink(app.lowercase(), query)
-        if (deepLink != null) {
-            return try {
-                val intent = Intent(Intent.ACTION_VIEW, Uri.parse(deepLink)).apply {
+        val link = getDeepLink(app.lowercase().trim(), query) ?: return openApp(context, app)
+
+        return try {
+            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(link.uri)).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                if (link.pkg != null) setPackage(link.pkg)
+            }
+            // Verify the target app can handle it
+            if (link.pkg != null && intent.resolveActivity(context.packageManager) == null) {
+                // Package not installed — try without package constraint
+                val fallback = Intent(Intent.ACTION_VIEW, Uri.parse(link.uri)).apply {
                     addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 }
+                context.startActivity(fallback)
+            } else {
                 context.startActivity(intent)
-                ActionResult.Success("Opening $app with \"$query\".")
-            } catch (e: Exception) {
-                // Fallback to just opening the app
-                openApp(context, app)
             }
+            ActionResult.Success("Opening ${link.label} with \"$query\".")
+        } catch (e: Exception) {
+            openApp(context, app)
         }
-        return openApp(context, app)
     }
 
-    private fun getDeepLink(app: String, query: String): String? {
-        val encoded = Uri.encode(query)
+    private data class DeepLinkInfo(val uri: String, val pkg: String?, val label: String)
+
+    private fun getDeepLink(app: String, query: String): DeepLinkInfo? {
+        val q = Uri.encode(query)
         return when {
-            app.contains("spotify") -> "spotify:search:$encoded"
-            app.contains("youtube music") -> "https://music.youtube.com/search?q=$encoded"
-            app.contains("youtube") -> "https://www.youtube.com/results?search_query=$encoded"
-            app.contains("netflix") -> "https://www.netflix.com/search?q=$encoded"
-            app.contains("amazon") && app.contains("music") -> "https://music.amazon.com/search/$encoded"
-            app.contains("chrome") || app.contains("browser") -> "https://www.google.com/search?q=$encoded"
-            app.contains("google") && app.contains("map") -> "geo:0,0?q=$encoded"
+            // Music
+            app.contains("spotify") -> DeepLinkInfo("spotify:search:$q", "com.spotify.music", "Spotify")
+            app.contains("youtube music") || app.contains("yt music") -> DeepLinkInfo("https://music.youtube.com/search?q=$q", "com.google.android.apps.youtube.music", "YouTube Music")
+            app.contains("amazon music") -> DeepLinkInfo("https://music.amazon.com/search/$q", "com.amazon.mp3", "Amazon Music")
+            app.contains("soundcloud") -> DeepLinkInfo("soundcloud://search?q=$q", "com.soundcloud.android", "SoundCloud")
+            app.contains("deezer") -> DeepLinkInfo("deezer://search/$q", "deezer.android.app", "Deezer")
+
+            // Video
+            app.contains("youtube") || app.contains("yt") -> DeepLinkInfo("https://www.youtube.com/results?search_query=$q", "com.google.android.youtube", "YouTube")
+            app.contains("netflix") -> DeepLinkInfo("https://www.netflix.com/search?q=$q&jbv=app", "com.netflix.mediaclient", "Netflix")
+            app.contains("tiktok") -> DeepLinkInfo("https://www.tiktok.com/search?q=$q", "com.zhiliaoapp.musically", "TikTok")
+            app.contains("twitch") -> DeepLinkInfo("twitch://search?query=$q", "tv.twitch.android.app", "Twitch")
+
+            // Social
+            app.contains("twitter") || app.contains("x") && !app.contains("box") -> DeepLinkInfo("https://twitter.com/search?q=$q", "com.twitter.android", "X")
+            app.contains("reddit") -> DeepLinkInfo("https://www.reddit.com/search/?q=$q", "com.reddit.frontpage", "Reddit")
+            app.contains("instagram") || app.contains("insta") -> DeepLinkInfo("https://www.instagram.com/explore/tags/$q/", "com.instagram.android", "Instagram")
+
+            // Messaging (with text/target)
+            app.contains("whatsapp") -> DeepLinkInfo("https://wa.me/?text=$q", "com.whatsapp", "WhatsApp")
+            app.contains("telegram") -> DeepLinkInfo("tg://resolve?domain=$q", "org.telegram.messenger", "Telegram")
+
+            // Shopping
+            app.contains("amazon") -> DeepLinkInfo("https://www.amazon.com/s?k=$q", "com.amazon.mShop.android.shopping", "Amazon")
+            app.contains("ebay") -> DeepLinkInfo("https://www.ebay.com/sch/i.html?_nkw=$q", "com.ebay.mobile", "eBay")
+
+            // Utilities
+            app.contains("map") || app.contains("maps") -> DeepLinkInfo("geo:0,0?q=$q", "com.google.android.apps.maps", "Maps")
+            app.contains("translate") -> DeepLinkInfo("https://translate.google.com/?text=$q", "com.google.android.apps.translate", "Translate")
+            app.contains("play store") || app.contains("play") && app.contains("store") -> DeepLinkInfo("market://search?q=$q", "com.android.vending", "Play Store")
+            app.contains("shazam") -> DeepLinkInfo("shazam://recognize", "com.shazam.android", "Shazam")
+
+            // Ride sharing
+            app.contains("uber") -> DeepLinkInfo("uber://?action=setPickup&pickup=my_location&dropoff[formatted_address]=$q", "com.ubercab", "Uber")
+            app.contains("lyft") -> DeepLinkInfo("lyft://ridetype?id=lyft&destination[address]=$q", "me.lyft.android", "Lyft")
+
+            // Browser — use ACTION_WEB_SEARCH intent instead of URL for better handling
+            app.contains("chrome") -> DeepLinkInfo("https://www.google.com/search?q=$q", "com.android.chrome", "Chrome")
+            app.contains("browser") || app.contains("web") || app.contains("google") && !app.contains("map") -> DeepLinkInfo("https://www.google.com/search?q=$q", null, "Browser")
+
             else -> null
         }
     }

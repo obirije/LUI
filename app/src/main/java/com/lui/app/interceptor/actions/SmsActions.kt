@@ -3,9 +3,13 @@ package com.lui.app.interceptor.actions
 import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.provider.ContactsContract
 import android.telephony.SmsManager
 import androidx.core.content.ContextCompat
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 object SmsActions {
 
@@ -47,5 +51,73 @@ object SmsActions {
                 if (cursor.moveToFirst()) cursor.getString(0) else input
             } ?: input
         } catch (e: Exception) { input }
+    }
+
+    fun readSms(context: Context, from: String?, count: Int = 5): ActionResult {
+        if (ContextCompat.checkSelfPermission(context, Manifest.permission.READ_SMS)
+            != PackageManager.PERMISSION_GRANTED) {
+            return ActionResult.Failure("I need SMS permission to read messages.")
+        }
+
+        return try {
+            val uri = Uri.parse("content://sms/inbox")
+            val projection = arrayOf("address", "body", "date")
+
+            // If 'from' specified, resolve to number and filter
+            val selection: String?
+            val args: Array<String>?
+            if (from != null && from.isNotBlank()) {
+                val resolved = resolveNumber(context, from)
+                // Match on last 7 digits to handle formatting differences
+                val digits = resolved.replace(Regex("[^0-9]"), "").takeLast(7)
+                selection = "address LIKE ?"
+                args = arrayOf("%$digits%")
+            } else {
+                selection = null
+                args = null
+            }
+
+            val cursor = context.contentResolver.query(
+                uri, projection, selection, args, "date DESC"
+            )
+
+            val messages = mutableListOf<String>()
+            val timeFormat = SimpleDateFormat("MMM d, h:mm a", Locale.getDefault())
+
+            cursor?.use {
+                while (it.moveToNext() && messages.size < count) {
+                    val address = it.getString(0) ?: "?"
+                    val body = it.getString(1) ?: ""
+                    val date = it.getLong(2)
+                    val time = timeFormat.format(Date(date))
+                    val display = resolveContactName(context, address) ?: address
+                    messages.add("$display ($time): ${body.take(100)}")
+                }
+            }
+
+            if (messages.isEmpty()) {
+                val qualifier = if (from != null) " from $from" else ""
+                ActionResult.Success("No messages found$qualifier.")
+            } else {
+                ActionResult.Success(messages.joinToString("\n"))
+            }
+        } catch (e: Exception) {
+            ActionResult.Failure("Couldn't read messages: ${e.message}")
+        }
+    }
+
+    private fun resolveContactName(context: Context, number: String): String? {
+        if (ContextCompat.checkSelfPermission(context, Manifest.permission.READ_CONTACTS)
+            != PackageManager.PERMISSION_GRANTED) return null
+
+        return try {
+            val uri = Uri.withAppendedPath(
+                ContactsContract.PhoneLookup.CONTENT_FILTER_URI,
+                Uri.encode(number)
+            )
+            context.contentResolver.query(uri, arrayOf(ContactsContract.PhoneLookup.DISPLAY_NAME), null, null, null)?.use {
+                if (it.moveToFirst()) it.getString(0) else null
+            }
+        } catch (e: Exception) { null }
     }
 }

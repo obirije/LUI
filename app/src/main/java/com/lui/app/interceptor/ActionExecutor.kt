@@ -64,6 +64,16 @@ object ActionExecutor {
             "read_notifications" -> NotificationActions.readNotifications(context)
             "clear_notifications" -> NotificationActions.clearNotifications(context)
 
+            "get_location" -> LocationActions.getLocation(context)
+            "get_distance" -> LocationActions.getDistance(context, destination = toolCall.params["destination"] ?: "")
+
+            "read_calendar" -> CalendarActions.readCalendar(context, dateStr = toolCall.params["date"] ?: "today")
+            "read_sms" -> SmsActions.readSms(context, from = toolCall.params["from"])
+
+            "now_playing" -> MediaActions.nowPlaying(context)
+            "read_clipboard" -> MediaActions.readClipboard(context)
+            "screen_time" -> MediaActions.getScreenTime(context, appName = toolCall.params["app"])
+
             "copy_clipboard" -> {
                 val text = (context as? android.app.Application)?.let { /* can't access VM */ null }
                 // Will be handled by ViewModel directly

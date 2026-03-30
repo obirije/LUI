@@ -1,5 +1,6 @@
 package com.lui.app.ui.canvas
 
+import android.animation.AnimatorSet
 import android.animation.ObjectAnimator
 import android.animation.ValueAnimator
 import android.view.LayoutInflater
@@ -92,23 +93,55 @@ class MessageAdapter : ListAdapter<ChatMessage, RecyclerView.ViewHolder>(DiffCal
     }
 
     class ThinkingViewHolder(view: View) : RecyclerView.ViewHolder(view) {
-        private val dot: View = view.findViewById(R.id.thinkingDot)
-        private var animator: ObjectAnimator? = null
+        private val dot1: View = view.findViewById(R.id.dot1)
+        private val dot2: View = view.findViewById(R.id.dot2)
+        private val dot3: View = view.findViewById(R.id.dot3)
+        private var animatorSet: AnimatorSet? = null
 
         fun startPulse() {
-            if (animator != null) return
-            animator = ObjectAnimator.ofFloat(dot, "alpha", 1f, 0.2f).apply {
-                duration = 700
-                repeatCount = ValueAnimator.INFINITE
-                repeatMode = ValueAnimator.REVERSE
-                interpolator = DecelerateInterpolator()
+            if (animatorSet != null) return
+
+            val dots = listOf(dot1, dot2, dot3)
+            val animators = mutableListOf<android.animation.Animator>()
+
+            dots.forEachIndexed { i, dot ->
+                // Alpha: fade in and out
+                val alpha = ObjectAnimator.ofFloat(dot, "alpha", 0.2f, 1f, 0.2f).apply {
+                    duration = 1200
+                    repeatCount = ValueAnimator.INFINITE
+                    startDelay = (i * 200).toLong()
+                    interpolator = DecelerateInterpolator(1.5f)
+                }
+                // Scale: subtle bounce
+                val scaleX = ObjectAnimator.ofFloat(dot, "scaleX", 1f, 1.4f, 1f).apply {
+                    duration = 1200
+                    repeatCount = ValueAnimator.INFINITE
+                    startDelay = (i * 200).toLong()
+                    interpolator = DecelerateInterpolator(1.5f)
+                }
+                val scaleY = ObjectAnimator.ofFloat(dot, "scaleY", 1f, 1.4f, 1f).apply {
+                    duration = 1200
+                    repeatCount = ValueAnimator.INFINITE
+                    startDelay = (i * 200).toLong()
+                    interpolator = DecelerateInterpolator(1.5f)
+                }
+                animators.addAll(listOf(alpha, scaleX, scaleY))
+            }
+
+            animatorSet = AnimatorSet().apply {
+                playTogether(animators)
                 start()
             }
         }
 
         fun stopPulse() {
-            animator?.cancel()
-            animator = null
+            animatorSet?.cancel()
+            animatorSet = null
+            listOf(dot1, dot2, dot3).forEach {
+                it.alpha = 0.3f
+                it.scaleX = 1f
+                it.scaleY = 1f
+            }
         }
     }
 

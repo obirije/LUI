@@ -33,6 +33,18 @@ object PermissionHelper {
                 Manifest.permission.CALL_PHONE,
                 "I need phone permission to make calls directly."
             )
+            "get_location", "get_distance" -> PermissionRequest(
+                Manifest.permission.ACCESS_FINE_LOCATION,
+                "I need location permission to find where you are."
+            )
+            "read_sms" -> PermissionRequest(
+                Manifest.permission.READ_SMS,
+                "I need SMS permission to read your messages."
+            )
+            "read_calendar" -> PermissionRequest(
+                Manifest.permission.READ_CALENDAR,
+                "I need calendar permission to check your schedule."
+            )
             else -> null
         }
     }
