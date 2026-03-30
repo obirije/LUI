@@ -97,6 +97,38 @@ object AppLauncher {
         } catch (e: Exception) { null }
     }
 
+    /** Deep-link into an app with a search query — "play Despacito on Spotify" */
+    fun openAppWithQuery(context: Context, app: String, query: String): ActionResult {
+        val deepLink = getDeepLink(app.lowercase(), query)
+        if (deepLink != null) {
+            return try {
+                val intent = Intent(Intent.ACTION_VIEW, Uri.parse(deepLink)).apply {
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+                context.startActivity(intent)
+                ActionResult.Success("Opening $app with \"$query\".")
+            } catch (e: Exception) {
+                // Fallback to just opening the app
+                openApp(context, app)
+            }
+        }
+        return openApp(context, app)
+    }
+
+    private fun getDeepLink(app: String, query: String): String? {
+        val encoded = Uri.encode(query)
+        return when {
+            app.contains("spotify") -> "spotify:search:$encoded"
+            app.contains("youtube music") -> "https://music.youtube.com/search?q=$encoded"
+            app.contains("youtube") -> "https://www.youtube.com/results?search_query=$encoded"
+            app.contains("netflix") -> "https://www.netflix.com/search?q=$encoded"
+            app.contains("amazon") && app.contains("music") -> "https://music.amazon.com/search/$encoded"
+            app.contains("chrome") || app.contains("browser") -> "https://www.google.com/search?q=$encoded"
+            app.contains("google") && app.contains("map") -> "geo:0,0?q=$encoded"
+            else -> null
+        }
+    }
+
     fun getInstalledApps(context: Context): List<AppInfo> {
         val pm = context.packageManager
         val intent = Intent(Intent.ACTION_MAIN).apply {

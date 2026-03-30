@@ -44,6 +44,13 @@ AVAILABLE ACTIONS (you can execute these by outputting the exact JSON):
 {"tool":"get_time","params":{}}
 {"tool":"get_date","params":{}}
 {"tool":"device_info","params":{}}
+{"tool":"navigate","params":{"destination":"123 Main St"}}  — opens Google Maps navigation
+{"tool":"search_map","params":{"query":"coffee shops nearby"}}
+{"tool":"open_app_search","params":{"app":"Spotify","query":"Despacito"}}  — deep links into app with search
+{"tool":"read_notifications","params":{}}  — reads recent notifications
+{"tool":"clear_notifications","params":{}}
+{"tool":"copy_clipboard","params":{}}  — copies last result to clipboard
+{"tool":"undo","params":{}}  — reverses last action where possible
 {"tool":"set_wallpaper","params":{}}
 
 RULES:

@@ -55,6 +55,23 @@ object ActionExecutor {
             "get_date" -> DeviceInfoActions.getDate(context)
             "device_info" -> DeviceInfoActions.getDeviceInfo(context)
 
+            "navigate" -> NavigationActions.navigate(context, destination = toolCall.params["destination"] ?: "")
+            "search_map" -> NavigationActions.searchMap(context, query = toolCall.params["query"] ?: "")
+            "open_app_search" -> AppLauncher.openAppWithQuery(context,
+                app = toolCall.params["app"] ?: "",
+                query = toolCall.params["query"] ?: "")
+
+            "read_notifications" -> NotificationActions.readNotifications(context)
+            "clear_notifications" -> NotificationActions.clearNotifications(context)
+
+            "copy_clipboard" -> {
+                val text = (context as? android.app.Application)?.let { /* can't access VM */ null }
+                // Will be handled by ViewModel directly
+                ActionResult.Failure("__COPY_LAST__")
+            }
+
+            "undo" -> ActionResult.Failure("__UNDO__")
+
             "set_wallpaper" -> {
                 WallpaperHelper.setLuiWallpaper(context)
                 ActionResult.Success("LUI wallpaper set.")

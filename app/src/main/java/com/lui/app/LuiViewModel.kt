@@ -10,6 +10,7 @@ import androidx.lifecycle.viewModelScope
 import com.lui.app.data.ChatMessage
 import com.lui.app.data.ChatMessage.Sender
 import com.lui.app.data.ChatRepository
+import com.lui.app.helper.LuiLogger
 import com.lui.app.helper.PermissionHelper
 import com.lui.app.helper.WallpaperHelper
 import com.lui.app.interceptor.ActionExecutor
@@ -41,6 +42,15 @@ class LuiViewModel(application: Application) : AndroidViewModel(application) {
     val permissionRequest: LiveData<PermissionHelper.PermissionRequest?> = _permissionRequest
     private var pendingToolCall: com.lui.app.data.ToolCall? = null
 
+    // Confirmation for destructive actions (SMS, calls)
+    private var pendingConfirmation: com.lui.app.data.ToolCall? = null
+
+    // Last action result for "copy that" / "share that"
+    var lastActionResult: String? = null
+        private set
+    // Last executed tool for undo
+    private var lastExecutedTool: com.lui.app.data.ToolCall? = null
+
     private val localModel = LocalModel(application)
     private val keyStore = com.lui.app.data.SecureKeyStore(application)
     private val cloudModel = CloudModel(keyStore, application)
@@ -50,6 +60,8 @@ class LuiViewModel(application: Application) : AndroidViewModel(application) {
     private var generationJob: Job? = null
 
     init {
+        LuiLogger.init(application)
+
         // Load chat history then show welcome
         viewModelScope.launch {
             val history = chatRepo.getHistory()
@@ -127,6 +139,7 @@ class LuiViewModel(application: Application) : AndroidViewModel(application) {
 
     fun handleUserInput(text: String) {
         if (text.isBlank()) return
+        LuiLogger.userInput(text)
 
         // Special commands
         val lower = text.trim().lowercase()
@@ -141,12 +154,34 @@ class LuiViewModel(application: Application) : AndroidViewModel(application) {
             return
         }
 
+        // Handle pending confirmation (yes/no for destructive actions)
+        if (pendingConfirmation != null) {
+            val confirmed = lower.matches(Regex("^(yes|yeah|yep|yup|y|sure|ok|okay|do it|go|send|confirm|go ahead)$"))
+            val denied = lower.matches(Regex("^(no|nah|nope|n|cancel|nevermind|never mind|stop|don't)$"))
+            if (confirmed) {
+                LuiLogger.confirmation(pendingConfirmation!!.tool, true)
+                addMessage(ChatMessage(text = text.trim(), sender = Sender.USER))
+                val toolCall = pendingConfirmation!!
+                pendingConfirmation = null
+                executeToolCall(toolCall)
+                return
+            } else if (denied) {
+                LuiLogger.confirmation(pendingConfirmation!!.tool, false)
+                pendingConfirmation = null
+                addMessage(ChatMessage(text = text.trim(), sender = Sender.USER))
+                addMessage(ChatMessage(text = "Cancelled.", sender = Sender.LUI))
+                if (voiceEngine.conversationMode) voiceEngine.speak("Cancelled.")
+                return
+            }
+            // If neither yes nor no, clear pending and process as normal input
+            pendingConfirmation = null
+        }
+
         addMessage(ChatMessage(text = text.trim(), sender = Sender.USER))
 
-        // When a cloud model is available, the LLM orchestrates everything — it sees
-        // conversation history, understands context/pronouns, chains tools, and asks
-        // follow-ups. The interceptor is only the fast path for local-only/offline mode.
+        // When a cloud model is available, the LLM orchestrates everything
         if (cloudModel.isReady) {
+            LuiLogger.llmRoute(router.activeProviderName, keyStore.isCloudFirst, cloudModel.isReady, localModel.isReady)
             generateWithLlm(text)
             return
         }
@@ -154,9 +189,11 @@ class LuiViewModel(application: Application) : AndroidViewModel(application) {
         // Local/offline: interceptor handles what it can, local LLM gets the rest
         val toolCall = Interceptor.parse(text)
         if (toolCall != null) {
+            LuiLogger.interceptorMatch(toolCall.tool, toolCall.params)
             executeToolCall(toolCall)
             return
         }
+        LuiLogger.interceptorMiss(text)
 
         if (localModel.isReady) {
             generateWithLlm(text)
@@ -182,19 +219,107 @@ class LuiViewModel(application: Application) : AndroidViewModel(application) {
             return
         }
 
+        // Handle ViewModel-level tools that need access to state
+        if (toolCall.tool == "copy_clipboard") {
+            val text = lastActionResult
+            if (text != null) {
+                val result = com.lui.app.interceptor.actions.MediaActions.copyToClipboard(getApplication(), text)
+                val msg = when (result) { is ActionResult.Success -> result.message; is ActionResult.Failure -> result.message }
+                addMessage(ChatMessage(text = msg, sender = Sender.LUI))
+                if (voiceEngine.conversationMode) voiceEngine.speak(msg)
+            } else {
+                addMessage(ChatMessage(text = "Nothing to copy.", sender = Sender.LUI))
+            }
+            return
+        }
+        if (toolCall.tool == "share_text" && toolCall.params["text"] == "__LAST_RESULT__") {
+            val text = lastActionResult
+            if (text != null) {
+                val result = com.lui.app.interceptor.actions.MediaActions.shareText(getApplication(), text)
+                val msg = when (result) { is ActionResult.Success -> result.message; is ActionResult.Failure -> result.message }
+                addMessage(ChatMessage(text = msg, sender = Sender.LUI))
+            } else {
+                addMessage(ChatMessage(text = "Nothing to share.", sender = Sender.LUI))
+            }
+            return
+        }
+        if (toolCall.tool == "undo") {
+            handleUndo()
+            return
+        }
+
+        // Confirm destructive actions before executing
+        val confirmMsg = getConfirmationMessage(toolCall)
+        if (confirmMsg != null && pendingConfirmation == null) {
+            pendingConfirmation = toolCall
+            addMessage(ChatMessage(text = confirmMsg, sender = Sender.LUI))
+            if (voiceEngine.conversationMode) voiceEngine.speak(confirmMsg)
+            return
+        }
+
+        pendingConfirmation = null
+        LuiLogger.toolExecute(toolCall.tool, toolCall.params)
         val result = ActionExecutor.execute(getApplication(), toolCall)
         val response = when (result) {
-            is ActionResult.Success -> result.message
-            is ActionResult.Failure -> result.message
+            is ActionResult.Success -> {
+                lastExecutedTool = toolCall
+                LuiLogger.toolResult(toolCall.tool, true, result.message)
+                result.message
+            }
+            is ActionResult.Failure -> {
+                LuiLogger.toolResult(toolCall.tool, false, result.message)
+                result.message
+            }
         }
+        lastActionResult = response
         addMessage(ChatMessage(text = response, sender = Sender.LUI))
         if (voiceEngine.conversationMode) voiceEngine.speak(response)
+    }
+
+    private fun handleUndo() {
+        val last = lastExecutedTool
+        if (last == null) {
+            addMessage(ChatMessage(text = "Nothing to undo.", sender = Sender.LUI))
+            return
+        }
+        val undoResult = when (last.tool) {
+            "toggle_flashlight" -> {
+                ActionExecutor.execute(getApplication(), com.lui.app.data.ToolCall("toggle_flashlight", mapOf("state" to "toggle")))
+            }
+            "set_alarm" -> ActionExecutor.execute(getApplication(), com.lui.app.data.ToolCall("dismiss_alarm"))
+            "set_timer" -> ActionExecutor.execute(getApplication(), com.lui.app.data.ToolCall("cancel_timer"))
+            "toggle_dnd" -> ActionExecutor.execute(getApplication(), com.lui.app.data.ToolCall("toggle_dnd"))
+            "toggle_rotation" -> ActionExecutor.execute(getApplication(), com.lui.app.data.ToolCall("toggle_rotation"))
+            "set_volume" -> {
+                val reverse = when (last.params["direction"]) { "up" -> "down"; "down" -> "up"; else -> null }
+                if (reverse != null) ActionExecutor.execute(getApplication(), com.lui.app.data.ToolCall("set_volume", mapOf("direction" to reverse)))
+                else ActionResult.Failure("Can't undo that volume change.")
+            }
+            else -> ActionResult.Failure("Can't undo '${last.tool}'. Some actions are irreversible.")
+        }
+        lastExecutedTool = null
+        val msg = when (undoResult) { is ActionResult.Success -> "Undone. ${undoResult.message}"; is ActionResult.Failure -> undoResult.message }
+        addMessage(ChatMessage(text = msg, sender = Sender.LUI))
+        if (voiceEngine.conversationMode) voiceEngine.speak(msg)
+    }
+
+    private fun getConfirmationMessage(toolCall: com.lui.app.data.ToolCall): String? {
+        return when (toolCall.tool) {
+            "send_sms" -> {
+                val to = toolCall.params["number"] ?: "?"
+                val msg = toolCall.params["message"] ?: ""
+                "Send \"$msg\" to $to?"
+            }
+            "make_call" -> "Call ${toolCall.params["target"] ?: "?"}?"
+            else -> null
+        }
     }
 
     /** Called by the fragment after permission is granted/denied */
     fun onPermissionResult(granted: Boolean) {
         _permissionRequest.value = null
         val toolCall = pendingToolCall ?: return
+        LuiLogger.permission(toolCall.tool, granted)
         pendingToolCall = null
 
         if (granted) {
@@ -231,6 +356,7 @@ class LuiViewModel(application: Application) : AndroidViewModel(application) {
 
     private fun finalizeVoiceInput(text: String) {
         if (!voiceMessageActive) return
+        LuiLogger.voiceFinal(text)
         voiceMessageActive = false
 
         if (!voiceBubbleAdded) {
@@ -285,7 +411,7 @@ class LuiViewModel(application: Application) : AndroidViewModel(application) {
             }.takeLast(10)
             router.generateStreaming(userText, history)
                 .catch { e ->
-                    Log.e("LuiVM", "Generation error", e)
+                    LuiLogger.error("LLM", "Generation error: ${e.message}", e)
                     replaceLastWithLui("Something went wrong: ${e.message}", streaming = false)
                 }
                 .collect { token ->
@@ -316,9 +442,12 @@ class LuiViewModel(application: Application) : AndroidViewModel(application) {
 
             // Generation complete
             val fullResponse = SystemPrompt.cleanResponse(responseBuilder.toString())
-            val llmToolCall = Interceptor.parse(fullResponse)
+            LuiLogger.llmResponse(fullResponse)
+            val llmToolCall = Interceptor.parseLlmOutput(fullResponse)
             if (llmToolCall != null) {
                 // LLM decided to call a tool — execute it
+                LuiLogger.interceptorMatch(llmToolCall.tool, llmToolCall.params, "llm-json")
+                LuiLogger.toolExecute(llmToolCall.tool, llmToolCall.params)
                 val result = ActionExecutor.execute(getApplication(), llmToolCall)
                 val actionMsg = when (result) {
                     is ActionResult.Success -> result.message
@@ -353,10 +482,11 @@ class LuiViewModel(application: Application) : AndroidViewModel(application) {
                         }
 
                         val chainResponse = SystemPrompt.cleanResponse(chainBuilder.toString())
-                        val nextTool = Interceptor.parse(chainResponse)
+                        val nextTool = Interceptor.parseLlmOutput(chainResponse)
 
                         if (nextTool != null) {
                             // Chain: execute next tool
+                            LuiLogger.toolChain(chainCount + 1, nextTool.tool, "executing")
                             lastToolName = nextTool.tool
                             val nextResult = ActionExecutor.execute(getApplication(), nextTool)
                             lastResult = when (nextResult) {
@@ -368,8 +498,10 @@ class LuiViewModel(application: Application) : AndroidViewModel(application) {
                             chainCount++
                         } else {
                             // No more tools — this is the final interpretation
-                            replaceLastWithLui(chainResponse.ifBlank { lastResult }, streaming = false)
-                            if (voiceEngine.conversationMode) voiceEngine.speak(chainResponse.ifBlank { lastResult })
+                            val finalMsg = chainResponse.ifBlank { lastResult }
+                            lastActionResult = finalMsg
+                            replaceLastWithLui(finalMsg, streaming = false)
+                            if (voiceEngine.conversationMode) voiceEngine.speak(finalMsg)
                             break
                         }
                     }

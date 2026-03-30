@@ -1,5 +1,7 @@
 package com.lui.app.interceptor.actions
 
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.media.AudioManager
@@ -68,6 +70,16 @@ object MediaActions {
             ActionResult.Success("Battery is at $level%, $status.")
         } catch (e: Exception) {
             ActionResult.Failure("Couldn't read battery level.")
+        }
+    }
+
+    fun copyToClipboard(context: Context, text: String): ActionResult {
+        return try {
+            val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+            clipboard.setPrimaryClip(ClipData.newPlainText("LUI", text))
+            ActionResult.Success("Copied to clipboard.")
+        } catch (e: Exception) {
+            ActionResult.Failure("Couldn't copy: ${e.message}")
         }
     }
 

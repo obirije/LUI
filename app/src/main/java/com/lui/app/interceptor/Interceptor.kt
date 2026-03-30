@@ -12,11 +12,21 @@ object Interceptor {
         "send_sms", "search_contact", "create_contact", "create_event",
         "play_pause", "next_track", "previous_track", "set_ringer",
         "battery", "share_text", "open_settings",
-        "dismiss_alarm", "cancel_timer", "get_time", "get_date", "device_info"
+        "dismiss_alarm", "cancel_timer", "get_time", "get_date", "device_info",
+        "navigate", "search_map", "open_app_search", "copy_clipboard",
+        "read_notifications", "clear_notifications", "undo"
     )
 
+    /** Parse user input — tries JSON extraction then keyword matching */
     fun parse(input: String): ToolCall? {
         return parseJson(input) ?: parseKeywords(input)
+    }
+
+    /** Parse LLM output — only JSON extraction, no keyword matching.
+     *  LLM responses naturally contain words like "time", "call", "alarm"
+     *  which would false-positive on keyword patterns. */
+    fun parseLlmOutput(input: String): ToolCall? {
+        return parseJson(input)
     }
 
     private fun parseJson(input: String): ToolCall? {
@@ -24,6 +34,14 @@ object Interceptor {
             val jsonStart = input.indexOf('{')
             val jsonEnd = input.lastIndexOf('}')
             if (jsonStart < 0 || jsonEnd <= jsonStart) return null
+
+            // If there's significant text before the JSON, this is conversation
+            // that mentions a tool — not an actual tool call.
+            // Real tool calls start at or very near the beginning of the response.
+            val textBefore = input.substring(0, jsonStart).trim()
+            com.lui.app.helper.LuiLogger.d("JSON_PARSE", "textBefore(${textBefore.length}): '${textBefore.take(60)}' | json at $jsonStart")
+            if (textBefore.length > 20) return null
+
             val json = JSONObject(input.substring(jsonStart, jsonEnd + 1))
             val tool = json.optString("tool", "").lowercase()
             if (tool.isBlank() || tool !in KNOWN_TOOLS) return null
@@ -187,10 +205,44 @@ object Interceptor {
             lower == "battery" || lower == "battery?")
             return ToolCall("battery")
 
-        // ── Share ──
+        // ── Clipboard / copy & share last result ──
+
+        if (lower.matches(Regex("^(?:copy|copy that|copy it|copy this|copy the result)$")))
+            return ToolCall("copy_clipboard")
+        if (lower.matches(Regex("^(?:share that|share it|share this|share the result|share last)$")))
+            return ToolCall("share_text", mapOf("text" to "__LAST_RESULT__"))
 
         Regex("(?:share|send)\\s+(?:text\\s+)?[\"'](.+?)[\"']", RegexOption.IGNORE_CASE).find(lower)?.let {
             return ToolCall("share_text", mapOf("text" to it.groupValues[1]))
+        }
+
+        // ── Undo ──
+
+        if (lower.matches(Regex("^(?:undo|undo that|undo it|cancel that|take that back|revert)$")))
+            return ToolCall("undo")
+
+        // ── Navigation ──
+
+        Regex("(?:navigate|directions?|take me|drive)\\s+(?:to\\s+)?(.+)", RegexOption.IGNORE_CASE).find(lower)?.let {
+            return ToolCall("navigate", mapOf("destination" to it.groupValues[1].trim()))
+        }
+        Regex("(?:find|where\\s+is|search\\s+(?:for\\s+)?(?:on\\s+)?(?:the\\s+)?map)\\s+(.+)", RegexOption.IGNORE_CASE).find(lower)?.let {
+            if (lower.contains("map") || lower.contains("where") || lower.contains("nearby"))
+                return ToolCall("search_map", mapOf("query" to it.groupValues[1].trim()))
+        }
+
+        // ── Notifications ──
+
+        if (lower.matches(Regex(".*(?:read|show|check|what are)\\s*(?:my\\s+)?(?:notifications?|notifs?).*")) ||
+            lower.matches(Regex(".*(?:any\\s+)?(?:new\\s+)?(?:messages?|notifications?)\\??.*")))
+            return ToolCall("read_notifications")
+        if (lower.matches(Regex(".*(?:clear|dismiss|remove)\\s*(?:all\\s+)?(?:notifications?|notifs?).*")))
+            return ToolCall("clear_notifications")
+
+        // ── Deep link app search — "play X on Spotify", "search X on YouTube" ──
+
+        Regex("(?:play|search|search for|find|look up)\\s+(.+?)\\s+(?:on|in|with)\\s+(\\w+.*)$", RegexOption.IGNORE_CASE).find(lower)?.let {
+            return ToolCall("open_app_search", mapOf("query" to it.groupValues[1].trim(), "app" to it.groupValues[2].trim()))
         }
 
         // ── Open settings ──
