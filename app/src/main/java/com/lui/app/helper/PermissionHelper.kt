@@ -45,6 +45,12 @@ object PermissionHelper {
                 Manifest.permission.READ_CALENDAR,
                 "I need calendar permission to check your schedule."
             )
+            "get_steps" -> if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+                PermissionRequest(
+                    Manifest.permission.ACTIVITY_RECOGNITION,
+                    "I need activity recognition permission to read your step count."
+                )
+            } else null
             else -> null
         }
     }

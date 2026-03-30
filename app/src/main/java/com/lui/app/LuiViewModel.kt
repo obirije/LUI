@@ -185,6 +185,15 @@ class LuiViewModel(application: Application) : AndroidViewModel(application) {
         // LLMs cache previous "no results" responses and skip re-checking.
         val forceToolCall = getForcedToolCall(lower)
         if (forceToolCall != null && cloudModel.isReady) {
+            // Check permission first
+            val permReq = PermissionHelper.getRequiredPermission(forceToolCall.tool)
+            if (permReq != null && !PermissionHelper.hasPermission(getApplication(), permReq.permission)) {
+                pendingToolCall = forceToolCall
+                addMessage(ChatMessage(text = permReq.explanation, sender = Sender.LUI))
+                _permissionRequest.value = permReq
+                return
+            }
+
             LuiLogger.i("FORCE", "Forcing tool call: ${forceToolCall.tool}")
             addMessage(ChatMessage(text = "", sender = Sender.THINKING))
             generationJob = viewModelScope.launch {
@@ -366,7 +375,9 @@ class LuiViewModel(application: Application) : AndroidViewModel(application) {
             "get_location", "get_distance",
             "now_playing", "screen_time",
             "get_2fa_code", "get_digest",
-            "read_screen"
+            "read_screen",
+            "get_steps", "get_proximity", "get_light",
+            "storage_info", "wifi_info", "query_media"
         )
         return if (toolCall.tool in liveStateTools) toolCall else null
     }

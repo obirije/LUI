@@ -78,6 +78,41 @@ object ActionExecutor {
             "press_home" -> ScreenActions.pressHome(context)
             "open_lui" -> ScreenActions.openLui(context)
 
+            "lock_screen" -> SystemActions.lockScreen(context)
+            "take_screenshot" -> SystemActions.takeScreenshot(context)
+            "split_screen" -> SystemActions.splitScreen(context)
+            "set_screen_timeout" -> SystemActions.setScreenTimeout(context, duration = toolCall.params["duration"] ?: "1m")
+            "keep_screen_on" -> SystemActions.keepScreenOn(context, enable = toolCall.params["enable"]?.toBoolean() ?: true)
+            "bedtime_mode" -> {
+                val enable = toolCall.params["enable"]?.toBoolean() ?: true
+                if (enable) {
+                    SystemActions.toggleDnd(context) // DND on
+                    SystemActions.setBrightness(context, "10")
+                    SystemActions.setScreenTimeout(context, "30s")
+                    ActionResult.Success("Bedtime mode on: DND enabled, brightness low, screen timeout 30s.")
+                } else {
+                    SystemActions.toggleDnd(context) // DND off
+                    SystemActions.setBrightness(context, "50")
+                    SystemActions.setScreenTimeout(context, "2m")
+                    ActionResult.Success("Bedtime mode off: DND disabled, brightness restored, timeout 2 minutes.")
+                }
+            }
+
+            "get_steps" -> SensorActions.getSteps(context)
+            "get_proximity" -> SensorActions.getProximity(context)
+            "get_light" -> SensorActions.getLight(context)
+
+            "storage_info" -> StorageActions.getStorageInfo(context)
+            "wifi_info" -> StorageActions.getWifiInfo(context)
+            "download_file" -> StorageActions.downloadFile(context,
+                url = toolCall.params["url"] ?: "",
+                filename = toolCall.params["filename"])
+            "query_media" -> StorageActions.queryMedia(context,
+                type = toolCall.params["type"] ?: "photos",
+                dateFilter = toolCall.params["date"])
+            "route_audio" -> StorageActions.routeAudio(context,
+                target = toolCall.params["target"] ?: "speaker")
+
             "get_location" -> LocationActions.getLocation(context)
             "get_distance" -> LocationActions.getDistance(context, destination = toolCall.params["destination"] ?: "")
 

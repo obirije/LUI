@@ -18,6 +18,9 @@ object Interceptor {
         "get_location", "get_distance", "read_calendar", "read_sms",
         "now_playing", "read_clipboard", "screen_time",
         "read_screen", "find_and_tap", "type_text", "scroll_down", "press_back", "press_home", "open_lui",
+        "lock_screen", "take_screenshot", "split_screen", "set_screen_timeout", "keep_screen_on", "bedtime_mode",
+        "get_steps", "get_proximity", "get_light",
+        "storage_info", "wifi_info", "download_file", "query_media", "route_audio",
         "get_digest", "clear_digest", "get_2fa_code", "config_triage"
     )
 
@@ -348,6 +351,86 @@ object Interceptor {
         Regex("(?:play|search|search for|find|look up)\\s+(.+?)\\s+(?:on|in|with)\\s+(\\w+.*)$", RegexOption.IGNORE_CASE).find(lower)?.let {
             return ToolCall("open_app_search", mapOf("query" to it.groupValues[1].trim(), "app" to it.groupValues[2].trim()))
         }
+
+        // ── Lock / Screenshot / Split Screen ──
+
+        if (lower.matches(Regex(".*(?:lock)\\s+(?:my\\s+)?(?:phone|screen|device).*")) || lower == "lock")
+            return ToolCall("lock_screen")
+        if (lower.matches(Regex(".*(?:take|capture|grab)\\s+(?:a\\s+)?(?:screenshot|screen\\s*shot|screen\\s*cap).*")))
+            return ToolCall("take_screenshot")
+        if (lower.matches(Regex(".*(?:split|dual)\\s+screen.*")))
+            return ToolCall("split_screen")
+
+        // ── Screen timeout / keep on ──
+
+        if (lower.matches(Regex(".*(?:keep|stay)\\s+(?:the\\s+)?screen\\s+on.*")) || lower.matches(Regex(".*(?:don't|do not)\\s+(?:let\\s+)?(?:the\\s+)?screen\\s+(?:turn\\s+)?off.*")))
+            return ToolCall("keep_screen_on", mapOf("enable" to "true"))
+        if (lower.matches(Regex(".*(?:release|stop keeping|let)\\s+(?:the\\s+)?screen.*")))
+            return ToolCall("keep_screen_on", mapOf("enable" to "false"))
+        Regex("(?:set\\s+)?screen\\s*(?:timeout|off)\\s+(?:to\\s+)?(.+)", RegexOption.IGNORE_CASE).find(lower)?.let {
+            return ToolCall("set_screen_timeout", mapOf("duration" to it.groupValues[1].trim()))
+        }
+
+        // ── Bedtime mode ──
+
+        if (lower.matches(Regex(".*(?:bedtime|sleep|night)\\s+mode.*(?:on|enable)?.*")) ||
+            lower.matches(Regex(".*(?:enable|turn on|activate)\\s+(?:bedtime|sleep|night).*")))
+            return ToolCall("bedtime_mode", mapOf("enable" to "true"))
+        if (lower.matches(Regex(".*(?:disable|turn off|deactivate)\\s+(?:bedtime|sleep|night).*")))
+            return ToolCall("bedtime_mode", mapOf("enable" to "false"))
+
+        // ── Sensors ──
+
+        if (lower.matches(Regex(".*(?:steps|step\\s+count|pedometer|how\\s+(?:many|much)\\s+(?:steps|walked)).*")))
+            return ToolCall("get_steps")
+        if (lower.matches(Regex(".*(?:proximity|face.?down|in\\s+(?:my\\s+)?pocket).*")))
+            return ToolCall("get_proximity")
+        if (lower.matches(Regex(".*(?:light\\s+(?:level|sensor)|ambient\\s+light|how\\s+(?:bright|dark)\\s+is\\s+it|lux).*")))
+            return ToolCall("get_light")
+
+        // ── Storage / RAM / Wi-Fi ──
+
+        if (lower.matches(Regex(".*(?:storage|disk|space|how\\s+much\\s+(?:storage|space|memory)).*")) ||
+            lower.matches(Regex(".*(?:ram|free\\s+memory).*")))
+            return ToolCall("storage_info")
+        if (lower.matches(Regex(".*(?:what\\s+)?wifi.*(?:connected|info|name|ssid|signal|speed).*")) ||
+            lower.matches(Regex(".*(?:what\\s+)?(?:network|internet)\\s+(?:am\\s+i|connected).*")))
+            return ToolCall("wifi_info")
+
+        // ── Download ──
+
+        Regex("(?:download|save|fetch)\\s+(?:this\\s+)?(?:file\\s+)?(?:from\\s+)?(.+)", RegexOption.IGNORE_CASE).find(lower)?.let {
+            val url = it.groupValues[1].trim()
+            if (url.startsWith("http")) return ToolCall("download_file", mapOf("url" to url))
+        }
+
+        // ── Media query ──
+
+        if (lower.matches(Regex(".*(?:photos?|pictures?|images?)\\s+(?:i\\s+)?(?:took|taken|from)\\s+(?:today|yesterday|this\\s+week|this\\s+month).*")) ||
+            lower.matches(Regex(".*(?:how\\s+many|show|list)\\s+(?:my\\s+)?(?:photos?|pictures?).*"))) {
+            val date = when {
+                lower.contains("yesterday") -> "yesterday"
+                lower.contains("week") -> "this week"
+                lower.contains("month") -> "this month"
+                else -> "today"
+            }
+            return ToolCall("query_media", mapOf("type" to "photos", "date" to date))
+        }
+        if (lower.matches(Regex(".*(?:how\\s+many|show|list)\\s+(?:my\\s+)?(?:videos?).*"))) {
+            return ToolCall("query_media", mapOf("type" to "videos", "date" to "today"))
+        }
+        if (lower.matches(Regex(".*(?:how\\s+many|show|list)\\s+(?:my\\s+)?(?:songs?|music|audio).*"))) {
+            return ToolCall("query_media", mapOf("type" to "music"))
+        }
+
+        // ── Audio routing ──
+
+        if (lower.matches(Regex(".*(?:switch|route|output)\\s+(?:audio\\s+)?(?:to\\s+)?(?:speaker|speakerphone).*")))
+            return ToolCall("route_audio", mapOf("target" to "speaker"))
+        if (lower.matches(Regex(".*(?:switch|route|output)\\s+(?:audio\\s+)?(?:to\\s+)?(?:bluetooth|bt|headset|headphones?).*")))
+            return ToolCall("route_audio", mapOf("target" to "bluetooth"))
+        if (lower.matches(Regex(".*(?:switch|route|output)\\s+(?:audio\\s+)?(?:to\\s+)?(?:earpiece|phone).*")))
+            return ToolCall("route_audio", mapOf("target" to "earpiece"))
 
         // ── Open settings ──
 

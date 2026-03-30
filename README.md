@@ -23,18 +23,23 @@ Today it's a launcher that thinks locally and acts instantly. Tomorrow it's the 
 ## What It Does Now
 
 - **Replaces your home screen** with a monochrome conversational canvas
+- **67 headless device tools** — hardware controls, communication, calendar, media, navigation, sensors, screen control, notifications, file management, and more
+- **Native tool use** with Gemini, Claude, and OpenAI — structured function calling, not JSON-in-text hacks. Multi-turn tool chaining (up to 5 rounds per request).
 - **On-device LLM** (Qwen3.5 0.8B via llama.cpp) — no cloud, no API keys, fully private
-- **12 headless device actions** via keyword interceptor — flashlight, alarms, timers, volume, brightness, DND, rotation, app launch, calls, Wi-Fi/BT, wallpaper — all instant, no LLM round-trip
 - **Full voice pipeline** — real-time STT, natural TTS with voice cloning (Pocket TTS), streaming conversation mode where the voice starts speaking while the LLM is still generating
+- **The Bouncer** — notification triage. Urgent notifications pass through, noise gets silently killed and batched into a persisted Evening Digest, 2FA codes are auto-extracted. Only active when LUI is your launcher.
+- **AccessibilityService** — read any app's screen, tap buttons, type text, scroll. The LLM can pilot any app on your phone.
+- **25 app deep links** — "play Despacito on Spotify", "search on Netflix", "find on YouTube"
+- **Sensor access** — proximity, ambient light, step counter
 - **Persistent conversations** across restarts (Room/SQLite)
 - **Searchable app drawer** (long-press), first-launch onboarding, matching wallpaper + widget + screen saver
 
 ## What's Coming
 
 - **BYOS (Bring Your Own Swarm)** — WebSocket bridge to your self-hosted OpenClaw, Hermes, or any MCP-compatible agent framework. Your swarm gets access to Android hardware: geofencing, 2FA interception, biometric gates, ambient device context.
-- **The Bouncer** — Notification triage. LUI intercepts your notification stream, passes through the urgent ones, batches the noise into an AI digest, and auto-handles 2FA codes.
 - **Generative UI** — When the canvas needs to show you something visual (shopping results, flight options, a chart), native Android components inflate directly in the chat stream, then collapse when you're done.
-- **Cloud tier** — Optional. For when you need frontier-model reasoning without self-hosting. Burns credits, not your privacy by default.
+- **Geofencing** — "When I'm near the office, run X." Silent background monitoring.
+- **Biometric Overwatch** — High-stakes agent actions pause for thumbprint confirmation.
 
 ---
 
@@ -45,28 +50,54 @@ You (voice / text)
   │
   ▼
 ┌──────────────────────────────────┐
-│  Keyword Interceptor             │──▶ Device action (instant)
-│  12 tools, regex-matched         │
-│  Always checked before the LLM   │
+│  Cloud available?                │
+│  YES → LLM orchestrates          │──▶ Native tool use (Gemini/Claude/OpenAI)
+│        (structured function       │    Multi-turn chaining, up to 5 rounds
+│         calling, 67 tools)        │
+│  NO  → Keyword Interceptor       │──▶ Device action (instant, regex-matched)
+│        + Local LLM fallback       │    Conversational response (streamed)
 └──────────┬───────────────────────┘
-           │ no match
+           │
            ▼
 ┌──────────────────────────────────┐
-│  Qwen3.5 0.8B (llama.cpp)       │──▶ Conversational response
-│  On-device, Q4 quantized         │    (streamed token by token)
-│  ~508MB GGUF model               │
-└──────────┬───────────────────────┘
+│  4-Tier Execution Hierarchy      │
+│  1. Native API / headless hooks  │    Silent, invisible
+│  2. Android Intents              │    May briefly surface app UI
+│  3. Deep Links (25 apps)         │    Opens app to specific screen
+│  4. Accessibility scraping       │    Read screen, tap buttons, type
+└──────────────────────────────────┘
            │
            ▼
 ┌──────────────────────────────────┐
 │  Voice Pipeline                  │
 │  STT: Android SpeechRecognizer   │
 │  TTS: Kyutai Pocket TTS (sherpa) │
-│  Producer/player streaming       │
+│  Conversation mode: auto-listen  │
 └──────────────────────────────────┘
 ```
 
-The interceptor fires first. "Turn on the flashlight" executes in milliseconds — no inference, no latency. The LLM only handles what the interceptor can't: open questions, conversation, reasoning.
+---
+
+## Tool Count: 67
+
+| Category | Tools | Examples |
+|:---------|:------|:--------|
+| Hardware | 10 | Flashlight, volume, brightness, DND, rotation, ringer, lock, screenshot, split screen, screen timeout |
+| Alarms & Timers | 4 | Set/dismiss alarm, set/cancel timer |
+| Communication | 5 | Call, SMS, search/create contacts, read SMS |
+| Calendar | 2 | Create/read events |
+| Media | 5 | Play/pause, next/prev track, now playing |
+| Apps & Deep Links | 3 | Open app, deep link search (25 apps), open LUI |
+| Navigation | 4 | Navigate, search map, get location, get distance + drive time |
+| Device Info | 5 | Time, date, battery, device info, Wi-Fi info |
+| Storage | 3 | Storage/RAM info, download file, query media |
+| Sensors | 3 | Step counter, proximity, ambient light |
+| Notifications | 4 | Read, clear, get digest, get 2FA code |
+| Screen Control | 6 | Read screen, find & tap, type text, scroll, back, home |
+| Clipboard | 3 | Copy, read, share |
+| Audio | 1 | Route to speaker/bluetooth/earpiece |
+| System | 5 | Open settings, Wi-Fi/BT settings, wallpaper, bedtime mode |
+| Meta | 2 | Undo, triage config |
 
 ---
 
@@ -76,9 +107,11 @@ The interceptor fires first. "Turn on the flashlight" executes in milliseconds �
 |:----------|:-----------|
 | Shell | Kotlin, Android XML layouts, Navigation Component |
 | LLM | llama.cpp (native C++ via JNI), Qwen3.5 0.8B Q4_K_M |
+| Cloud LLM | Gemini 2.0 Flash, Claude Sonnet 4, GPT-4o Mini (native tool use) |
 | STT | Android SpeechRecognizer (on-device, streaming) |
-| TTS | Kyutai Pocket TTS INT8 via sherpa-onnx |
-| Storage | Room (SQLite) for chat history |
+| TTS | Kyutai Pocket TTS INT8 via sherpa-onnx (local), Deepgram/ElevenLabs (cloud) |
+| Storage | Room (SQLite) for chat history + notification digest |
+| Tool System | ToolRegistry (structured schemas) → ActionExecutor → 67 tools |
 | Fonts | JetBrains Mono (logo), DM Sans (body) |
 
 ---
@@ -97,15 +130,15 @@ adb install app/build/outputs/apk/debug/app-debug.apk
 
 Models (LLM, TTS) are not bundled — push to device separately. See [MVP.md](MVP.md) for model downloads and staging paths.
 
-**Tested on:** Motorola Edge 40 Neo (Dimensity 7030, 8GB RAM). Qwen3.5 0.8B runs well. Qwen3 1.7B was benchmarked and rejected — too slow on mid-range silicon.
+**Tested on:** Motorola Edge 40 Neo (Dimensity 7030, 8GB RAM).
 
 ---
 
 ## Cloud Configuration
 
-LUI works fully offline by default. For stronger reasoning and natural voice, you can optionally connect cloud services via the **Connection Hub** (tap the status dot or draw an "S" on the canvas).
+LUI works fully offline by default. For stronger reasoning and native tool use, connect cloud services via the **Connection Hub** (tap the status dot or draw an "S" on the canvas).
 
-### LLM (Reasoning)
+### LLM (Reasoning + Tool Use)
 
 | Provider | Free Tier | How to get a key |
 |:---------|:----------|:-----------------|
@@ -113,7 +146,7 @@ LUI works fully offline by default. For stronger reasoning and natural voice, yo
 | **Claude** | None (paid) | [console.anthropic.com](https://console.anthropic.com/) |
 | **OpenAI** | None (paid) | [platform.openai.com](https://platform.openai.com/api-keys) |
 
-Toggle **Cloud-first** to use the cloud model by default. When off, LUI uses the local Qwen3.5 0.8B and only falls back to cloud if the local model isn't loaded.
+All three providers use **native structured tool use** — the model calls tools directly through the API, not by outputting JSON in text.
 
 ### Speech (TTS + STT)
 
@@ -122,21 +155,17 @@ Toggle **Cloud-first** to use the cloud model by default. When off, LUI uses the
 | **Deepgram** | $200 credit | [console.deepgram.com](https://console.deepgram.com/) |
 | **ElevenLabs** | 10K chars/month | [elevenlabs.io](https://elevenlabs.io/) |
 
-Enable **Cloud Speech**, select a provider, paste your key, and pick a voice from the dropdown. Deepgram voices work immediately. ElevenLabs requires adding voices to "My Voices" in their dashboard first — library voices need a paid plan.
-
-When cloud speech is off, LUI uses on-device Android SpeechRecognizer (STT) and Kyutai Pocket TTS (TTS).
-
-**Gemini free tier is the easiest way to get started** — 15 requests per minute, no credit card, and it dramatically improves reasoning over the local 0.8B model.
+**Gemini free tier is the easiest way to get started** — 15 requests per minute, no credit card, and it gives you full native tool use with all 67 tools.
 
 ---
 
 ## Roadmap
 
-**Shipped:** On-device launcher + LLM, voice conversation, 12 device actions, chat persistence, onboarding, cloud API fallback (Gemini/Claude/OpenAI), cloud TTS (Deepgram/ElevenLabs), Connection Hub, splash screen.
+**Shipped:** On-device launcher + LLM, voice conversation, 67 device tools with native function calling, notification triage (The Bouncer), accessibility screen control, 25 app deep links, sensor access, chat persistence, cloud API (Gemini/Claude/OpenAI), cloud TTS (Deepgram/ElevenLabs), Connection Hub, file-based debug logging.
 
-**Next:** BYOS WebSocket bridge. Notification triage. Geofencing. Ambient context.
+**Next:** BYOS WebSocket bridge. Geofencing. Biometric overwatch. Ambient context.
 
-**Later:** Credit wallet. Generative UI. Web agent. Accessibility scraping.
+**Later:** Credit wallet. Generative UI. Web agent. MCP server.
 
 ---
 

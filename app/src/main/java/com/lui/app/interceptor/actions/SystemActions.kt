@@ -6,7 +6,9 @@ import android.content.Intent
 import android.hardware.camera2.CameraManager
 import android.media.AudioManager
 import android.os.Build
+import android.os.PowerManager
 import android.provider.Settings
+import com.lui.app.helper.LuiAccessibilityService
 
 object SystemActions {
 
@@ -182,6 +184,100 @@ object SystemActions {
             ActionResult.Success("Auto-rotate ${if (newValue == 1) "on" else "off"}.")
         } catch (e: Exception) {
             ActionResult.Failure("Couldn't toggle rotation.")
+        }
+    }
+
+    // ── Accessibility Global Actions ──
+
+    fun lockScreen(context: Context): ActionResult {
+        val service = LuiAccessibilityService.instance
+            ?: return ActionResult.Failure("I need accessibility access to lock the screen. Enable LUI in Settings > Accessibility.")
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P && service.performGlobalAction(android.accessibilityservice.AccessibilityService.GLOBAL_ACTION_LOCK_SCREEN)) {
+            ActionResult.Success("Phone locked.")
+        } else {
+            ActionResult.Failure("Couldn't lock screen. Requires Android 9+.")
+        }
+    }
+
+    fun takeScreenshot(context: Context): ActionResult {
+        val service = LuiAccessibilityService.instance
+            ?: return ActionResult.Failure("I need accessibility access to take screenshots. Enable LUI in Settings > Accessibility.")
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P && service.performGlobalAction(android.accessibilityservice.AccessibilityService.GLOBAL_ACTION_TAKE_SCREENSHOT)) {
+            ActionResult.Success("Screenshot taken.")
+        } else {
+            ActionResult.Failure("Couldn't take screenshot. Requires Android 9+.")
+        }
+    }
+
+    fun splitScreen(context: Context): ActionResult {
+        val service = LuiAccessibilityService.instance
+            ?: return ActionResult.Failure("I need accessibility access for split screen.")
+        return if (service.performGlobalAction(android.accessibilityservice.AccessibilityService.GLOBAL_ACTION_TOGGLE_SPLIT_SCREEN)) {
+            ActionResult.Success("Toggled split screen.")
+        } else {
+            ActionResult.Failure("Couldn't toggle split screen.")
+        }
+    }
+
+    // ── Screen Timeout ──
+
+    fun setScreenTimeout(context: Context, duration: String): ActionResult {
+        if (!Settings.System.canWrite(context)) {
+            return try {
+                val intent = Intent(Settings.ACTION_MANAGE_WRITE_SETTINGS).apply {
+                    data = android.net.Uri.parse("package:${context.packageName}")
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+                context.startActivity(intent)
+                ActionResult.Failure("I need permission to change screen timeout.")
+            } catch (e: Exception) {
+                ActionResult.Failure("I need the Modify System Settings permission.")
+            }
+        }
+
+        val millis = when (duration.lowercase().trim()) {
+            "15s", "15 seconds" -> 15000
+            "30s", "30 seconds" -> 30000
+            "1m", "1 min", "1 minute" -> 60000
+            "2m", "2 min", "2 minutes" -> 120000
+            "5m", "5 min", "5 minutes" -> 300000
+            "10m", "10 min", "10 minutes" -> 600000
+            "30m", "30 min", "30 minutes" -> 1800000
+            "never", "off", "always on" -> Int.MAX_VALUE
+            else -> duration.replace(Regex("[^0-9]"), "").toIntOrNull()?.let { it * 1000 } ?: 60000
+        }
+
+        return try {
+            Settings.System.putInt(context.contentResolver, Settings.System.SCREEN_OFF_TIMEOUT, millis)
+            val display = if (millis >= Int.MAX_VALUE) "never" else "${millis / 1000}s"
+            ActionResult.Success("Screen timeout set to $display.")
+        } catch (e: Exception) {
+            ActionResult.Failure("Couldn't change screen timeout.")
+        }
+    }
+
+    // ── Keep Screen On ──
+
+    private var wakeLock: PowerManager.WakeLock? = null
+
+    fun keepScreenOn(context: Context, enable: Boolean): ActionResult {
+        return try {
+            if (enable) {
+                if (wakeLock?.isHeld == true) return ActionResult.Success("Screen is already being kept on.")
+                val pm = context.getSystemService(Context.POWER_SERVICE) as PowerManager
+                wakeLock = pm.newWakeLock(
+                    PowerManager.SCREEN_BRIGHT_WAKE_LOCK or PowerManager.ACQUIRE_CAUSES_WAKEUP,
+                    "LUI:keepScreenOn"
+                )
+                wakeLock?.acquire(30 * 60 * 1000L) // 30 min max
+                ActionResult.Success("Screen will stay on (30 min max).")
+            } else {
+                wakeLock?.let { if (it.isHeld) it.release() }
+                wakeLock = null
+                ActionResult.Success("Screen keep-on released.")
+            }
+        } catch (e: Exception) {
+            ActionResult.Failure("Couldn't change screen wake: ${e.message}")
         }
     }
 }

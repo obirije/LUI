@@ -133,6 +133,40 @@ object ToolRegistry {
             listOf(ParamDef("app", description = "App package name or common name", required = true),
                    ParamDef("bucket", description = "urgent or noise", required = true, enum = listOf("urgent", "noise")))),
 
+        // System Actions (Accessibility)
+        ToolDef("lock_screen", "Lock the phone immediately"),
+        ToolDef("take_screenshot", "Take a screenshot of whatever is currently on screen"),
+        ToolDef("split_screen", "Toggle split screen mode"),
+
+        // Screen & Display
+        ToolDef("set_screen_timeout", "Set how long before screen auto-locks",
+            listOf(ParamDef("duration", description = "15s, 30s, 1m, 2m, 5m, 10m, 30m, or never", required = true))),
+        ToolDef("keep_screen_on", "Keep the screen on (prevent auto-lock) or release it",
+            listOf(ParamDef("enable", description = "true to keep on, false to release", required = true))),
+        ToolDef("bedtime_mode", "Enable bedtime mode: DND on, brightness low, short screen timeout. Or disable to restore.",
+            listOf(ParamDef("enable", description = "true to enable, false to disable", required = true))),
+
+        // Sensors
+        ToolDef("get_steps", "Get step count from the pedometer sensor"),
+        ToolDef("get_proximity", "Check if something is near the phone sensor (face-down, in pocket)"),
+        ToolDef("get_light", "Read ambient light level in lux"),
+
+        // Storage & System Info
+        ToolDef("storage_info", "Get device storage and RAM usage"),
+        ToolDef("wifi_info", "Get current Wi-Fi connection details (SSID, signal, speed)"),
+        ToolDef("download_file", "Download a file from a URL silently to Downloads folder",
+            listOf(ParamDef("url", description = "URL to download", required = true),
+                   ParamDef("filename", description = "Optional filename"))),
+
+        // Media Library
+        ToolDef("query_media", "Query photos, videos, or music on the device",
+            listOf(ParamDef("type", description = "photos, videos, or music", required = true),
+                   ParamDef("date", description = "today, yesterday, this week, this month"))),
+
+        // Audio
+        ToolDef("route_audio", "Route audio output to speaker, bluetooth, or earpiece",
+            listOf(ParamDef("target", description = "speaker, bluetooth, or earpiece", required = true))),
+
         // Meta
         ToolDef("undo", "Undo/reverse the last action where possible")
     )
