@@ -76,6 +76,13 @@ class LuiBridgeService : Service() {
 
         startForeground(NOTIFICATION_ID, buildNotification("Starting bridge...", 0))
 
+        // Load permission tier from settings
+        val tierName = SecureKeyStore(this).bridgePermissionTier
+        BridgeProtocol.currentTier = try {
+            BridgeProtocol.BridgeTier.valueOf(tierName)
+        } catch (_: Exception) { BridgeProtocol.BridgeTier.STANDARD }
+        LuiLogger.i(TAG, "Bridge permission tier: ${BridgeProtocol.currentTier}")
+
         try {
             server = LuiBridgeServer(applicationContext, token, port).apply {
                 setConnectionListener { count ->

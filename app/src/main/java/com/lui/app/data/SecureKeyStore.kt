@@ -103,4 +103,8 @@ class SecureKeyStore(context: Context) {
     var isBridgeEnabled: Boolean
         get() = prefs.getBoolean("bridge_enabled", false)
         set(value) = prefs.edit().putBoolean("bridge_enabled", value).apply()
+
+    var bridgePermissionTier: String
+        get() = prefs.getString("bridge_tier", "STANDARD") ?: "STANDARD"
+        set(value) = prefs.edit().putString("bridge_tier", value).apply()
 }

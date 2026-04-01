@@ -26,38 +26,68 @@ object BridgeProtocol {
     private const val SERVER_VERSION = "0.1.0"
     private const val JSONRPC = "2.0"
 
-    // Tools that are safe for remote agents to call without user confirmation
-    private val SAFE_TOOLS = setOf(
-        // Read-only queries
+    /**
+     * Bridge permission tiers:
+     *   READ_ONLY  — device state queries only (safe, no side effects)
+     *   STANDARD   — read + reversible device controls + navigation + apps
+     *   FULL       — all tools including SMS, calls, screenshots, screen control
+     *
+     * Configurable via SecureKeyStore.bridgePermissionTier
+     */
+    enum class BridgeTier { READ_ONLY, STANDARD, FULL }
+
+    private val READ_ONLY_TOOLS = setOf(
         "get_time", "get_date", "device_info", "battery", "wifi_info", "storage_info",
         "get_location", "get_distance", "get_steps", "get_proximity", "get_light",
         "now_playing", "read_clipboard", "screen_time", "bridge_status",
         "read_screen",
+    )
+
+    private val STANDARD_TOOLS = READ_ONLY_TOOLS + setOf(
         // Reversible device controls
         "toggle_flashlight", "set_volume", "set_brightness", "toggle_dnd",
         "toggle_rotation", "set_ringer", "set_screen_timeout", "keep_screen_on",
         "play_pause", "next_track", "previous_track", "route_audio",
-        // Navigation (opens Maps, doesn't leak data)
+        // Navigation
         "navigate", "search_map",
-        // Apps (opens apps, non-destructive)
+        // Apps (non-destructive)
         "open_app", "open_app_search", "open_settings", "open_settings_wifi",
         "open_settings_bluetooth", "open_lui",
+        // Read personal data
+        "read_notifications", "read_calendar", "read_sms",
+        "search_contact", "get_digest", "get_2fa_code", "query_media",
         // Meta
         "undo",
     )
 
-    // Tools that require explicit user approval via on-device prompt
-    // These can send messages, make calls, access personal data, or modify system state
-    private val RESTRICTED_TOOLS = setOf(
-        "send_sms", "make_call", "read_sms", "search_contact", "create_contact",
-        "read_notifications", "read_calendar", "create_event",
-        "get_digest", "get_2fa_code", "clear_notifications", "clear_digest",
+    private val FULL_TOOLS = STANDARD_TOOLS + setOf(
+        // Communication (sends messages, makes calls)
+        "send_sms", "make_call", "create_contact", "create_event",
+        // Notifications management
+        "clear_notifications", "clear_digest", "config_triage",
+        // Screen control
         "find_and_tap", "type_text", "scroll_down", "press_back", "press_home",
         "take_screenshot", "lock_screen", "split_screen",
-        "download_file", "query_media",
-        "set_wallpaper", "bedtime_mode",
-        "start_bridge", "stop_bridge", "config_triage",
+        // System
+        "download_file", "set_wallpaper", "bedtime_mode",
+        "start_bridge", "stop_bridge",
     )
+
+    var currentTier: BridgeTier = BridgeTier.STANDARD
+
+    /**
+     * Callback for requesting on-device user approval for restricted tools.
+     * Set by the ViewModel/Activity. Called on bridge thread.
+     * Returns true if approved, false if denied.
+     * If null, restricted tools are blocked outright.
+     */
+    var approvalCallback: ((toolName: String, description: String) -> Boolean)? = null
+
+    private fun getAllowedTools(): Set<String> = when (currentTier) {
+        BridgeTier.READ_ONLY -> READ_ONLY_TOOLS
+        BridgeTier.STANDARD -> STANDARD_TOOLS
+        BridgeTier.FULL -> FULL_TOOLS
+    }
 
     fun handleMessage(context: Context, message: String): String? {
         return try {
@@ -114,7 +144,7 @@ object BridgeProtocol {
             put("protocolVersion", PROTOCOL_VERSION)
             put("capabilities", capabilities)
             put("serverInfo", serverInfo)
-            put("instructions", "LUI is an Android agent runtime with ${ToolRegistry.tools.size} tools for device control, communication, navigation, sensors, screen interaction, and more.")
+            put("instructions", "LUI is an Android agent runtime with ${ToolRegistry.tools.size} tools. Permission tier: ${currentTier.name} (${getAllowedTools().size} tools accessible). Tier can be changed in LUI Connection Hub.")
         }
 
         LuiLogger.i("MCP", "→ Initialized (${ToolRegistry.tools.size} tools)")
@@ -126,8 +156,9 @@ object BridgeProtocol {
     // ═══════════════════════════════════════
 
     private fun handleToolsList(id: Any?): String {
+        val allowed = getAllowedTools()
         val tools = JSONArray()
-        for (tool in ToolRegistry.tools) {
+        for (tool in ToolRegistry.tools.filter { it.name in allowed }) {
             val t = JSONObject().apply {
                 put("name", tool.name)
                 put("description", tool.description)
@@ -149,13 +180,30 @@ object BridgeProtocol {
         val args = mutableMapOf<String, String>()
         for (k in arguments.keys()) args[k] = arguments.optString(k, "")
 
-        // Enforce tool allowlist for remote agents
-        if (toolName !in SAFE_TOOLS && toolName !in RESTRICTED_TOOLS) {
-            return rpcError(id, -32602, "Unknown tool: $toolName")
-        }
-        if (toolName in RESTRICTED_TOOLS) {
-            LuiLogger.w("MCP", "BLOCKED restricted tool from bridge: $toolName")
-            return rpcError(id, -32001, "Tool '$toolName' requires on-device user confirmation. Use the LUI chat interface to execute this action.")
+        // Enforce permission tier for remote agents
+        val allowed = getAllowedTools()
+        if (toolName !in allowed) {
+            // Tool not in current tier — request on-device approval if callback is set
+            val callback = approvalCallback
+            if (callback != null) {
+                val desc = buildApprovalDescription(toolName, arguments)
+                LuiLogger.i("MCP", "Requesting on-device approval for: $toolName")
+                val approved = callback(toolName, desc)
+                if (!approved) {
+                    LuiLogger.i("MCP", "User DENIED: $toolName")
+                    return rpcError(id, -32001, "User denied permission for '$toolName' on-device.")
+                }
+                LuiLogger.i("MCP", "User APPROVED: $toolName")
+                // Fall through to execute
+            } else {
+                LuiLogger.w("MCP", "BLOCKED tool '$toolName' (tier=${currentTier.name})")
+                val tierNeeded = when {
+                    toolName in FULL_TOOLS -> "FULL"
+                    toolName in STANDARD_TOOLS -> "STANDARD"
+                    else -> "unknown"
+                }
+                return rpcError(id, -32001, "Tool '$toolName' is not allowed at permission tier '${currentTier.name}'. Requires tier '$tierNeeded'. Change in LUI Connection Hub or enable on-device approval.")
+            }
         }
 
         LuiLogger.i("MCP", "Calling tool: $toolName $args")
@@ -198,6 +246,22 @@ object BridgeProtocol {
         schema.put("properties", properties)
         if (required.length() > 0) schema.put("required", required)
         return schema
+    }
+
+    private fun buildApprovalDescription(tool: String, args: JSONObject): String {
+        return when (tool) {
+            "send_sms" -> "Send SMS to ${args.optString("number", "?")}:\n\"${args.optString("message", "")}\""
+            "make_call" -> "Call ${args.optString("target", "?")}"
+            "read_sms" -> "Read your SMS messages${args.optString("from", "").let { if (it.isNotBlank()) " from $it" else "" }}"
+            "take_screenshot" -> "Take a screenshot of your screen"
+            "lock_screen" -> "Lock your phone"
+            "download_file" -> "Download file from: ${args.optString("url", "?").take(60)}"
+            "type_text" -> "Type text into current app: \"${args.optString("text", "").take(40)}\""
+            "find_and_tap" -> "Tap \"${args.optString("query", "?")}\" on screen"
+            "create_contact" -> "Create contact: ${args.optString("name", "?")} ${args.optString("number", "")}"
+            "create_event" -> "Create event: ${args.optString("title", "?")} on ${args.optString("date", "?")}"
+            else -> "Execute: $tool"
+        }
     }
 
     // ═══════════════════════════════════════

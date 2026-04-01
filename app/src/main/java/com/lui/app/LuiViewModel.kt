@@ -47,6 +47,13 @@ class LuiViewModel(application: Application) : AndroidViewModel(application) {
     // Confirmation for destructive actions (SMS, calls)
     private var pendingConfirmation: com.lui.app.data.ToolCall? = null
 
+    // Bridge remote approval: shown when a remote agent tries a restricted tool
+    data class BridgeApprovalRequest(val tool: String, val description: String)
+    private val _bridgeApproval = MutableLiveData<BridgeApprovalRequest?>()
+    val bridgeApproval: LiveData<BridgeApprovalRequest?> = _bridgeApproval
+    private var bridgeApprovalResult: java.util.concurrent.CountDownLatch? = null
+    private var bridgeApprovalGranted = false
+
     // Last action result for "copy that" / "share that"
     var lastActionResult: String? = null
         private set
@@ -63,6 +70,23 @@ class LuiViewModel(application: Application) : AndroidViewModel(application) {
 
     init {
         LuiLogger.init(application)
+
+        // Set up bridge approval callback
+        com.lui.app.bridge.BridgeProtocol.approvalCallback = { tool, description ->
+            // This runs on the bridge thread — post to main thread and wait
+            val latch = java.util.concurrent.CountDownLatch(1)
+            bridgeApprovalGranted = false
+            bridgeApprovalResult = latch
+
+            android.os.Handler(android.os.Looper.getMainLooper()).post {
+                _bridgeApproval.value = BridgeApprovalRequest(tool, description)
+            }
+
+            // Block bridge thread until user responds (timeout 30s)
+            latch.await(30, java.util.concurrent.TimeUnit.SECONDS)
+            _bridgeApproval.postValue(null)
+            bridgeApprovalGranted
+        }
 
         // Load chat history then show welcome
         viewModelScope.launch {
@@ -407,6 +431,15 @@ class LuiViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     /** Called by the fragment after permission is granted/denied */
+    /** Called by the fragment when user approves/denies a bridge remote action */
+    fun onBridgeApprovalResult(approved: Boolean) {
+        bridgeApprovalGranted = approved
+        bridgeApprovalResult?.countDown()
+        bridgeApprovalResult = null
+        _bridgeApproval.value = null
+        LuiLogger.i("BRIDGE", "User ${if (approved) "APPROVED" else "DENIED"} remote action")
+    }
+
     fun onPermissionResult(granted: Boolean) {
         _permissionRequest.value = null
         val toolCall = pendingToolCall ?: return

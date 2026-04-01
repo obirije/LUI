@@ -242,6 +242,19 @@ class CanvasFragment : Fragment() {
             }
         }
 
+        // Bridge remote approval prompts
+        viewModel.bridgeApproval.observe(viewLifecycleOwner) { request ->
+            if (request != null) {
+                android.app.AlertDialog.Builder(requireContext())
+                    .setTitle("Remote Agent Request")
+                    .setMessage("A remote agent wants to:\n\n${request.description}")
+                    .setPositiveButton("Allow") { _, _ -> viewModel.onBridgeApprovalResult(true) }
+                    .setNegativeButton("Deny") { _, _ -> viewModel.onBridgeApprovalResult(false) }
+                    .setCancelable(false)
+                    .show()
+            }
+        }
+
         // Voice state → animations
         viewLifecycleOwner.lifecycleScope.launch {
             viewModel.voiceEngine.state.collect { state ->
