@@ -58,11 +58,7 @@ object LuiLogger {
     fun i(category: String, message: String) = log("I", category, message)
     fun w(category: String, message: String) = log("W", category, message)
     fun e(category: String, message: String, throwable: Throwable? = null) {
-        val rawMsg = if (throwable != null) "$message | ${throwable.message}" else message
-        // Sanitize API keys from error messages
-        val msg = rawMsg.replace(Regex("[?&]key=[A-Za-z0-9_-]+"), "?key=***")
-            .replace(Regex("x-api-key:\\s*[A-Za-z0-9_-]+"), "x-api-key: ***")
-            .replace(Regex("Bearer\\s+[A-Za-z0-9_.-]+"), "Bearer ***")
+        val msg = if (throwable != null) "$message | ${throwable.message}" else message
         log("E", category, msg)
     }
 
@@ -160,18 +156,29 @@ object LuiLogger {
     // ── Internal ──
 
     private fun log(level: String, category: String, message: String) {
+        val sanitized = sanitize(message)
         val timestamp = dateFormat.format(Date())
-        val line = "$timestamp [$level/$category] $message"
+        val line = "$timestamp [$level/$category] $sanitized"
 
         // Also log to Logcat
         when (level) {
-            "D" -> Log.d(TAG, "[$category] $message")
-            "I" -> Log.i(TAG, "[$category] $message")
-            "W" -> Log.w(TAG, "[$category] $message")
-            "E" -> Log.e(TAG, "[$category] $message")
+            "D" -> Log.d(TAG, "[$category] $sanitized")
+            "I" -> Log.i(TAG, "[$category] $sanitized")
+            "W" -> Log.w(TAG, "[$category] $sanitized")
+            "E" -> Log.e(TAG, "[$category] $sanitized")
         }
 
         if (initialized) queue.add(line)
+    }
+
+    /** Sanitize sensitive data from all log messages */
+    private fun sanitize(msg: String): String {
+        return msg
+            .replace(Regex("[?&]key=[A-Za-z0-9_-]+"), "?key=***")
+            .replace(Regex("x-api-key:\\s*[A-Za-z0-9_-]+"), "x-api-key: ***")
+            .replace(Regex("Bearer\\s+[A-Za-z0-9_.-]+"), "Bearer ***")
+            .replace(Regex("Token\\s+[A-Za-z0-9_-]{20,}"), "Token ***")
+            .replace(Regex("token[=:]\\s*[A-Za-z0-9_-]{20,}"), "token=***")
     }
 
     private fun writeBatch(lines: List<String>) {

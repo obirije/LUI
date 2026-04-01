@@ -142,8 +142,8 @@ object ActionExecutor {
                     } else {
                         context.startService(intent)
                     }
-                    val token = LuiBridgeService.getAuthToken(context)
-                    ActionResult.Success("Bridge starting on port ${com.lui.app.bridge.LuiBridgeServer.DEFAULT_PORT}. Auth token: $token")
+                    // Never include token in tool results — it gets sent to cloud LLMs
+                    ActionResult.Success("Bridge started on port ${com.lui.app.bridge.LuiBridgeServer.DEFAULT_PORT}. Check the notification for connection details.")
                 } catch (e: Exception) {
                     ActionResult.Failure("Couldn't start bridge: ${e.message}")
                 }
@@ -159,8 +159,7 @@ object ActionExecutor {
             "bridge_status" -> {
                 val url = LuiBridgeService.getConnectionUrl(context)
                 if (url != null) {
-                    val token = LuiBridgeService.getAuthToken(context)
-                    ActionResult.Success("Bridge running at $url. Token: $token")
+                    ActionResult.Success("Bridge running at $url. Token is in the notification — I won't say it here for security.")
                 } else {
                     ActionResult.Success("Bridge is not running. Say 'start bridge' to enable.")
                 }

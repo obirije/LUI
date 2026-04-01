@@ -40,6 +40,16 @@ object StorageActions {
     }
 
     fun downloadFile(context: Context, url: String, filename: String?): ActionResult {
+        // Validate URL — only allow HTTPS
+        if (!url.startsWith("https://") && !url.startsWith("http://")) {
+            return ActionResult.Failure("Invalid URL. Only http:// and https:// URLs are supported.")
+        }
+        // Block internal network and localhost
+        val host = Uri.parse(url).host?.lowercase() ?: ""
+        if (host == "localhost" || host.startsWith("127.") || host.startsWith("192.168.") || host.startsWith("10.") || host.startsWith("172.")) {
+            return ActionResult.Failure("Cannot download from local network addresses.")
+        }
+
         return try {
             val uri = Uri.parse(url)
             val name = filename ?: uri.lastPathSegment ?: "download_${System.currentTimeMillis()}"

@@ -25,8 +25,22 @@ class SecureKeyStore(context: Context) {
             EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
         )
     } catch (e: Exception) {
-        Log.e(TAG, "EncryptedSharedPreferences failed, falling back", e)
-        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        // If encrypted prefs fail, try clearing and recreating before falling back
+        Log.e(TAG, "EncryptedSharedPreferences failed, attempting recovery", e)
+        try {
+            context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit().clear().apply()
+            val masterKey = MasterKey.Builder(context)
+                .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
+                .build()
+            EncryptedSharedPreferences.create(
+                context, PREFS_NAME, masterKey,
+                EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+                EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
+            )
+        } catch (e2: Exception) {
+            Log.e(TAG, "SECURITY WARNING: Using unencrypted storage as last resort", e2)
+            context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        }
     }
 
     // ---- LLM ----

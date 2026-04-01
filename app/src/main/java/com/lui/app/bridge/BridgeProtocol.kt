@@ -26,6 +26,39 @@ object BridgeProtocol {
     private const val SERVER_VERSION = "0.1.0"
     private const val JSONRPC = "2.0"
 
+    // Tools that are safe for remote agents to call without user confirmation
+    private val SAFE_TOOLS = setOf(
+        // Read-only queries
+        "get_time", "get_date", "device_info", "battery", "wifi_info", "storage_info",
+        "get_location", "get_distance", "get_steps", "get_proximity", "get_light",
+        "now_playing", "read_clipboard", "screen_time", "bridge_status",
+        "read_screen",
+        // Reversible device controls
+        "toggle_flashlight", "set_volume", "set_brightness", "toggle_dnd",
+        "toggle_rotation", "set_ringer", "set_screen_timeout", "keep_screen_on",
+        "play_pause", "next_track", "previous_track", "route_audio",
+        // Navigation (opens Maps, doesn't leak data)
+        "navigate", "search_map",
+        // Apps (opens apps, non-destructive)
+        "open_app", "open_app_search", "open_settings", "open_settings_wifi",
+        "open_settings_bluetooth", "open_lui",
+        // Meta
+        "undo",
+    )
+
+    // Tools that require explicit user approval via on-device prompt
+    // These can send messages, make calls, access personal data, or modify system state
+    private val RESTRICTED_TOOLS = setOf(
+        "send_sms", "make_call", "read_sms", "search_contact", "create_contact",
+        "read_notifications", "read_calendar", "create_event",
+        "get_digest", "get_2fa_code", "clear_notifications", "clear_digest",
+        "find_and_tap", "type_text", "scroll_down", "press_back", "press_home",
+        "take_screenshot", "lock_screen", "split_screen",
+        "download_file", "query_media",
+        "set_wallpaper", "bedtime_mode",
+        "start_bridge", "stop_bridge", "config_triage",
+    )
+
     fun handleMessage(context: Context, message: String): String? {
         return try {
             val json = JSONObject(message)
@@ -115,6 +148,15 @@ object BridgeProtocol {
         val arguments = params.optJSONObject("arguments") ?: JSONObject()
         val args = mutableMapOf<String, String>()
         for (k in arguments.keys()) args[k] = arguments.optString(k, "")
+
+        // Enforce tool allowlist for remote agents
+        if (toolName !in SAFE_TOOLS && toolName !in RESTRICTED_TOOLS) {
+            return rpcError(id, -32602, "Unknown tool: $toolName")
+        }
+        if (toolName in RESTRICTED_TOOLS) {
+            LuiLogger.w("MCP", "BLOCKED restricted tool from bridge: $toolName")
+            return rpcError(id, -32001, "Tool '$toolName' requires on-device user confirmation. Use the LUI chat interface to execute this action.")
+        }
 
         LuiLogger.i("MCP", "Calling tool: $toolName $args")
 

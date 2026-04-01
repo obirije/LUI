@@ -24,10 +24,15 @@ class LuiBridgeServer(
     companion object {
         const val DEFAULT_PORT = 8765
         private const val TAG = "BridgeServer"
+        private const val MAX_CONNECTIONS = 3
+        private const val MAX_AUTH_ATTEMPTS = 5
+        private const val RATE_LIMIT_PER_SECOND = 10
     }
 
     // Track authenticated connections
     private val authenticatedClients = mutableSetOf<WebSocket>()
+    private val authAttempts = mutableMapOf<String, Int>() // IP -> failed attempts
+    private val messageTimestamps = mutableMapOf<WebSocket, MutableList<Long>>() // rate limiting
     private var onConnectionChange: ((Int) -> Unit)? = null
 
     fun setConnectionListener(listener: (Int) -> Unit) {
@@ -38,6 +43,22 @@ class LuiBridgeServer(
 
     override fun onOpen(conn: WebSocket, handshake: ClientHandshake?) {
         val address = conn.remoteSocketAddress?.toString() ?: "unknown"
+        val ip = address.substringBefore(":")
+
+        // Connection limit
+        if (authenticatedClients.size >= MAX_CONNECTIONS) {
+            LuiLogger.w(TAG, "Connection rejected — max $MAX_CONNECTIONS reached: $address")
+            conn.close(1008, "Maximum connections reached")
+            return
+        }
+
+        // Check auth attempt limit
+        if ((authAttempts[ip] ?: 0) >= MAX_AUTH_ATTEMPTS) {
+            LuiLogger.w(TAG, "Connection rejected — too many failed auth from $ip")
+            conn.close(1008, "Too many failed authentication attempts")
+            return
+        }
+
         LuiLogger.i(TAG, "New connection from $address — awaiting auth")
 
         // Check if auth token is in the URL query or headers
@@ -66,6 +87,16 @@ class LuiBridgeServer(
             return
         }
 
+        // Rate limiting
+        val now = System.currentTimeMillis()
+        val timestamps = messageTimestamps.getOrPut(conn) { mutableListOf() }
+        timestamps.add(now)
+        timestamps.removeAll { it < now - 1000 }
+        if (timestamps.size > RATE_LIMIT_PER_SECOND) {
+            conn.send("""{"jsonrpc":"2.0","error":{"code":-32000,"message":"Rate limit exceeded. Max $RATE_LIMIT_PER_SECOND requests/second."}}""")
+            return
+        }
+
         // Authenticated — handle protocol message
         val response = BridgeProtocol.handleMessage(appContext, message)
         if (response != null) conn.send(response)
@@ -73,6 +104,7 @@ class LuiBridgeServer(
 
     override fun onClose(conn: WebSocket, code: Int, reason: String?, remote: Boolean) {
         authenticatedClients.remove(conn)
+        messageTimestamps.remove(conn)
         val address = conn.remoteSocketAddress?.toString() ?: "unknown"
         LuiLogger.i(TAG, "Connection closed: $address (code=$code)")
         onConnectionChange?.invoke(connectedCount)
@@ -99,8 +131,11 @@ class LuiBridgeServer(
                     onConnectionChange?.invoke(connectedCount)
                     true
                 } else {
-                    LuiLogger.w(TAG, "Auth failed: wrong token")
-                    conn.send("""{"id":"auth","result":{"success":false,"error":"Invalid token"}}""")
+                    val ip = conn.remoteSocketAddress?.toString()?.substringBefore(":") ?: ""
+                    authAttempts[ip] = (authAttempts[ip] ?: 0) + 1
+                    LuiLogger.w(TAG, "Auth failed: wrong token from $ip (attempt ${authAttempts[ip]})")
+                    conn.send("""{"jsonrpc":"2.0","error":{"code":-32000,"message":"Invalid token"}}""")
+                    if ((authAttempts[ip] ?: 0) >= MAX_AUTH_ATTEMPTS) conn.close(1008, "Too many failed attempts")
                     true
                 }
             } else false

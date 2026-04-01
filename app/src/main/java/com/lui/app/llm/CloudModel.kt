@@ -1,6 +1,5 @@
 package com.lui.app.llm
 
-import android.util.Log
 import com.lui.app.data.ChatMessage
 import com.lui.app.data.SecureKeyStore
 import com.lui.app.helper.LuiLogger
@@ -184,8 +183,8 @@ class CloudModel(private val keyStore: SecureKeyStore, private val appContext: a
                 emit(GenerationResult.Done(fullText.toString()))
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Gemini streaming error", e)
-            try { val err = conn.errorStream?.bufferedReader()?.readText(); Log.e(TAG, "API error: $err") } catch (_: Exception) {}
+            LuiLogger.e(TAG, "Gemini streaming error: ${e.message}", e)
+            try { val err = conn.errorStream?.bufferedReader()?.readText(); LuiLogger.e(TAG, "API error: ${err?.take(200)}") } catch (_: Exception) {}
             throw e
         } finally {
             conn.disconnect()
@@ -316,8 +315,8 @@ class CloudModel(private val keyStore: SecureKeyStore, private val appContext: a
                 emit(GenerationResult.Done(fullText.toString()))
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Claude streaming error", e)
-            try { val err = conn.errorStream?.bufferedReader()?.readText(); Log.e(TAG, "API error: $err") } catch (_: Exception) {}
+            LuiLogger.e(TAG, "Claude streaming error: ${e.message}", e)
+            try { val err = conn.errorStream?.bufferedReader()?.readText(); LuiLogger.e(TAG, "API error: ${err?.take(200)}") } catch (_: Exception) {}
             throw e
         } finally {
             conn.disconnect()
@@ -436,8 +435,8 @@ class CloudModel(private val keyStore: SecureKeyStore, private val appContext: a
                 emit(GenerationResult.Done(fullText.toString()))
             }
         } catch (e: Exception) {
-            Log.e(TAG, "OpenAI streaming error", e)
-            try { val err = conn.errorStream?.bufferedReader()?.readText(); Log.e(TAG, "API error: $err") } catch (_: Exception) {}
+            LuiLogger.e(TAG, "OpenAI streaming error: ${e.message}", e)
+            try { val err = conn.errorStream?.bufferedReader()?.readText(); LuiLogger.e(TAG, "API error: ${err?.take(200)}") } catch (_: Exception) {}
             throw e
         } finally {
             conn.disconnect()

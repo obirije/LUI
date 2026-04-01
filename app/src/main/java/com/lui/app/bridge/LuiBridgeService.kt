@@ -136,8 +136,9 @@ class LuiBridgeService : Service() {
 
         val ip = getLocalIpAddress(this) ?: "No Wi-Fi"
         val port = server?.port ?: LuiBridgeServer.DEFAULT_PORT
+        val token = getAuthToken(this)
         val title = if (connections > 0) "Bridge: $connections agent(s) connected" else "Bridge active"
-        val body = "ws://$ip:$port"
+        val body = "ws://$ip:$port | Token: ${token.take(8)}...${token.takeLast(4)}"
 
         return Notification.Builder(this, CHANNEL_ID)
             .setContentTitle(title)

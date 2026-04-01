@@ -144,6 +144,12 @@ object NotificationActions {
      * Get the most recent 2FA code — checks Room first (persisted), then in-memory.
      */
     fun get2faCode(context: Context): ActionResult {
+        // Clean up expired 2FA codes (older than 5 minutes)
+        try {
+            val dao = LuiDatabase.getInstance(context).digestDao()
+            runBlocking { dao.deleteOlderThan(System.currentTimeMillis() - 5 * 60 * 1000) }
+        } catch (_: Exception) {}
+
         // Try Room first (survives restarts)
         try {
             val dao = LuiDatabase.getInstance(context).digestDao()
