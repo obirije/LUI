@@ -23,12 +23,13 @@ Today it's a launcher that thinks locally and acts instantly. Tomorrow it's the 
 ## What It Does Now
 
 - **Replaces your home screen** with a monochrome conversational canvas
-- **67 headless device tools** — hardware controls, communication, calendar, media, navigation, sensors, screen control, notifications, file management, and more
+- **70 headless device tools** — hardware controls, communication, calendar, media, navigation, sensors, screen control, notifications, file management, and more
 - **Native tool use** with Gemini, Claude, and OpenAI — structured function calling, not JSON-in-text hacks. Multi-turn tool chaining (up to 5 rounds per request).
 - **On-device LLM** (Qwen3.5 0.8B via llama.cpp) — no cloud, no API keys, fully private
 - **Full voice pipeline** — real-time STT, natural TTS with voice cloning (Pocket TTS), streaming conversation mode where the voice starts speaking while the LLM is still generating
 - **The Bouncer** — notification triage. Urgent notifications pass through, noise gets silently killed and batched into a persisted Evening Digest, 2FA codes are auto-extracted. Only active when LUI is your launcher.
 - **AccessibilityService** — read any app's screen, tap buttons, type text, scroll. The LLM can pilot any app on your phone.
+- **BYOS Bridge** — MCP-compatible WebSocket server. Remote agents connect, authenticate, and call any tool. Three permission tiers (Read/Standard/Full) with on-device approval for restricted tools. See [DOCS.md](DOCS.md).
 - **25 app deep links** — "play Despacito on Spotify", "search on Netflix", "find on YouTube"
 - **Sensor access** — proximity, ambient light, step counter
 - **Persistent conversations** across restarts (Room/SQLite)
@@ -78,7 +79,7 @@ You (voice / text)
 
 ---
 
-## Tool Count: 67
+## Tool Count: 70
 
 | Category | Tools | Examples |
 |:---------|:------|:--------|
@@ -97,6 +98,7 @@ You (voice / text)
 | Clipboard | 3 | Copy, read, share |
 | Audio | 1 | Route to speaker/bluetooth/earpiece |
 | System | 5 | Open settings, Wi-Fi/BT settings, wallpaper, bedtime mode |
+| Bridge | 3 | Start/stop bridge, bridge status |
 | Meta | 2 | Undo, triage config |
 
 ---
@@ -130,6 +132,8 @@ adb install app/build/outputs/apk/debug/app-debug.apk
 
 Models (LLM, TTS) are not bundled — push to device separately. See [MVP.md](MVP.md) for model downloads and staging paths.
 
+For the BYOS bridge and MCP protocol reference, see [DOCS.md](DOCS.md). For the full tool reference, see [INTERCEPTOR.md](INTERCEPTOR.md).
+
 **Tested on:** Motorola Edge 40 Neo (Dimensity 7030, 8GB RAM).
 
 ---
@@ -161,9 +165,9 @@ All three providers use **native structured tool use** — the model calls tools
 
 ## Roadmap
 
-**Shipped:** On-device launcher + LLM, voice conversation, 67 device tools with native function calling, notification triage (The Bouncer), accessibility screen control, 25 app deep links, sensor access, chat persistence, cloud API (Gemini/Claude/OpenAI), cloud TTS (Deepgram/ElevenLabs), Connection Hub, file-based debug logging.
+**Shipped:** On-device launcher + LLM, voice conversation, 70 device tools with native function calling, BYOS WebSocket bridge (MCP protocol, permission tiers, on-device approval), notification triage (The Bouncer), accessibility screen control, 25 app deep links, sensor access, chat persistence, cloud API (Gemini/Claude/OpenAI), cloud TTS (Deepgram/ElevenLabs), Connection Hub, file-based debug logging.
 
-**Next:** BYOS WebSocket bridge. Geofencing. Biometric overwatch. Ambient context.
+**Next:** Geofencing. Biometric overwatch. Ambient context. MCP relay for remote access beyond LAN.
 
 **Later:** Credit wallet. Generative UI. Web agent. MCP server.
 

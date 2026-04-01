@@ -35,6 +35,12 @@ class LuiBridgeService : Service() {
 
         val isRunning: Boolean get() = instance?.server != null
 
+        // Observable state for UI sync
+        private val stateListeners = mutableListOf<(Boolean) -> Unit>()
+        fun addStateListener(listener: (Boolean) -> Unit) { stateListeners.add(listener) }
+        fun removeStateListener(listener: (Boolean) -> Unit) { stateListeners.remove(listener) }
+        private fun notifyState(running: Boolean) { stateListeners.forEach { it(running) } }
+
         fun getConnectionUrl(context: Context): String? {
             if (!isRunning) return null
             val ip = getLocalIpAddress(context) ?: return null
@@ -95,6 +101,7 @@ class LuiBridgeService : Service() {
             val ip = getLocalIpAddress(this) ?: "unknown"
             LuiLogger.i(TAG, "Bridge started at ws://$ip:$port")
             updateNotification(0)
+            notifyState(true)
         } catch (e: Exception) {
             LuiLogger.e(TAG, "Failed to start bridge: ${e.message}", e)
             stopSelf()
@@ -111,6 +118,7 @@ class LuiBridgeService : Service() {
             LuiLogger.e(TAG, "Error stopping bridge: ${e.message}")
         }
         instance = null
+        notifyState(false)
         LuiLogger.i(TAG, "Bridge service stopped")
         super.onDestroy()
     }
@@ -122,10 +130,11 @@ class LuiBridgeService : Service() {
             val channel = NotificationChannel(
                 CHANNEL_ID,
                 "LUI Bridge",
-                NotificationManager.IMPORTANCE_LOW
+                NotificationManager.IMPORTANCE_DEFAULT
             ).apply {
                 description = "WebSocket bridge for remote agent connections"
                 setShowBadge(false)
+                setSound(null, null) // No sound, but visible
             }
             val nm = getSystemService(NotificationManager::class.java)
             nm.createNotificationChannel(channel)
@@ -145,11 +154,13 @@ class LuiBridgeService : Service() {
         val port = server?.port ?: LuiBridgeServer.DEFAULT_PORT
         val token = getAuthToken(this)
         val title = if (connections > 0) "Bridge: $connections agent(s) connected" else "Bridge active"
-        val body = "ws://$ip:$port | Token: ${token.take(8)}...${token.takeLast(4)}"
+        val body = "ws://$ip:$port"
+        val bigText = "URL: ws://$ip:$port\nToken: $token\nTier: ${BridgeProtocol.currentTier.name}"
 
         return Notification.Builder(this, CHANNEL_ID)
             .setContentTitle(title)
             .setContentText(body)
+            .setStyle(Notification.BigTextStyle().bigText(bigText))
             .setSmallIcon(R.drawable.status_dot)
             .setContentIntent(pendingIntent)
             .setOngoing(true)

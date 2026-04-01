@@ -157,6 +157,103 @@
         <!-- Divider -->
         <View android:layout_width="match_parent" android:layout_height="1dp" android:layout_marginTop="20dp" android:background="@color/lui_divider" />
 
+        <!-- ==================== BYOS Bridge ==================== -->
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="20dp"
+            android:text="BYOS Bridge"
+            android:textColor="@color/lui_white"
+            android:textSize="16sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:text="WebSocket server for remote AI agents. MCP protocol."
+            android:textColor="@color/lui_gray_dark"
+            android:textSize="11sp" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:gravity="center_vertical">
+            <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="Enable bridge" android:textColor="@color/lui_white" android:textSize="14sp" />
+            <Switch android:id="@+id/bridgeSwitch" android:layout_width="wrap_content" android:layout_height="wrap_content" android:thumbTint="@color/lui_white" android:trackTint="@color/lui_gray_dark" />
+        </LinearLayout>
+
+        <!-- Bridge Status -->
+        <TextView
+            android:id="@+id/bridgeStatusText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:textColor="@color/lui_gray"
+            android:textSize="12sp"
+            android:visibility="gone" />
+
+        <!-- Bridge URL -->
+        <TextView
+            android:id="@+id/bridgeUrlText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:fontFamily="@font/jetbrains_mono"
+            android:textColor="@color/lui_green"
+            android:textSize="12sp"
+            android:textIsSelectable="true"
+            android:visibility="gone" />
+
+        <!-- Bridge Token (tap to copy) -->
+        <TextView
+            android:id="@+id/bridgeTokenText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:fontFamily="@font/jetbrains_mono"
+            android:textColor="@color/lui_amber"
+            android:textSize="11sp"
+            android:textIsSelectable="true"
+            android:visibility="gone" />
+
+        <!-- Permission Tier -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:id="@+id/tierLabel"
+            android:layout_marginTop="12dp"
+            android:text="Permission tier"
+            android:textColor="@color/lui_gray"
+            android:textSize="12sp"
+            android:visibility="gone" />
+
+        <RadioGroup
+            android:id="@+id/tierGroup"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:orientation="horizontal"
+            android:visibility="gone">
+            <RadioButton android:id="@+id/rbReadOnly" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:buttonTint="@color/lui_gray" android:text="Read" android:textColor="@color/lui_white" android:textSize="12sp" />
+            <RadioButton android:id="@+id/rbStandard" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:buttonTint="@color/lui_gray" android:text="Standard" android:textColor="@color/lui_white" android:textSize="12sp" />
+            <RadioButton android:id="@+id/rbFull" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:buttonTint="@color/lui_gray" android:text="Full" android:textColor="@color/lui_white" android:textSize="12sp" />
+        </RadioGroup>
+
+        <TextView
+            android:id="@+id/tierDescription"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:textColor="@color/lui_gray_dark"
+            android:textSize="10sp"
+            android:visibility="gone" />
+
+        <!-- Divider -->
+        <View android:layout_width="match_parent" android:layout_height="1dp" android:layout_marginTop="20dp" android:background="@color/lui_divider" />
+
         <!-- Status -->
         <TextView
             android:id="@+id/hubStatusText"

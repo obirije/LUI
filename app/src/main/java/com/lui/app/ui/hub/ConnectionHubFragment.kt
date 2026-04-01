@@ -19,6 +19,9 @@ import com.lui.app.LuiViewModel
 import com.lui.app.R
 import com.lui.app.data.SecureKeyStore
 import com.lui.app.databinding.FragmentConnectionHubBinding
+import com.lui.app.bridge.BridgeProtocol
+import com.lui.app.bridge.LuiBridgeService
+import com.lui.app.bridge.LuiBridgeServer
 import com.lui.app.llm.CloudProvider
 import com.lui.app.llm.SpeechProvider
 import com.lui.app.voice.CloudTts
@@ -35,6 +38,8 @@ class ConnectionHubFragment : Fragment() {
     private val binding get() = _binding!!
     private lateinit var keyStore: SecureKeyStore
     private lateinit var viewModel: LuiViewModel
+
+    private var bridgeStateListener: ((Boolean) -> Unit)? = null
 
     private data class VoiceOption(val id: String, val name: String) {
         override fun toString() = name
@@ -87,6 +92,25 @@ class ConnectionHubFragment : Fragment() {
         if (keyStore.cloudSpeechEnabled && keyStore.getSpeechKey(keyStore.speechProvider) != null) {
             fetchVoices()
         }
+
+        // Bridge — observe state changes (e.g., when LLM starts/stops it)
+        bridgeStateListener = { running ->
+            binding.root.post {
+                binding.bridgeSwitch.setOnCheckedChangeListener(null) // prevent loop
+                binding.bridgeSwitch.isChecked = running
+                updateBridgeUI(running)
+                setupBridgeSwitchListener()
+            }
+        }
+        LuiBridgeService.addStateListener(bridgeStateListener!!)
+
+        binding.bridgeSwitch.isChecked = LuiBridgeService.isRunning
+        updateBridgeUI(LuiBridgeService.isRunning)
+        when (keyStore.bridgePermissionTier) {
+            "READ_ONLY" -> binding.rbReadOnly.isChecked = true
+            "STANDARD" -> binding.rbStandard.isChecked = true
+            "FULL" -> binding.rbFull.isChecked = true
+        }
     }
 
     private fun setupListeners() {
@@ -130,6 +154,31 @@ class ConnectionHubFragment : Fragment() {
                 }
             }
             override fun onNothingSelected(parent: AdapterView<*>?) {}
+        }
+
+        // Bridge
+        setupBridgeSwitchListener()
+
+        binding.tierGroup.setOnCheckedChangeListener { _, id ->
+            val tier = when (id) {
+                R.id.rbReadOnly -> "READ_ONLY"
+                R.id.rbStandard -> "STANDARD"
+                R.id.rbFull -> "FULL"
+                else -> "STANDARD"
+            }
+            keyStore.bridgePermissionTier = tier
+            BridgeProtocol.currentTier = BridgeProtocol.BridgeTier.valueOf(tier)
+            updateTierDescription(tier)
+        }
+
+        binding.bridgeTokenText.setOnClickListener {
+            val token = LuiBridgeService.getAuthToken(requireContext())
+            val clipboard = requireContext().getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+            clipboard.setPrimaryClip(android.content.ClipData.newPlainText("Bridge Token", token))
+            binding.bridgeTokenText.text = "Token copied!"
+            binding.bridgeTokenText.postDelayed({
+                binding.bridgeTokenText.text = "Token: $token (tap to copy)"
+            }, 2000)
         }
 
         // Test all
@@ -213,6 +262,54 @@ class ConnectionHubFragment : Fragment() {
         } catch (e: Exception) {
             emptyList()
         }
+    }
+
+    private fun setupBridgeSwitchListener() {
+        binding.bridgeSwitch.setOnCheckedChangeListener { _, enabled ->
+            if (enabled) {
+                val intent = android.content.Intent(requireContext(), LuiBridgeService::class.java)
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                    requireContext().startForegroundService(intent)
+                } else {
+                    requireContext().startService(intent)
+                }
+                binding.root.postDelayed({ updateBridgeUI(true) }, 1000)
+            } else {
+                requireContext().stopService(android.content.Intent(requireContext(), LuiBridgeService::class.java))
+                updateBridgeUI(false)
+            }
+        }
+    }
+
+    private fun updateBridgeUI(running: Boolean) {
+        val views = listOf(binding.bridgeStatusText, binding.bridgeUrlText, binding.bridgeTokenText,
+            binding.tierLabel, binding.tierGroup, binding.tierDescription)
+
+        if (running) {
+            views.forEach { it.visibility = View.VISIBLE }
+            val url = LuiBridgeService.getConnectionUrl(requireContext()) ?: "ws://unknown:${LuiBridgeServer.DEFAULT_PORT}"
+            val token = LuiBridgeService.getAuthToken(requireContext())
+            val tier = keyStore.bridgePermissionTier
+
+            binding.bridgeStatusText.text = "Bridge active"
+            binding.bridgeStatusText.setTextColor(ContextCompat.getColor(requireContext(), R.color.lui_green))
+            binding.bridgeUrlText.text = url
+            binding.bridgeTokenText.text = "Token: $token (tap to copy)"
+            updateTierDescription(tier)
+        } else {
+            views.forEach { it.visibility = View.GONE }
+        }
+    }
+
+    private fun updateTierDescription(tier: String) {
+        val desc = when (tier) {
+            "READ_ONLY" -> "16 tools: device state, sensors, battery, time, location. No side effects."
+            "STANDARD" -> "44 tools: + controls, navigation, apps, read personal data. Restricted tools prompt on-device."
+            "FULL" -> "70 tools: everything including SMS, calls, screen control. Use with trusted agents only."
+            else -> ""
+        }
+        binding.tierDescription.text = desc
+        binding.tierDescription.visibility = View.VISIBLE
     }
 
     private fun setSpeechFieldsEnabled(enabled: Boolean) {
@@ -313,5 +410,10 @@ class ConnectionHubFragment : Fragment() {
         override fun afterTextChanged(s: Editable?) { action() }
     }
 
-    override fun onDestroyView() { super.onDestroyView(); _binding = null }
+    override fun onDestroyView() {
+        bridgeStateListener?.let { LuiBridgeService.removeStateListener(it) }
+        bridgeStateListener = null
+        super.onDestroyView()
+        _binding = null
+    }
 }
