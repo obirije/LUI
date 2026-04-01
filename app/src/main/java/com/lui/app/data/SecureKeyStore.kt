@@ -77,4 +77,16 @@ class SecureKeyStore(context: Context) {
 
     val hasCloudSpeechConfigured: Boolean
         get() = cloudSpeechEnabled && getSpeechKey(speechProvider) != null
+
+    // ---- BYOS Bridge ----
+
+    fun getBridgeToken(): String? =
+        prefs.getString("bridge_token", null)?.takeIf { it.isNotBlank() }
+
+    fun saveBridgeToken(token: String) =
+        prefs.edit().putString("bridge_token", token).apply()
+
+    var isBridgeEnabled: Boolean
+        get() = prefs.getBoolean("bridge_enabled", false)
+        set(value) = prefs.edit().putBoolean("bridge_enabled", value).apply()
 }

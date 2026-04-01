@@ -1,6 +1,9 @@
 package com.lui.app.interceptor
 
 import android.content.Context
+import android.content.Intent
+import android.os.Build
+import com.lui.app.bridge.LuiBridgeService
 import com.lui.app.data.ToolCall
 import com.lui.app.helper.WallpaperHelper
 import com.lui.app.interceptor.actions.*
@@ -130,6 +133,38 @@ object ActionExecutor {
             }
 
             "undo" -> ActionResult.Failure("__UNDO__")
+
+            "start_bridge" -> {
+                try {
+                    val intent = Intent(context, LuiBridgeService::class.java)
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                        context.startForegroundService(intent)
+                    } else {
+                        context.startService(intent)
+                    }
+                    val token = LuiBridgeService.getAuthToken(context)
+                    ActionResult.Success("Bridge starting on port ${com.lui.app.bridge.LuiBridgeServer.DEFAULT_PORT}. Auth token: $token")
+                } catch (e: Exception) {
+                    ActionResult.Failure("Couldn't start bridge: ${e.message}")
+                }
+            }
+            "stop_bridge" -> {
+                try {
+                    context.stopService(Intent(context, LuiBridgeService::class.java))
+                    ActionResult.Success("Bridge stopped.")
+                } catch (e: Exception) {
+                    ActionResult.Failure("Couldn't stop bridge: ${e.message}")
+                }
+            }
+            "bridge_status" -> {
+                val url = LuiBridgeService.getConnectionUrl(context)
+                if (url != null) {
+                    val token = LuiBridgeService.getAuthToken(context)
+                    ActionResult.Success("Bridge running at $url. Token: $token")
+                } else {
+                    ActionResult.Success("Bridge is not running. Say 'start bridge' to enable.")
+                }
+            }
 
             "set_wallpaper" -> {
                 WallpaperHelper.setLuiWallpaper(context)

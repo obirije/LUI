@@ -71,7 +71,9 @@ class VoiceEngine(private val context: Context) {
         }
     }
 
-    private val useCloudTts: Boolean get() = cloudTts?.isEnabled == true
+    // Fall back to local TTS if cloud TTS fails repeatedly
+    private var cloudTtsFailCount = 0
+    private val useCloudTts: Boolean get() = cloudTts?.isEnabled == true && cloudTtsFailCount < 3
 
     private fun initPocketTts() {
         val ttsDir = File(context.filesDir, "models/tts/sherpa-onnx-pocket-tts-int8-2026-01-26")
@@ -251,7 +253,30 @@ class VoiceEngine(private val context: Context) {
                 withContext(Dispatchers.Main) {
                     if (_state.value != State.SPEAKING) _state.value = State.SPEAKING
                 }
-                cloudTts!!.speakStreaming(sentence) { track -> audioTrack = track }
+                var played = false
+                cloudTts!!.speakStreaming(sentence) { track ->
+                    audioTrack = track
+                    if (track != null) played = true
+                }
+                if (!played) {
+                    // Cloud TTS failed — fall back to local for this sentence and future ones
+                    cloudTtsFailCount++
+                    com.lui.app.helper.LuiLogger.w("TTS", "Cloud TTS failed ($cloudTtsFailCount), falling back to local")
+                    if (tts != null && referenceAudio != null) {
+                        // Speak locally
+                        try {
+                            val config = makeConfig()
+                            val audio = tts!!.generateWithConfig(sentence.trim(), config)
+                            val sr = if (audio.sampleRate > 0) audio.sampleRate else TTS_SAMPLE_RATE
+                            withContext(Dispatchers.Main) {
+                                if (_state.value != State.SPEAKING) _state.value = State.SPEAKING
+                            }
+                            playAudio(audio.samples, sr)
+                        } catch (e: Exception) {
+                            com.lui.app.helper.LuiLogger.e("TTS", "Local fallback also failed", e)
+                        }
+                    }
+                }
             }
         }
     }
@@ -262,7 +287,7 @@ class VoiceEngine(private val context: Context) {
     fun speakSentence(sentence: String) {
         if (sentence.isBlank()) return
 
-        Log.w(TAG, "speakSentence: useCloud=$useCloudTts, cloudEnabled=${cloudTts?.isEnabled}, sentence=${sentence.take(30)}")
+        com.lui.app.helper.LuiLogger.i("TTS", "speakSentence: useCloud=$useCloudTts, cloudEnabled=${cloudTts?.isEnabled}, localTts=${tts != null}, refAudio=${referenceAudio != null}, sentence=${sentence.take(40)}")
 
         if (useCloudTts) {
             ensureCloudPlayer()
@@ -298,6 +323,8 @@ class VoiceEngine(private val context: Context) {
         if (text.isBlank()) {
             _state.value = State.IDLE; if (conversationMode) autoListen(); return
         }
+
+        com.lui.app.helper.LuiLogger.i("TTS", "speak: useCloud=$useCloudTts, localTts=${tts != null}, refAudio=${referenceAudio != null}, text=${text.take(40)}")
 
         if (useCloudTts) {
             scope.launch {

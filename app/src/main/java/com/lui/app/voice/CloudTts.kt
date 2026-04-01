@@ -28,12 +28,14 @@ class CloudTts(private val keyStore: SecureKeyStore) {
         val key = keyStore.getSpeechKey(provider) ?: return@withContext
 
         try {
+            com.lui.app.helper.LuiLogger.i("TTS", "Cloud TTS: provider=$provider, voice=${keyStore.selectedVoiceId}, text=${text.take(40)}")
             when (provider) {
                 SpeechProvider.DEEPGRAM -> speakDeepgram(text, key, audioTrackRef)
                 SpeechProvider.ELEVENLABS -> speakElevenLabs(text, key, audioTrackRef)
             }
+            com.lui.app.helper.LuiLogger.i("TTS", "Cloud TTS completed")
         } catch (e: Exception) {
-            Log.e(TAG, "Cloud TTS failed", e)
+            com.lui.app.helper.LuiLogger.e("TTS", "Cloud TTS failed: ${e.message}", e)
         }
     }
 
@@ -49,9 +51,11 @@ class CloudTts(private val keyStore: SecureKeyStore) {
         }
         conn.outputStream.write(JSONObject().put("text", text).toString().toByteArray())
 
-        if (conn.responseCode !in 200..299) {
+        val code = conn.responseCode
+        com.lui.app.helper.LuiLogger.d("TTS", "Deepgram response code: $code")
+        if (code !in 200..299) {
             val err = conn.errorStream?.bufferedReader()?.readText()
-            Log.e(TAG, "Deepgram TTS error ${conn.responseCode}: $err")
+            com.lui.app.helper.LuiLogger.e("TTS", "Deepgram TTS error $code: ${err?.take(200)}")
             conn.disconnect()
             return
         }
@@ -123,9 +127,11 @@ class CloudTts(private val keyStore: SecureKeyStore) {
             .put("model_id", "eleven_flash_v2_5")
             .toString().toByteArray())
 
-        if (conn.responseCode !in 200..299) {
+        val code = conn.responseCode
+        com.lui.app.helper.LuiLogger.d("TTS", "ElevenLabs response code: $code")
+        if (code !in 200..299) {
             val err = conn.errorStream?.bufferedReader()?.readText()
-            Log.e(TAG, "ElevenLabs TTS error ${conn.responseCode}: $err")
+            com.lui.app.helper.LuiLogger.e("TTS", "ElevenLabs TTS error $code: ${err?.take(200)}")
             conn.disconnect()
             return
         }

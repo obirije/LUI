@@ -19,6 +19,7 @@ object Interceptor {
         "now_playing", "read_clipboard", "screen_time",
         "read_screen", "find_and_tap", "type_text", "scroll_down", "press_back", "press_home", "open_lui",
         "lock_screen", "take_screenshot", "split_screen", "set_screen_timeout", "keep_screen_on", "bedtime_mode",
+        "start_bridge", "stop_bridge", "bridge_status",
         "get_steps", "get_proximity", "get_light",
         "storage_info", "wifi_info", "download_file", "query_media", "route_audio",
         "get_digest", "clear_digest", "get_2fa_code", "config_triage"
@@ -431,6 +432,15 @@ object Interceptor {
             return ToolCall("route_audio", mapOf("target" to "bluetooth"))
         if (lower.matches(Regex(".*(?:switch|route|output)\\s+(?:audio\\s+)?(?:to\\s+)?(?:earpiece|phone).*")))
             return ToolCall("route_audio", mapOf("target" to "earpiece"))
+
+        // ── BYOS Bridge ──
+
+        if (lower.matches(Regex(".*(?:start|enable|turn on|activate)\\s+(?:the\\s+)?(?:bridge|websocket|byos|server).*")))
+            return ToolCall("start_bridge")
+        if (lower.matches(Regex(".*(?:stop|disable|turn off|deactivate)\\s+(?:the\\s+)?(?:bridge|websocket|byos|server).*")))
+            return ToolCall("stop_bridge")
+        if (lower.matches(Regex(".*(?:bridge|websocket|byos|server)\\s+(?:status|info|url|token).*")))
+            return ToolCall("bridge_status")
 
         // ── Open settings ──
 

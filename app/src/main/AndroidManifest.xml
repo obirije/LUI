@@ -48,6 +48,11 @@
     <!-- Wake lock -->
     <uses-permission android:name="android.permission.WAKE_LOCK" />
 
+    <!-- Foreground service (bridge) -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+    <uses-permission android:name="android.permission.CHANGE_WIFI_STATE" />
+
     <!-- Activity recognition (step counter) -->
     <uses-permission android:name="android.permission.ACTIVITY_RECOGNITION" />
 
@@ -121,6 +126,16 @@
                 android:name="android.appwidget.provider"
                 android:resource="@xml/widget_lui_info" />
         </receiver>
+
+        <!-- BYOS Bridge (WebSocket server for remote agents) -->
+        <service
+            android:name=".bridge.LuiBridgeService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="WebSocket bridge for remote AI agent connections" />
+        </service>
 
         <!-- Accessibility Service (Tier 4: screen reading + tap simulation) -->
         <service

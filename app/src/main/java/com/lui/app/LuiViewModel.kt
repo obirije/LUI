@@ -220,8 +220,10 @@ class LuiViewModel(application: Application) : AndroidViewModel(application) {
                             }
                             is GenerationResult.Done -> {
                                 val cleaned = SystemPrompt.cleanResponse(r.text)
-                                replaceLastWithLui(cleaned.ifBlank { resultMsg }, streaming = false)
-                                if (voiceEngine.conversationMode) voiceEngine.speak(cleaned.ifBlank { resultMsg })
+                                val toSpeak = cleaned.ifBlank { resultMsg }
+                                replaceLastWithLui(toSpeak, streaming = false)
+                                LuiLogger.d("VOICE", "Force-Done: convMode=${voiceEngine.conversationMode} text=${toSpeak.take(50)}")
+                                if (voiceEngine.conversationMode) voiceEngine.speak(toSpeak)
                             }
                             is GenerationResult.ToolUse -> {} // shouldn't chain here
                         }
@@ -329,6 +331,7 @@ class LuiViewModel(application: Application) : AndroidViewModel(application) {
         }
         lastActionResult = response
         addMessage(ChatMessage(text = response, sender = Sender.LUI))
+        LuiLogger.d("VOICE", "ToolExec: convMode=${voiceEngine.conversationMode} text=${response.take(50)}")
         if (voiceEngine.conversationMode) voiceEngine.speak(response)
     }
 
@@ -556,10 +559,16 @@ class LuiViewModel(application: Application) : AndroidViewModel(application) {
                             LuiLogger.llmResponse(fullResponse)
                             lastActionResult = fullResponse
                             replaceLastWithLui(fullResponse, streaming = false)
+                            LuiLogger.d("VOICE", "Done: convMode=${voiceEngine.conversationMode} pipelineStarted=$pipelineStarted remaining=${fullResponse.length - lastSpokenIndex}")
                             if (voiceEngine.conversationMode) {
-                                val remaining = fullResponse.substring(lastSpokenIndex).trim()
-                                if (remaining.isNotBlank()) voiceEngine.speakSentence(remaining)
-                                voiceEngine.speakDone()
+                                if (!pipelineStarted) {
+                                    // All text arrived at once (no streaming tokens) — speak the whole thing
+                                    voiceEngine.speak(fullResponse)
+                                } else {
+                                    val remaining = fullResponse.substring(lastSpokenIndex).trim()
+                                    if (remaining.isNotBlank()) voiceEngine.speakSentence(remaining)
+                                    voiceEngine.speakDone()
+                                }
                             }
                         }
                     }

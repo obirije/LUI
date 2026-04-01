@@ -167,6 +167,11 @@ object ToolRegistry {
         ToolDef("route_audio", "Route audio output to speaker, bluetooth, or earpiece",
             listOf(ParamDef("target", description = "speaker, bluetooth, or earpiece", required = true))),
 
+        // BYOS Bridge
+        ToolDef("start_bridge", "Start the BYOS WebSocket bridge so remote agents can connect and use LUI's tools"),
+        ToolDef("stop_bridge", "Stop the BYOS WebSocket bridge"),
+        ToolDef("bridge_status", "Get the bridge status: running, URL, connected agents, auth token"),
+
         // Meta
         ToolDef("undo", "Undo/reverse the last action where possible")
     )
