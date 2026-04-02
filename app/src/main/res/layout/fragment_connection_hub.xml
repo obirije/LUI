@@ -251,6 +251,64 @@
             android:textSize="10sp"
             android:visibility="gone" />
 
+        <!-- ==================== Relay ==================== -->
+
+        <TextView
+            android:id="@+id/relaySection"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:text="Remote Relay"
+            android:textColor="@color/lui_gray"
+            android:textSize="13sp"
+            android:textStyle="bold"
+            android:visibility="gone" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:id="@+id/relayDescription"
+            android:layout_marginTop="4dp"
+            android:text="Connect to a relay server for access beyond your local network."
+            android:textColor="@color/lui_gray_dark"
+            android:textSize="10sp"
+            android:visibility="gone" />
+
+        <LinearLayout
+            android:id="@+id/relayToggleRow"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:gravity="center_vertical"
+            android:visibility="gone">
+            <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="Enable relay" android:textColor="@color/lui_white" android:textSize="13sp" />
+            <Switch android:id="@+id/relaySwitch" android:layout_width="wrap_content" android:layout_height="wrap_content" android:thumbTint="@color/lui_white" android:trackTint="@color/lui_gray_dark" />
+        </LinearLayout>
+
+        <EditText
+            android:id="@+id/relayUrlField"
+            android:layout_width="match_parent"
+            android:layout_height="44dp"
+            android:layout_marginTop="6dp"
+            android:background="@drawable/input_background"
+            android:hint="wss://relay.example.com"
+            android:inputType="textUri"
+            android:paddingStart="16dp"
+            android:paddingEnd="16dp"
+            android:textColor="@color/lui_white"
+            android:textColorHint="@color/lui_gray_dark"
+            android:textSize="12sp"
+            android:visibility="gone" />
+
+        <TextView
+            android:id="@+id/relayStatusText"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:textColor="@color/lui_gray"
+            android:textSize="11sp"
+            android:visibility="gone" />
+
         <!-- Divider -->
         <View android:layout_width="match_parent" android:layout_height="1dp" android:layout_marginTop="20dp" android:background="@color/lui_divider" />
 

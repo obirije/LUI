@@ -34,6 +34,7 @@ class LuiBridgeService : Service() {
             private set
 
         val isRunning: Boolean get() = instance?.server != null
+        val isRelayConnected: Boolean get() = instance?.relay?.isConnected == true
 
         // Observable state for UI sync
         private val stateListeners = mutableListOf<(Boolean) -> Unit>()
@@ -69,6 +70,7 @@ class LuiBridgeService : Service() {
     }
 
     private var server: LuiBridgeServer? = null
+    private var relay: RelayClient? = null
 
     override fun onCreate() {
         super.onCreate()
@@ -102,6 +104,20 @@ class LuiBridgeService : Service() {
 
             val ip = getLocalIpAddress(this) ?: "unknown"
             LuiLogger.i(TAG, "Bridge started at ws://$ip:$port")
+
+            // Start relay if configured
+            val keyStore = SecureKeyStore(this)
+            val relayUrl = keyStore.relayUrl
+            if (keyStore.relayEnabled && relayUrl != null) {
+                relay = RelayClient(applicationContext, relayUrl, token).apply {
+                    onStatusChange = { status ->
+                        LuiLogger.i(TAG, "Relay: $status")
+                        updateNotification(server?.connectedCount ?: 0)
+                    }
+                    connect()
+                }
+            }
+
             updateNotification(0)
             notifyState(true)
         } catch (e: Exception) {
@@ -114,6 +130,8 @@ class LuiBridgeService : Service() {
 
     override fun onDestroy() {
         BridgeEvents.setServer(null)
+        relay?.disconnect()
+        relay = null
         try {
             server?.stop(1000)
             server = null
@@ -158,7 +176,8 @@ class LuiBridgeService : Service() {
         val token = getAuthToken(this)
         val title = if (connections > 0) "Bridge: $connections agent(s) connected" else "Bridge active"
         val body = "ws://$ip:$port"
-        val bigText = "URL: ws://$ip:$port\nToken: $token\nTier: ${BridgeProtocol.currentTier.name}"
+        val relayStatus = if (relay?.isConnected == true) "\nRelay: connected" else if (relay != null) "\nRelay: reconnecting" else ""
+        val bigText = "URL: ws://$ip:$port\nToken: $token\nTier: ${BridgeProtocol.currentTier.name}$relayStatus"
 
         return Notification.Builder(this, CHANNEL_ID)
             .setContentTitle(title)

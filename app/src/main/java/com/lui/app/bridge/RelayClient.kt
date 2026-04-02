@@ -53,7 +53,13 @@ class RelayClient(
     private fun doConnect() {
         if (!isRunning) return
 
-        val uri = URI("$relayUrl?device_token=$deviceToken")
+        // Append /device path and token if not already in URL
+        val separator = if (relayUrl.contains("?")) "&" else "?"
+        val fullUrl = if (relayUrl.contains("device_token")) relayUrl
+                      else if (relayUrl.endsWith("/device") || relayUrl.endsWith("/device/"))
+                          "$relayUrl${separator}device_token=$deviceToken"
+                      else "$relayUrl/device?device_token=$deviceToken"
+        val uri = URI(fullUrl)
         LuiLogger.i(TAG, "Connecting to relay: ${uri.host}")
         onStatusChange?.invoke("connecting")
 

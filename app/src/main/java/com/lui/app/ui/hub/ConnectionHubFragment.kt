@@ -159,6 +159,17 @@ class ConnectionHubFragment : Fragment() {
         // Bridge
         setupBridgeSwitchListener()
 
+        // Relay
+        binding.relaySwitch.isChecked = keyStore.relayEnabled
+        binding.relayUrlField.setText(keyStore.relayUrl ?: "")
+        binding.relayUrlField.addTextChangedListener(watcher {
+            keyStore.relayUrl = binding.relayUrlField.text.toString()
+        })
+        binding.relaySwitch.setOnCheckedChangeListener { _, enabled ->
+            keyStore.relayEnabled = enabled
+            updateRelayStatus()
+        }
+
         binding.tierGroup.setOnCheckedChangeListener { _, id ->
             val tier = when (id) {
                 R.id.rbReadOnly -> "READ_ONLY"
@@ -281,12 +292,33 @@ class ConnectionHubFragment : Fragment() {
         }
     }
 
+    private fun updateRelayStatus() {
+        val connected = LuiBridgeService.isRelayConnected
+        val enabled = keyStore.relayEnabled
+        if (enabled && connected) {
+            binding.relayStatusText.text = "Relay connected"
+            binding.relayStatusText.setTextColor(ContextCompat.getColor(requireContext(), R.color.lui_green))
+        } else if (enabled) {
+            binding.relayStatusText.text = "Relay enabled — will connect when bridge restarts"
+            binding.relayStatusText.setTextColor(ContextCompat.getColor(requireContext(), R.color.lui_amber))
+        } else {
+            binding.relayStatusText.text = "Relay disabled"
+            binding.relayStatusText.setTextColor(ContextCompat.getColor(requireContext(), R.color.lui_gray_dark))
+        }
+        binding.relayStatusText.visibility = View.VISIBLE
+    }
+
     private fun updateBridgeUI(running: Boolean) {
         val views = listOf(binding.bridgeStatusText, binding.bridgeUrlText, binding.bridgeTokenText,
             binding.tierLabel, binding.tierGroup, binding.tierDescription)
 
+        val relayViews = listOf(binding.relaySection, binding.relayDescription,
+            binding.relayToggleRow, binding.relayUrlField, binding.relayStatusText)
+
         if (running) {
             views.forEach { it.visibility = View.VISIBLE }
+            relayViews.forEach { it.visibility = View.VISIBLE }
+            updateRelayStatus()
             val url = LuiBridgeService.getConnectionUrl(requireContext()) ?: "ws://unknown:${LuiBridgeServer.DEFAULT_PORT}"
             val token = LuiBridgeService.getAuthToken(requireContext())
             val tier = keyStore.bridgePermissionTier
@@ -298,6 +330,7 @@ class ConnectionHubFragment : Fragment() {
             updateTierDescription(tier)
         } else {
             views.forEach { it.visibility = View.GONE }
+            relayViews.forEach { it.visibility = View.GONE }
         }
     }
 
