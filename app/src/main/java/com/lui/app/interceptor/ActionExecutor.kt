@@ -3,6 +3,7 @@ package com.lui.app.interceptor
 import android.content.Context
 import android.content.Intent
 import android.os.Build
+import com.lui.app.bridge.AgentRegistry
 import com.lui.app.bridge.LuiBridgeService
 import com.lui.app.data.ToolCall
 import com.lui.app.helper.WallpaperHelper
@@ -156,6 +157,32 @@ object ActionExecutor {
                     ActionResult.Failure("Couldn't stop bridge: ${e.message}")
                 }
             }
+            "list_agents" -> {
+                val result = AgentRegistry.listAgents()
+                val count = result.optInt("count", 0)
+                if (count == 0) {
+                    ActionResult.Success("No agents registered. Remote agents can register via the bridge.")
+                } else {
+                    val agents = result.optJSONArray("agents")
+                    val sb = StringBuilder("$count agent(s) registered:\n")
+                    for (i in 0 until (agents?.length() ?: 0)) {
+                        val a = agents!!.getJSONObject(i)
+                        sb.appendLine("- ${a.getString("name")}: ${a.optString("description", "")}")
+                    }
+                    ActionResult.Success(sb.toString().trim())
+                }
+            }
+            "instruct_agent" -> {
+                val agentName = toolCall.params["agent"] ?: ""
+                val instruction = toolCall.params["instruction"] ?: ""
+                if (agentName.isBlank() || instruction.isBlank()) {
+                    ActionResult.Failure("Need both agent name and instruction.")
+                } else {
+                    val response = AgentRegistry.sendInstruction(agentName, instruction)
+                    ActionResult.Success("$agentName: $response")
+                }
+            }
+
             "bridge_status" -> {
                 val url = LuiBridgeService.getConnectionUrl(context)
                 if (url != null) {

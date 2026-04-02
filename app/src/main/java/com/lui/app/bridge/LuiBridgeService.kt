@@ -98,6 +98,8 @@ class LuiBridgeService : Service() {
                 start()
             }
 
+            BridgeEvents.setServer(server)
+
             val ip = getLocalIpAddress(this) ?: "unknown"
             LuiLogger.i(TAG, "Bridge started at ws://$ip:$port")
             updateNotification(0)
@@ -111,6 +113,7 @@ class LuiBridgeService : Service() {
     }
 
     override fun onDestroy() {
+        BridgeEvents.setServer(null)
         try {
             server?.stop(1000)
             server = null

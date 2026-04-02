@@ -73,6 +73,7 @@ class LuiBridgeServer(
             LuiLogger.i(TAG, "Auto-authenticated via header/query: $address")
             conn.send("""{"jsonrpc":"2.0","id":"auth","result":{"authenticated":true,"message":"Authenticated via header. Send 'initialize' to begin MCP session."}}""")
             onConnectionChange?.invoke(connectedCount)
+            BridgeEvents.onBridgeConnect(address)
         }
         // Otherwise, wait for auth message
     }
@@ -97,17 +98,33 @@ class LuiBridgeServer(
             return
         }
 
+        // Handle agent registration (needs the connection object)
+        try {
+            val json = org.json.JSONObject(message)
+            if (json.optString("method") == "lui/register") {
+                val id = json.opt("id")
+                val result = AgentRegistry.registerAgent(conn, json.optJSONObject("params"))
+                val resp = org.json.JSONObject().put("jsonrpc", "2.0").put("result", result)
+                if (id != null) resp.put("id", id)
+                conn.send(resp.toString())
+                return
+            }
+        } catch (_: Exception) {}
+
         // Authenticated — handle protocol message
         val response = BridgeProtocol.handleMessage(appContext, message)
         if (response != null) conn.send(response)
     }
 
     override fun onClose(conn: WebSocket, code: Int, reason: String?, remote: Boolean) {
+        val wasAuthenticated = conn in authenticatedClients
         authenticatedClients.remove(conn)
+        AgentRegistry.unregisterAgent(conn)
         messageTimestamps.remove(conn)
         val address = conn.remoteSocketAddress?.toString() ?: "unknown"
         LuiLogger.i(TAG, "Connection closed: $address (code=$code)")
         onConnectionChange?.invoke(connectedCount)
+        if (wasAuthenticated) BridgeEvents.onBridgeDisconnect(address)
     }
 
     override fun onError(conn: WebSocket?, ex: Exception?) {
@@ -129,6 +146,7 @@ class LuiBridgeServer(
                     LuiLogger.i(TAG, "Authenticated: $address")
                     conn.send("""{"jsonrpc":"2.0","id":"auth","result":{"authenticated":true,"message":"Authenticated. Send 'initialize' to begin MCP session. ${com.lui.app.llm.ToolRegistry.tools.size} tools available."}}""")
                     onConnectionChange?.invoke(connectedCount)
+                    BridgeEvents.onBridgeConnect(address)
                     true
                 } else {
                     val ip = conn.remoteSocketAddress?.toString()?.substringBefore(":") ?: ""

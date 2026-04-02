@@ -107,4 +107,14 @@ class SecureKeyStore(context: Context) {
     var bridgePermissionTier: String
         get() = prefs.getString("bridge_tier", "STANDARD") ?: "STANDARD"
         set(value) = prefs.edit().putString("bridge_tier", value).apply()
+
+    // ---- Relay ----
+
+    var relayUrl: String?
+        get() = prefs.getString("relay_url", null)?.takeIf { it.isNotBlank() }
+        set(value) = prefs.edit().putString("relay_url", value ?: "").apply()
+
+    var relayEnabled: Boolean
+        get() = prefs.getBoolean("relay_enabled", false)
+        set(value) = prefs.edit().putBoolean("relay_enabled", value).apply()
 }

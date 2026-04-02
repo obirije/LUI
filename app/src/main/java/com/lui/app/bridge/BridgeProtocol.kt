@@ -107,6 +107,17 @@ object BridgeProtocol {
                 "tools/list" -> handleToolsList(id)
                 "tools/call" -> handleToolsCall(context, id, json.optJSONObject("params"))
 
+                // ── Events ──
+                "lui/subscribe" -> rpcResult(id, BridgeEvents.handleSubscribe(json.optJSONObject("params")))
+
+                // ── Agent Registry (bidirectional) ──
+                "lui/register" -> {
+                    // Need the WebSocket connection to register — handled by server
+                    rpcError(id, -32601, "Use the WebSocket-level register handler")
+                }
+                "lui/agents" -> rpcResult(id, AgentRegistry.listAgents())
+                "lui/response" -> rpcResult(id, AgentRegistry.handleAgentResponse(json.optJSONObject("params")))
+
                 // ── Resources (device state as MCP resource) ──
                 "resources/list" -> handleResourcesList(id)
                 "resources/read" -> handleResourcesRead(context, id, json.optJSONObject("params"))

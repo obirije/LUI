@@ -5,6 +5,7 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
+import com.lui.app.bridge.BridgeEvents
 import com.lui.app.data.DigestEntity
 import com.lui.app.data.LuiDatabase
 import kotlinx.coroutines.CoroutineScope
@@ -105,6 +106,18 @@ class LuiNotificationListener : NotificationListenerService() {
 
         LuiLogger.d("BOUNCER", "[${bucket.name}] $app: $title — ${text.take(60)}")
 
+        // Stream event to connected bridge agents
+        BridgeEvents.onNotification(app, title, text, bucket.name)
+
+        // Detect incoming/missed calls
+        if (app.contains("dialer") || app.contains("phone")) {
+            if (title.contains("Incoming") || text.contains("Incoming")) {
+                BridgeEvents.onCallIncoming(title)
+            } else if (title.contains("Missed") || text.contains("Missed")) {
+                BridgeEvents.onCallMissed(title)
+            }
+        }
+
         when (bucket) {
             Bucket.URGENT -> {
                 synchronized(recentNotifications) {
@@ -114,7 +127,6 @@ class LuiNotificationListener : NotificationListenerService() {
             }
             Bucket.NOISE -> {
                 try { cancelNotification(sbn.key) } catch (_: Exception) {}
-                // Persist to Room
                 scope.launch {
                     digestDao.insert(DigestEntity(
                         app = app, title = title, text = text,
@@ -124,7 +136,6 @@ class LuiNotificationListener : NotificationListenerService() {
             }
             Bucket.AUTO_ACTION -> {
                 val code = extract2faCode(text) ?: extract2faCode(title)
-                // Persist to Room
                 scope.launch {
                     digestDao.insert(DigestEntity(
                         app = app, title = title, text = text,
@@ -138,8 +149,8 @@ class LuiNotificationListener : NotificationListenerService() {
                         while (pending2faCodes.size > 10) pending2faCodes.removeAt(pending2faCodes.size - 1)
                     }
                     LuiLogger.i("BOUNCER", "2FA code captured: $code from $app")
+                    BridgeEvents.on2faCode(code, app)
                 }
-                // Also keep in recent
                 synchronized(recentNotifications) {
                     recentNotifications.add(0, info)
                     while (recentNotifications.size > MAX_MEMORY) recentNotifications.removeAt(recentNotifications.size - 1)
