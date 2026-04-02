@@ -204,6 +204,151 @@ Error response:
 ← {"jsonrpc":"2.0","id":6,"result":{}}
 ```
 
+### Event Streaming
+
+LUI pushes real-time events to all authenticated clients as MCP notifications (no response expected):
+
+```json
+← {"jsonrpc":"2.0","method":"notifications/lui/event","params":{
+    "type":"notification",
+    "timestamp":1775088246884,
+    "data":{"app":"com.whatsapp","title":"Mom","text":"Are you coming?","bucket":"URGENT"}
+  }}
+```
+
+**Event types:**
+
+| Type | When it fires | Data fields |
+|:-----|:-------------|:------------|
+| `notification` | Any notification received | `app`, `title`, `text`, `bucket` |
+| `notification_2fa` | 2FA code captured | `code`, `app` |
+| `call_incoming` | Incoming phone call | `caller` |
+| `call_missed` | Missed call | `caller` |
+| `battery_change` | Charging started/stopped | `level`, `charging` |
+| `bridge_connect` | Agent connected | `address` |
+| `bridge_disconnect` | Agent disconnected | `address` |
+| `media_change` | Track changed | `title`, `artist`, `playing` |
+
+Events stream automatically — no subscription needed. Agents just listen on the WebSocket.
+
+### Agent Registration (Bidirectional)
+
+Agents can register themselves so LUI can send instructions TO them — like Telegram/WhatsApp for Hermes/OpenClaw.
+
+**Register:**
+```json
+→ {"jsonrpc":"2.0","id":1,"method":"lui/register","params":{
+    "name":"deploy-bot",
+    "description":"Handles deployments and test runs",
+    "capabilities":["deploy","test","status","rollback"]
+  }}
+← {"jsonrpc":"2.0","id":1,"result":{"registered":true,"name":"deploy-bot","message":"..."}}
+```
+
+**List agents:**
+```json
+→ {"jsonrpc":"2.0","id":2,"method":"lui/agents"}
+← {"jsonrpc":"2.0","id":2,"result":{"agents":[{"name":"deploy-bot","description":"...","capabilities":["deploy","test"],"connected":true}],"count":1}}
+```
+
+**Receive instruction from user:**
+```json
+← {"jsonrpc":"2.0","id":"instr_1775088348478","method":"lui/instruction","params":{
+    "instruction":"run test suite",
+    "from":"user",
+    "timestamp":1775088348478
+  }}
+```
+
+**Respond to instruction:**
+```json
+→ {"jsonrpc":"2.0","id":"resp","method":"lui/response","params":{
+    "instruction_id":"instr_1775088348478",
+    "result":"All 42 tests passed. Staging URL: https://staging.example.com"
+  }}
+```
+
+### Full Agent Example (Python)
+
+```python
+import websocket, json, threading, time
+
+ws = websocket.create_connection("ws://PHONE_IP:8765", timeout=30)
+
+# Auth
+ws.send(json.dumps({"method":"auth","params":{"token":"YOUR_TOKEN"}}))
+ws.recv()
+
+# Register as agent
+ws.send(json.dumps({
+    "jsonrpc":"2.0","id":1,
+    "method":"lui/register",
+    "params":{
+        "name":"deploy-bot",
+        "description":"Handles CI/CD",
+        "capabilities":["deploy","test","rollback"]
+    }
+}))
+
+# Listen for events and instructions
+def listen():
+    while True:
+        msg = json.loads(ws.recv())
+        method = msg.get("method", "")
+
+        if method == "notifications/lui/event":
+            event = msg["params"]
+            print(f"[EVENT] {event['type']}: {event['data']}")
+
+            # Auto-handle 2FA codes
+            if event["type"] == "notification_2fa":
+                print(f"  → 2FA code: {event['data']['code']}")
+
+        elif method == "lui/instruction":
+            instruction = msg["params"]["instruction"]
+            instr_id = msg.get("id", "")
+            print(f"[INSTRUCTION] {instruction}")
+
+            # Execute and respond
+            result = execute_task(instruction)
+            ws.send(json.dumps({
+                "jsonrpc":"2.0","id":"resp",
+                "method":"lui/response",
+                "params":{"instruction_id": instr_id, "result": result}
+            }))
+
+def execute_task(instruction):
+    # Your agent logic here
+    if "test" in instruction:
+        return "All 42 tests passed."
+    elif "deploy" in instruction:
+        return "Deployed to staging. URL: https://staging.example.com"
+    return f"Executed: {instruction}"
+
+threading.Thread(target=listen, daemon=True).start()
+print("Agent listening. User can say 'tell deploy-bot to run tests'")
+
+while True:
+    time.sleep(1)
+```
+
+The user triggers agent instructions by saying things like:
+- **"tell deploy-bot to run tests"**
+- **"ask deploy-bot for status"**
+- **"instruct deploy-bot to rollback"**
+
+LUI's LLM figures out the agent name and instruction, calls the `instruct_agent` tool, forwards it over the bridge, waits for the response, and shows the result.
+
+### Relay (Remote Access)
+
+For access beyond the local network, LUI can connect outbound to a relay server. Configure in Connection Hub with a relay URL:
+
+```
+wss://your-relay.example.com/connect?device_token=XXX
+```
+
+LUI connects out (no inbound port needed), the relay forwards messages bidirectionally. Any agent connecting to the relay can reach LUI from anywhere. Auto-reconnects with exponential backoff.
+
 ---
 
 ## Permission Tiers
@@ -231,6 +376,7 @@ Device state queries only. No side effects.
 | `read_clipboard` | Clipboard contents |
 | `screen_time` | App usage stats for today |
 | `bridge_status` | Bridge connection info |
+| `list_agents` | List registered remote agents |
 | `read_screen` | Read current app screen content |
 
 ### STANDARD (44 tools) — Default

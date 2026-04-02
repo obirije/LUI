@@ -29,7 +29,7 @@ Today it's a launcher that thinks locally and acts instantly. Tomorrow it's the 
 - **Full voice pipeline** — real-time STT, natural TTS with voice cloning (Pocket TTS), streaming conversation mode where the voice starts speaking while the LLM is still generating
 - **The Bouncer** — notification triage. Urgent notifications pass through, noise gets silently killed and batched into a persisted Evening Digest, 2FA codes are auto-extracted. Only active when LUI is your launcher.
 - **AccessibilityService** — read any app's screen, tap buttons, type text, scroll. The LLM can pilot any app on your phone.
-- **BYOS Bridge** — MCP-compatible WebSocket server. Remote agents connect, authenticate, and call any tool. Three permission tiers (Read/Standard/Full) with on-device approval for restricted tools. See [DOCS.md](DOCS.md).
+- **BYOS Bridge** — MCP-compatible WebSocket server. Remote agents connect, authenticate, and call any tool. Event streaming pushes notifications, calls, and 2FA codes to agents in real-time. Bidirectional: agents register capabilities, user tells LUI "tell deploy-bot to run tests" and gets the result. Three permission tiers with on-device approval. See [DOCS.md](DOCS.md).
 - **25 app deep links** — "play Despacito on Spotify", "search on Netflix", "find on YouTube"
 - **Sensor access** — proximity, ambient light, step counter
 - **Persistent conversations** across restarts (Room/SQLite)
@@ -79,7 +79,7 @@ You (voice / text)
 
 ---
 
-## Tool Count: 70
+## Tool Count: 72
 
 | Category | Tools | Examples |
 |:---------|:------|:--------|
@@ -98,7 +98,7 @@ You (voice / text)
 | Clipboard | 3 | Copy, read, share |
 | Audio | 1 | Route to speaker/bluetooth/earpiece |
 | System | 5 | Open settings, Wi-Fi/BT settings, wallpaper, bedtime mode |
-| Bridge | 3 | Start/stop bridge, bridge status |
+| Bridge | 5 | Start/stop bridge, status, list agents, instruct agent |
 | Meta | 2 | Undo, triage config |
 
 ---
@@ -165,7 +165,7 @@ All three providers use **native structured tool use** — the model calls tools
 
 ## Roadmap
 
-**Shipped:** On-device launcher + LLM, voice conversation, 70 device tools with native function calling, BYOS WebSocket bridge (MCP protocol, permission tiers, on-device approval), notification triage (The Bouncer), accessibility screen control, 25 app deep links, sensor access, chat persistence, cloud API (Gemini/Claude/OpenAI), cloud TTS (Deepgram/ElevenLabs), Connection Hub, file-based debug logging.
+**Shipped:** On-device launcher + LLM, voice conversation, 72 device tools with native function calling, BYOS WebSocket bridge (MCP protocol, event streaming, bidirectional agent communication, permission tiers, on-device approval, relay client), notification triage (The Bouncer), accessibility screen control, 25 app deep links, sensor access, chat persistence, cloud API (Gemini/Claude/OpenAI), cloud TTS (Deepgram/ElevenLabs), Connection Hub, file-based debug logging.
 
 **Next:** Geofencing. Biometric overwatch. Ambient context. MCP relay for remote access beyond LAN.
 
