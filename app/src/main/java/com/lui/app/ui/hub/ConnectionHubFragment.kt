@@ -19,6 +19,7 @@ import com.lui.app.LuiViewModel
 import com.lui.app.R
 import com.lui.app.data.SecureKeyStore
 import com.lui.app.databinding.FragmentConnectionHubBinding
+import com.lui.app.bridge.AgentRegistry
 import com.lui.app.bridge.BridgeProtocol
 import com.lui.app.bridge.LuiBridgeService
 import com.lui.app.bridge.LuiBridgeServer
@@ -102,6 +103,16 @@ class ConnectionHubFragment : Fragment() {
                 setupBridgeSwitchListener()
             }
         }
+
+        // Refresh agents list periodically when hub is open
+        binding.root.postDelayed(object : Runnable {
+            override fun run() {
+                if (_binding != null && LuiBridgeService.isRunning) {
+                    updateAgentsList()
+                    binding.root.postDelayed(this, 3000)
+                }
+            }
+        }, 3000)
         LuiBridgeService.addStateListener(bridgeStateListener!!)
 
         binding.bridgeSwitch.isChecked = LuiBridgeService.isRunning
@@ -292,6 +303,27 @@ class ConnectionHubFragment : Fragment() {
         }
     }
 
+    private fun updateAgentsList() {
+        val agents = AgentRegistry.registeredAgents
+        binding.agentsLabel.visibility = View.VISIBLE
+        binding.agentsListText.visibility = View.VISIBLE
+        if (agents.isEmpty()) {
+            binding.agentsListText.text = "No agents connected"
+            binding.agentsListText.setTextColor(ContextCompat.getColor(requireContext(), R.color.lui_gray_dark))
+        } else {
+            val sb = StringBuilder()
+            for (a in agents) {
+                val status = if (a.conn.isOpen) "\u25CF" else "\u25CB" // filled/empty circle
+                sb.appendLine("$status ${a.name} — ${a.description}")
+                if (a.capabilities.isNotEmpty()) {
+                    sb.appendLine("  ${a.capabilities.joinToString(", ")}")
+                }
+            }
+            binding.agentsListText.text = sb.toString().trim()
+            binding.agentsListText.setTextColor(ContextCompat.getColor(requireContext(), R.color.lui_white))
+        }
+    }
+
     private fun updateRelayStatus() {
         val connected = LuiBridgeService.isRelayConnected
         val enabled = keyStore.relayEnabled
@@ -319,6 +351,7 @@ class ConnectionHubFragment : Fragment() {
             views.forEach { it.visibility = View.VISIBLE }
             relayViews.forEach { it.visibility = View.VISIBLE }
             updateRelayStatus()
+            updateAgentsList()
             val url = LuiBridgeService.getConnectionUrl(requireContext()) ?: "ws://unknown:${LuiBridgeServer.DEFAULT_PORT}"
             val token = LuiBridgeService.getAuthToken(requireContext())
             val tier = keyStore.bridgePermissionTier
@@ -331,6 +364,8 @@ class ConnectionHubFragment : Fragment() {
         } else {
             views.forEach { it.visibility = View.GONE }
             relayViews.forEach { it.visibility = View.GONE }
+            binding.agentsLabel.visibility = View.GONE
+            binding.agentsListText.visibility = View.GONE
         }
     }
 

@@ -54,6 +54,10 @@ class LuiViewModel(application: Application) : AndroidViewModel(application) {
     private var bridgeApprovalResult: java.util.concurrent.CountDownLatch? = null
     private var bridgeApprovalGranted = false
 
+    // Agent passthrough mode: "patch me to hermes"
+    private var passthroughAgent: String? = null
+    val isInPassthrough: Boolean get() = passthroughAgent != null
+
     // Last action result for "copy that" / "share that"
     var lastActionResult: String? = null
         private set
@@ -167,8 +171,62 @@ class LuiViewModel(application: Application) : AndroidViewModel(application) {
         if (text.isBlank()) return
         LuiLogger.userInput(text)
 
-        // Special commands
         val lower = text.trim().lowercase()
+
+        // ── Agent passthrough mode ──
+        // "patch me to hermes" / "connect me to hermes" / "talk to hermes"
+        val patchMatch = Regex("(?:patch|connect|switch|talk|hand\\s*over)\\s+(?:me\\s+)?(?:to|with)\\s+(.+)", RegexOption.IGNORE_CASE).find(lower)
+        if (patchMatch != null && passthroughAgent == null) {
+            val agentName = patchMatch.groupValues[1].trim()
+            addMessage(ChatMessage(text = text.trim(), sender = Sender.USER))
+            startPassthrough(agentName)
+            return
+        }
+
+        // Exit passthrough: "lui come back" / "disconnect" / "exit" / "lui"
+        if (passthroughAgent != null) {
+            val exitPatterns = listOf("lui come back", "lui, come back", "come back", "disconnect",
+                "exit", "leave", "go back to lui", "back to lui", "lui take over", "end session")
+            if (exitPatterns.any { lower.contains(it) } || lower == "lui") {
+                addMessage(ChatMessage(text = text.trim(), sender = Sender.USER))
+                endPassthrough()
+                return
+            }
+
+            // @ mention to LUI while in passthrough: "@lui what's my battery"
+            if (lower.startsWith("@lui ") || lower.startsWith("lui, ") || lower.startsWith("lui ")) {
+                val luiMessage = text.trim().replaceFirst(Regex("^(?:@lui|lui,?)\\s+", RegexOption.IGNORE_CASE), "")
+                // Temporarily exit passthrough — handleUserInputInternal adds the message
+                val savedAgent = passthroughAgent
+                passthroughAgent = null
+                handleUserInputInternal(luiMessage)
+                passthroughAgent = savedAgent
+                return
+            }
+
+            // In passthrough — forward to agent
+            addMessage(ChatMessage(text = text.trim(), sender = Sender.USER))
+            forwardToAgent(passthroughAgent!!, text.trim())
+            return
+        }
+
+        // ── @ mention outside passthrough: "@hermes deploy staging" ──
+        val mentionMatch = Regex("^@(\\w+)\\s+(.+)", RegexOption.IGNORE_CASE).find(text.trim())
+        if (mentionMatch != null) {
+            val agentName = mentionMatch.groupValues[1]
+            val instruction = mentionMatch.groupValues[2]
+            addMessage(ChatMessage(text = text.trim(), sender = Sender.USER))
+            forwardToAgent(agentName, instruction)
+            return
+        }
+
+        handleUserInputInternal(text)
+    }
+
+    private fun handleUserInputInternal(text: String) {
+        val lower = text.trim().lowercase()
+
+        // Special commands
         if (lower == "clear" || lower == "clear chat" || lower == "clear history") {
             viewModelScope.launch {
                 chatRepo.clearHistory()
@@ -431,6 +489,43 @@ class LuiViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     /** Called by the fragment after permission is granted/denied */
+    // ── Agent passthrough / @ mention ──
+
+    private fun startPassthrough(agentName: String) {
+        val agents = com.lui.app.bridge.AgentRegistry.registeredAgents
+        val match = agents.find { it.name.equals(agentName, ignoreCase = true) }
+        if (match == null) {
+            addMessage(ChatMessage(text = "No agent named '$agentName' is connected. Available: ${agents.joinToString { it.name }.ifEmpty { "none" }}.", sender = Sender.LUI))
+            if (voiceEngine.conversationMode) voiceEngine.speak("No agent named $agentName is connected.")
+            return
+        }
+        passthroughAgent = match.name
+        val msg = "Connected to ${match.name}. Everything you say goes to ${match.name} now. Say 'LUI come back' to return."
+        addMessage(ChatMessage(text = msg, sender = Sender.LUI))
+        LuiLogger.i("AGENT", "Passthrough started: ${match.name}")
+        if (voiceEngine.conversationMode) voiceEngine.speak("Connected to ${match.name}.")
+    }
+
+    private fun endPassthrough() {
+        val name = passthroughAgent ?: return
+        passthroughAgent = null
+        val msg = "Back with you. $name is still connected in the background."
+        addMessage(ChatMessage(text = msg, sender = Sender.LUI))
+        LuiLogger.i("AGENT", "Passthrough ended: $name")
+        if (voiceEngine.conversationMode) voiceEngine.speak("Back with you.")
+    }
+
+    private fun forwardToAgent(agentName: String, instruction: String) {
+        addMessage(ChatMessage(text = "", sender = Sender.THINKING))
+        generationJob = viewModelScope.launch {
+            val response = com.lui.app.bridge.AgentRegistry.sendInstruction(agentName, instruction)
+            lastActionResult = response
+            replaceLastWithLui(response, streaming = false)
+            LuiLogger.i("AGENT", "← $agentName: ${response.take(80)}")
+            if (voiceEngine.conversationMode) voiceEngine.speak(response)
+        }
+    }
+
     /** Called by the fragment when user approves/denies a bridge remote action */
     fun onBridgeApprovalResult(approved: Boolean) {
         bridgeApprovalGranted = approved

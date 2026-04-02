@@ -72,7 +72,10 @@ object AgentRegistry {
      * Returns the agent's response (blocks until response or timeout).
      */
     fun sendInstruction(agentName: String, instruction: String): String {
-        val agent = agents[agentName]
+        // Case-insensitive lookup
+        val agent = agents[agentName] ?: agents.entries.find {
+            it.key.equals(agentName, ignoreCase = true)
+        }?.value
             ?: return "Agent '$agentName' not found. Available: ${agents.keys.joinToString()}"
 
         if (!agent.conn.isOpen) {

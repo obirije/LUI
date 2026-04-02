@@ -171,8 +171,8 @@ object ToolRegistry {
         ToolDef("start_bridge", "Start the BYOS WebSocket bridge so remote agents can connect and use LUI's tools"),
         ToolDef("stop_bridge", "Stop the BYOS WebSocket bridge"),
         ToolDef("bridge_status", "Get the bridge status: running, URL, connected agents, auth token"),
-        ToolDef("list_agents", "List all registered remote agents and their capabilities"),
-        ToolDef("instruct_agent", "Send an instruction to a registered remote agent and wait for its response",
+        ToolDef("list_agents", "List all remote agents currently connected to the bridge. Call this to see what agents are available before sending instructions."),
+        ToolDef("instruct_agent", "Send an instruction to a connected remote agent and get its response. The agent name is whatever the user says — just pass it through. Do NOT validate the name yourself, the tool will check.",
             listOf(ParamDef("agent", description = "Agent name", required = true),
                    ParamDef("instruction", description = "What to tell the agent to do", required = true))),
 
