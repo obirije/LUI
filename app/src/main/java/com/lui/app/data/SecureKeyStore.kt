@@ -13,6 +13,7 @@ class SecureKeyStore(context: Context) {
     companion object {
         private const val TAG = "SecureKeyStore"
         private const val PREFS_NAME = "lui_secure_prefs"
+        const val DEFAULT_RELAY_URL = "wss://relay.lui.app"
     }
 
     private val prefs: SharedPreferences = try {
@@ -111,7 +112,7 @@ class SecureKeyStore(context: Context) {
     // ---- Relay ----
 
     var relayUrl: String?
-        get() = prefs.getString("relay_url", null)?.takeIf { it.isNotBlank() }
+        get() = prefs.getString("relay_url", null)?.takeIf { it.isNotBlank() } ?: DEFAULT_RELAY_URL
         set(value) = prefs.edit().putString("relay_url", value ?: "").apply()
 
     var relayEnabled: Boolean

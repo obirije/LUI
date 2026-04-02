@@ -1,21 +1,29 @@
 # LUI Relay Server
 
-A lightweight WebSocket proxy that lets remote agents reach your LUI device from anywhere — not just the local network.
+A lightweight WebSocket proxy that lets remote agents reach your LUI device from anywhere.
 
 ## How It Works
 
 ```
 [Your Phone]                    [Relay Server]                  [Remote Agent]
      |                               |                              |
-     |── ws://relay/device?token=X ──>|                              |
-     |                               |<── ws://relay/agent?token=X ──|
+     |── wss://relay.lui.app/device ─>|                              |
+     |                               |<── wss://relay.lui.app/agent ─|
      |                               |                              |
      |<──── messages forwarded ──────>|<──── messages forwarded ────>|
 ```
 
-LUI connects **outbound** to the relay (no inbound port needed on the phone). Agents connect to the relay and specify which device they want to reach. The relay forwards messages bidirectionally.
+LUI connects **outbound** to the relay (no inbound port needed on the phone). Agents connect to the relay and specify which device to reach. Messages forwarded bidirectionally. No storage, pure pass-through.
 
-## Quick Start
+## Default Relay
+
+LUI ships with a default relay at `wss://relay.lui.app`. Just enable it in Connection Hub — no setup needed.
+
+Users can override with their own relay URL for privacy or performance.
+
+## Self-Hosting
+
+### Quick Start
 
 ```bash
 pip install websockets
@@ -24,38 +32,77 @@ python relay_server.py
 
 Server starts on port 9000 (configurable via `PORT` env var).
 
+### Deploy to Fly.io (recommended)
+
+```bash
+cd relay
+fly launch --name my-lui-relay --region lhr
+fly deploy
+```
+
+Your relay is now at `wss://my-lui-relay.fly.dev`. Enter this URL in LUI Connection Hub.
+
+### Deploy with Docker
+
+```bash
+docker build -t lui-relay .
+docker run -p 9000:9000 lui-relay
+```
+
+### Deploy to Railway
+
+1. Fork the repo
+2. Create a new Railway project
+3. Point it at the `relay/` directory
+4. Set `PORT=9000`
+5. Deploy
+
+### Deploy to any VPS
+
+```bash
+# On your server
+pip install websockets
+nohup python relay_server.py &
+
+# Put behind nginx for TLS:
+# proxy_pass http://127.0.0.1:9000;
+# with SSL cert from Let's Encrypt
+```
+
 ## URLs
 
 | Who | URL | Purpose |
 |:----|:----|:--------|
-| LUI device | `ws://HOST:9000/device?device_token=TOKEN` | Device connects out |
-| Remote agent | `ws://HOST:9000/agent?device_token=TOKEN` | Agent connects to device |
-| Admin | `ws://HOST:9000/status` | Check connected devices/agents |
+| LUI device | `wss://HOST/device?device_token=TOKEN` | Device connects out |
+| Remote agent | `wss://HOST/agent?device_token=TOKEN` | Agent connects to device |
+| Admin | `wss://HOST/status` | Check connected devices/agents |
 
-The `device_token` is the same token shown in LUI's bridge notification. It's how the relay knows which device an agent wants to reach.
+The `device_token` is the bridge auth token from LUI's notification. It identifies the device and authenticates the agent.
 
 ## Setup on LUI
 
-1. Deploy relay to a VPS, Fly.io, Railway, or any server with a public IP
-2. Open LUI → Connection Hub → BYOS Bridge section
-3. Enable the bridge
-4. Under "Remote Relay", enter your relay URL: `ws://your-server:9000/device`
-5. Toggle "Enable relay"
-6. Restart the bridge
+1. Open LUI → Connection Hub → BYOS Bridge
+2. Enable the bridge
+3. Under "Remote Relay" — the default `wss://relay.lui.app` is pre-filled
+4. Toggle "Enable relay"
+5. Restart bridge (toggle off then on)
 
-LUI will connect outbound to the relay and stay connected (auto-reconnects on disconnect).
+LUI connects outbound and stays connected (auto-reconnects on disconnect).
 
-## Agent Connection
+## Agent Connection (Remote)
 
 From anywhere in the world:
 
 ```python
 import websocket, json
 
-# Connect to the relay, targeting your device
-ws = websocket.create_connection("ws://your-server:9000/agent?device_token=YOUR_LUI_TOKEN")
+# Connect via relay
+ws = websocket.create_connection(
+    "wss://relay.lui.app/agent?device_token=YOUR_LUI_TOKEN",
+    timeout=30
+)
 
-# Auth with LUI (same as local bridge)
+# Auth (same as local bridge)
 ws.send(json.dumps({"method":"auth","params":{"token":"YOUR_LUI_TOKEN"}}))
 print(ws.recv())
 
@@ -63,30 +110,37 @@ print(ws.recv())
 ws.send(json.dumps({"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}))
 print(ws.recv())
 
-# Call any tool
-ws.send(json.dumps({"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"battery","arguments":{}}}))
-print(ws.recv())
+# Call any tool — this executes on the phone
+ws.send(json.dumps({
+    "jsonrpc":"2.0","id":2,
+    "method":"tools/call",
+    "params":{"name":"battery","arguments":{}}
+}))
+print(ws.recv())  # Battery is at 85%, not charging.
+
+# Listen for events (notifications, calls, 2FA)
+while True:
+    msg = json.loads(ws.recv())
+    if msg.get("method") == "notifications/lui/event":
+        event = msg["params"]
+        print(f"[{event['type']}] {event['data']}")
 ```
 
-## Deploy with Docker
+## Architecture
 
-```dockerfile
-FROM python:3.12-slim
-WORKDIR /app
-RUN pip install websockets
-COPY relay_server.py .
-CMD ["python", "relay_server.py"]
-EXPOSE 9000
-```
+The relay is stateless:
+- No messages stored
+- No database
+- No authentication logic (auth happens between agent and LUI directly)
+- Pure WebSocket forwarding
+- Agents notified when device comes online/offline
 
-```bash
-docker build -t lui-relay .
-docker run -p 9000:9000 lui-relay
-```
+Resource usage is minimal — a $5 VPS or free Fly.io instance handles thousands of concurrent devices.
 
-## Security Notes
+## Security
 
-- The relay is a pure pass-through — it doesn't store or inspect messages
-- Authentication happens between the agent and LUI directly (the relay just forwards)
-- Use `wss://` (TLS) in production — put the relay behind nginx or Caddy with SSL
-- The `device_token` acts as a session key — anyone with it can reach your device via the relay
+- The relay never sees decrypted content — it's a transport layer
+- Authentication is end-to-end between agent and LUI
+- Use `wss://` (TLS) in production
+- The `device_token` acts as a routing key — keep it secret
+- For additional security, self-host your own relay

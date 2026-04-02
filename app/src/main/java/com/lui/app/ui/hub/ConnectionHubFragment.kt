@@ -161,7 +161,7 @@ class ConnectionHubFragment : Fragment() {
 
         // Relay
         binding.relaySwitch.isChecked = keyStore.relayEnabled
-        binding.relayUrlField.setText(keyStore.relayUrl ?: "")
+        binding.relayUrlField.setText(keyStore.relayUrl ?: SecureKeyStore.DEFAULT_RELAY_URL)
         binding.relayUrlField.addTextChangedListener(watcher {
             keyStore.relayUrl = binding.relayUrlField.text.toString()
         })
