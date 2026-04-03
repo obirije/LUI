@@ -26,7 +26,7 @@ LUI is an Android agent runtime that exposes the phone's capabilities over an MC
 ## Setup
 
 1. On the phone: Open LUI → Connection Hub → Enable BYOS Bridge
-2. Note the URL (e.g., `ws://192.168.1.91:8765`) and token from the notification
+2. Note the URL (e.g., `ws://PHONE_IP:8765`) and token from the notification
 3. Install this skill: `hermes skills install /path/to/lui-bridge/`
 4. Configure: `hermes skills config lui-bridge` → enter URL and token
 

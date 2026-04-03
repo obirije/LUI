@@ -9,7 +9,7 @@ It enables bidirectional communication:
   - Phone events (notifications, calls, 2FA) stream to Hermes
 
 Usage as a standalone bridge:
-    python lui_connector.py --url ws://192.168.1.91:8765 --token YOUR_TOKEN
+    python lui_connector.py --url ws://PHONE_IP:8765 --token YOUR_TOKEN
 
 Usage from Hermes skill system:
     Configured via hermes skills config lui-bridge
@@ -141,13 +141,20 @@ class LuiBridge:
 
         self._send(msg)
 
-        # If listener isn't running yet, read directly
+        # If listener isn't running yet, read directly — skip non-matching messages
         if not self._listen_thread or not self._listen_thread.is_alive():
-            while True:
-                resp = json.loads(self.ws.recv())
-                if str(resp.get("id")) == req_id:
-                    return resp.get("result", {})
-                # Handle events inline during setup
+            self.ws.settimeout(10)
+            for _ in range(20):
+                try:
+                    raw = self.ws.recv()
+                    resp = json.loads(raw)
+                    if str(resp.get("id")) == req_id:
+                        self.ws.settimeout(30)
+                        return resp.get("result", {})
+                except Exception:
+                    break
+            self.ws.settimeout(30)
+            return {}
         else:
             event.wait(timeout=30)
             result = self._pending.pop(req_id, {}).get("result", {})
@@ -207,31 +214,143 @@ class LuiBridge:
                 pass
 
 
+def execute_with_hermes(instruction):
+    """Run an instruction through Hermes CLI using single-query mode."""
+    import subprocess, re
+    try:
+        result = subprocess.run(
+            ["hermes", "chat", "-q", instruction, "--yolo"],
+            capture_output=True, text=True, timeout=120,
+            env={**os.environ, "TERM": "dumb", "NO_COLOR": "1"}
+        )
+        output = result.stdout.strip() or result.stderr.strip()
+        if not output:
+            return "Hermes returned no output."
+
+        # Strip ANSI escape codes
+        output = re.sub(r'\x1b\[[0-9;]*[a-zA-Z]', '', output)
+        output = re.sub(r'\x1b\].*?\x07', '', output)
+        # Strip box drawing characters
+        output = re.sub(r'[╭╮╰╯│─┃━┏┓┗┛┡┩┣┫┠┨┯┷┿╋╂╇╈╅╆╌╍]', '', output)
+        # Strip spinner/progress chars
+        output = re.sub(r'[⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏]', '', output)
+
+        lines = output.split('\n')
+        # Skip header lines, empty lines, and prompt lines
+        filtered = []
+        skip_patterns = ['Hermes Agent', '──────', 'Session:', 'Model:', '> ', '>>>',
+                        'Thinking...', 'hermes>', '/exit', 'Goodbye']
+        for line in lines:
+            stripped = line.strip()
+            if not stripped:
+                continue
+            if any(p in stripped for p in skip_patterns):
+                continue
+            filtered.append(stripped)
+
+        # Take the last meaningful lines (the response, not the prompt/header)
+        result_text = '\n'.join(filtered[-15:]) if filtered else "Hermes returned no meaningful output."
+        return result_text[:500]
+    except subprocess.TimeoutExpired:
+        return "Hermes timed out (120s)."
+    except FileNotFoundError:
+        return "Hermes CLI not found."
+    except Exception as e:
+        return f"Error: {e}"
+
+
+def execute_with_claude_code(instruction):
+    """Run an instruction through Claude Code CLI."""
+    import subprocess
+    try:
+        result = subprocess.run(
+            ["claude", "--print", "--dangerously-skip-permissions", instruction],
+            capture_output=True, text=True, timeout=120,
+            cwd=os.path.expanduser("~")
+        )
+        output = result.stdout.strip() or result.stderr.strip()
+        # Strip ANSI escape codes
+        import re
+        output = re.sub(r'\x1b\[[0-9;]*m', '', output)
+        return output[:1000] if output else "Claude Code returned no output."
+    except subprocess.TimeoutExpired:
+        return "Claude Code timed out (120s)."
+    except FileNotFoundError:
+        return "Claude Code CLI not found. Install with: npm install -g @anthropic-ai/claude-code"
+    except Exception as e:
+        return f"Error: {e}"
+
+
+def execute_with_shell(instruction):
+    """Run an instruction as a raw shell command."""
+    import subprocess
+    try:
+        result = subprocess.run(
+            ["bash", "-c", instruction],
+            capture_output=True, text=True, timeout=30,
+            cwd=os.path.expanduser("~")
+        )
+        output = result.stdout.strip()
+        stderr = result.stderr.strip()
+        if output and stderr:
+            combined = f"{output}\n{stderr}"
+        elif output:
+            combined = output
+        elif stderr:
+            combined = stderr
+        else:
+            combined = "Command completed with no output."
+        if result.returncode != 0:
+            combined += f"\n(exit code {result.returncode})"
+        return combined[:500]
+    except subprocess.TimeoutExpired:
+        return "Command timed out (30s)."
+    except Exception as e:
+        return f"Error: {e}"
+
+
 def main():
-    """Standalone bridge for testing."""
+    """Connect to LUI as an agent."""
     import argparse
 
     parser = argparse.ArgumentParser(description="LUI Bridge Connector")
     parser.add_argument("--url", required=True, help="LUI bridge URL (ws://IP:8765)")
     parser.add_argument("--token", required=True, help="Bridge auth token")
     parser.add_argument("--name", default="hermes", help="Agent name")
+    parser.add_argument("--mode", default="hermes", choices=["hermes", "claude-code", "shell", "echo"],
+                        help="Execution mode: hermes (Hermes CLI), claude-code (Claude Code CLI), shell (raw bash), echo (test)")
     args = parser.parse_args()
 
+    executor = {
+        "hermes": execute_with_hermes,
+        "claude-code": execute_with_claude_code,
+        "shell": execute_with_shell,
+        "echo": lambda i: f"Received: {i}"
+    }[args.mode]
+
     def handle_instruction(instruction):
-        print(f"\n[Instruction] {instruction}")
-        return f"Received: {instruction}"
+        print(f"\n[→ {args.name}] {instruction}")
+        result = executor(instruction)
+        print(f"[← {args.name}] {result[:100]}{'...' if len(result) > 100 else ''}")
+        return result
 
     def handle_event(event_type, data):
-        print(f"[Event] {event_type}: {json.dumps(data)[:80]}")
+        if event_type == "notification_2fa":
+            print(f"\n[2FA] Code: {data.get('code')} from {data.get('app')}")
+        elif event_type in ("call_incoming", "call_missed"):
+            print(f"\n[{event_type.upper()}] {data.get('caller', '?')}")
+        elif event_type == "notification":
+            print(f"\n[NOTIF] {data.get('title', '')}: {data.get('text', '')[:50]}")
 
     bridge = LuiBridge(args.url, args.token, args.name,
                        on_instruction=handle_instruction,
                        on_event=handle_event)
 
     tool_count = bridge.connect()
-    print(f"Connected to LUI — {tool_count} tools available")
+    print(f"Connected to LUI as '{args.name}' — {tool_count} tools, mode={args.mode}")
     print(f"Device: {bridge.get_device_state()[:80]}")
-    print("\nListening for instructions and events... (Ctrl+C to exit)")
+    print(f"\nOn LUI say: 'patch me to {args.name}' or '@{args.name} do something'")
+    print("Listening... (Ctrl+C to exit)\n")
 
     try:
         while bridge.connected:

@@ -21,7 +21,7 @@ hermes skills config lui-bridge
 Or edit `~/.hermes/skills/lui-bridge/config.yaml`:
 
 ```yaml
-url: ws://192.168.1.91:8765
+url: ws://PHONE_IP:8765
 token: your_bridge_token_here
 ```
 
@@ -62,7 +62,7 @@ hermes: Deploying... done. All tests passed.
 from lui_connector import LuiBridge
 
 bridge = LuiBridge(
-    url="ws://192.168.1.91:8765",
+    url="ws://PHONE_IP:8765",
     token="your_token",
     agent_name="my-bot",
     on_instruction=lambda instr: f"Executed: {instr}",

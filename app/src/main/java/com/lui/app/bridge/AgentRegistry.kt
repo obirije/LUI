@@ -26,6 +26,20 @@ object AgentRegistry {
 
     val registeredAgents: List<Agent> get() = agents.values.toList()
 
+    /** Fuzzy agent lookup: case-insensitive, ignores hyphens/spaces, supports partial match */
+    fun findAgent(query: String): Agent? {
+        val normalized = query.lowercase().replace(Regex("[\\s-_]"), "")
+        // Exact match first
+        agents[query]?.let { return it }
+        // Case-insensitive
+        agents.entries.find { it.key.equals(query, ignoreCase = true) }?.let { return it.value }
+        // Normalized (no hyphens/spaces): "claude code" matches "claude-code"
+        agents.entries.find { it.key.lowercase().replace(Regex("[\\s-_]"), "") == normalized }?.let { return it.value }
+        // Partial/contains: "claude" matches "claude-code"
+        agents.entries.find { it.key.lowercase().contains(normalized) || normalized.contains(it.key.lowercase().replace(Regex("[\\s-_]"), "")) }?.let { return it.value }
+        return null
+    }
+
     fun registerAgent(conn: WebSocket, params: JSONObject?): JSONObject {
         val name = params?.optString("name", "") ?: ""
         if (name.isBlank()) return JSONObject().put("error", "Agent name required")
@@ -72,10 +86,8 @@ object AgentRegistry {
      * Returns the agent's response (blocks until response or timeout).
      */
     fun sendInstruction(agentName: String, instruction: String): String {
-        // Case-insensitive lookup
-        val agent = agents[agentName] ?: agents.entries.find {
-            it.key.equals(agentName, ignoreCase = true)
-        }?.value
+        // Fuzzy lookup: case-insensitive, ignore hyphens/spaces, partial match
+        val agent = findAgent(agentName)
             ?: return "Agent '$agentName' not found. Available: ${agents.keys.joinToString()}"
 
         if (!agent.conn.isOpen) {

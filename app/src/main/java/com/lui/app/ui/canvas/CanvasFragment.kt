@@ -6,11 +6,16 @@ import android.animation.ObjectAnimator
 import android.animation.ValueAnimator
 import android.content.pm.PackageManager
 import android.os.Bundle
+import android.text.Editable
+import android.text.TextWatcher
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.view.animation.DecelerateInterpolator
 import android.view.inputmethod.EditorInfo
+import android.widget.ArrayAdapter
+import android.widget.ListView
+import android.widget.PopupWindow
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
@@ -32,6 +37,7 @@ class CanvasFragment : Fragment() {
     private lateinit var viewModel: LuiViewModel
     private lateinit var adapter: MessageAdapter
     private var pulseAnimator: AnimatorSet? = null
+    private var mentionPopup: PopupWindow? = null
 
     private val micPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -80,6 +86,21 @@ class CanvasFragment : Fragment() {
             } else false
         }
 
+        // @ mention autocomplete
+        binding.inputField.addTextChangedListener(object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+            override fun afterTextChanged(s: Editable?) {
+                val text = s?.toString() ?: ""
+                if (text.startsWith("@") && !text.contains(" ")) {
+                    val query = text.removePrefix("@").lowercase()
+                    showAgentMentionPopup(query)
+                } else {
+                    dismissMentionPopup()
+                }
+            }
+        })
+
         binding.micButton.setOnClickListener {
             val voiceState = viewModel.voiceEngine.state.value
             val inConvMode = viewModel.voiceEngine.conversationMode
@@ -124,6 +145,68 @@ class CanvasFragment : Fragment() {
         } else {
             micPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
         }
+    }
+
+    private fun showAgentMentionPopup(query: String) {
+        val agents = com.lui.app.bridge.AgentRegistry.registeredAgents
+        if (agents.isEmpty()) {
+            dismissMentionPopup()
+            return
+        }
+
+        val filtered = if (query.isBlank()) agents
+            else agents.filter { it.name.lowercase().contains(query) }
+
+        if (filtered.isEmpty()) {
+            dismissMentionPopup()
+            return
+        }
+
+        dismissMentionPopup()
+
+        val listView = ListView(requireContext()).apply {
+            setBackgroundColor(ContextCompat.getColor(requireContext(), R.color.lui_surface_elevated))
+            dividerHeight = 1
+            divider = ContextCompat.getDrawable(requireContext(), R.color.lui_divider)
+
+            adapter = object : android.widget.BaseAdapter() {
+                override fun getCount() = filtered.size
+                override fun getItem(pos: Int) = filtered[pos]
+                override fun getItemId(pos: Int) = pos.toLong()
+                override fun getView(pos: Int, convertView: android.view.View?, parent: ViewGroup): android.view.View {
+                    val view = convertView ?: LayoutInflater.from(requireContext()).inflate(R.layout.item_agent_mention, parent, false)
+                    val agent = filtered[pos]
+                    view.findViewById<android.widget.TextView>(R.id.agentName).text = "@${agent.name}"
+                    view.findViewById<android.widget.TextView>(R.id.agentDesc).text = agent.description.ifBlank { agent.capabilities.joinToString(", ") }
+                    return view
+                }
+            }
+
+            setOnItemClickListener { _, _, position, _ ->
+                binding.inputField.setText("@${filtered[position].name} ")
+                binding.inputField.setSelection(binding.inputField.text?.length ?: 0)
+                dismissMentionPopup()
+            }
+        }
+
+        val itemHeight = (52 * resources.displayMetrics.density).toInt()
+        val popupHeight = (filtered.size * itemHeight).coerceAtMost((3 * itemHeight))
+
+        mentionPopup = PopupWindow(listView,
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            popupHeight,
+            false
+        ).apply {
+            elevation = 16f
+            isOutsideTouchable = true
+            setOnDismissListener { mentionPopup = null }
+            showAsDropDown(binding.inputContainer, 0, -(popupHeight + binding.inputContainer.height))
+        }
+    }
+
+    private fun dismissMentionPopup() {
+        mentionPopup?.dismiss()
+        mentionPopup = null
     }
 
     private fun setupStatusDot() {

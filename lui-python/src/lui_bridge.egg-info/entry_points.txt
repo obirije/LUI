@@ -1,0 +1,2 @@
+[console_scripts]
+lui = lui.cli:main

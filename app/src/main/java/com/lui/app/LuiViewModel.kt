@@ -173,45 +173,25 @@ class LuiViewModel(application: Application) : AndroidViewModel(application) {
 
         val lower = text.trim().lowercase()
 
-        // ── Agent passthrough mode ──
-        // "patch me to hermes" / "connect me to hermes" / "talk to hermes"
-        val patchMatch = Regex("(?:patch|connect|switch|talk|hand\\s*over)\\s+(?:me\\s+)?(?:to|with)\\s+(.+)", RegexOption.IGNORE_CASE).find(lower)
-        if (patchMatch != null && passthroughAgent == null) {
-            val agentName = patchMatch.groupValues[1].trim()
-            addMessage(ChatMessage(text = text.trim(), sender = Sender.USER))
-            startPassthrough(agentName)
-            return
-        }
-
-        // Exit passthrough: "lui come back" / "disconnect" / "exit" / "lui"
+        // ── Agent passthrough mode: forward everything to agent ──
         if (passthroughAgent != null) {
-            val exitPatterns = listOf("lui come back", "lui, come back", "come back", "disconnect",
-                "exit", "leave", "go back to lui", "back to lui", "lui take over", "end session")
-            if (exitPatterns.any { lower.contains(it) } || lower == "lui") {
+            // Exit keywords — user addressing LUI directly
+            if (lower == "lui" || lower.contains("lui come back") || lower.contains("come back lui") ||
+                lower.contains("back to lui") || lower.contains("lui take over") ||
+                lower == "disconnect" || lower == "exit" || lower == "end session" ||
+                lower.startsWith("lui ") || lower.endsWith(" lui")) {
                 addMessage(ChatMessage(text = text.trim(), sender = Sender.USER))
                 endPassthrough()
                 return
             }
-
-            // @ mention to LUI while in passthrough: "@lui what's my battery"
-            if (lower.startsWith("@lui ") || lower.startsWith("lui, ") || lower.startsWith("lui ")) {
-                val luiMessage = text.trim().replaceFirst(Regex("^(?:@lui|lui,?)\\s+", RegexOption.IGNORE_CASE), "")
-                // Temporarily exit passthrough — handleUserInputInternal adds the message
-                val savedAgent = passthroughAgent
-                passthroughAgent = null
-                handleUserInputInternal(luiMessage)
-                passthroughAgent = savedAgent
-                return
-            }
-
-            // In passthrough — forward to agent
+            // Everything else goes to the agent
             addMessage(ChatMessage(text = text.trim(), sender = Sender.USER))
             forwardToAgent(passthroughAgent!!, text.trim())
             return
         }
 
-        // ── @ mention outside passthrough: "@hermes deploy staging" ──
-        val mentionMatch = Regex("^@(\\w+)\\s+(.+)", RegexOption.IGNORE_CASE).find(text.trim())
+        // ── @ mention: "@hermes deploy staging" ──
+        val mentionMatch = Regex("^@([\\w-]+)\\s+(.+)", RegexOption.IGNORE_CASE).find(text.trim())
         if (mentionMatch != null) {
             val agentName = mentionMatch.groupValues[1]
             val instruction = mentionMatch.groupValues[2]
@@ -220,11 +200,9 @@ class LuiViewModel(application: Application) : AndroidViewModel(application) {
             return
         }
 
-        handleUserInputInternal(text)
-    }
-
-    private fun handleUserInputInternal(text: String) {
-        val lower = text.trim().lowercase()
+        // ── Normal flow: LLM handles everything including passthrough requests ──
+        // The LLM has start_passthrough and end_passthrough tools.
+        // "patch me to hermes" → LLM calls start_passthrough(agent="hermes")
 
         // Special commands
         if (lower == "clear" || lower == "clear chat" || lower == "clear history") {
@@ -493,7 +471,7 @@ class LuiViewModel(application: Application) : AndroidViewModel(application) {
 
     private fun startPassthrough(agentName: String) {
         val agents = com.lui.app.bridge.AgentRegistry.registeredAgents
-        val match = agents.find { it.name.equals(agentName, ignoreCase = true) }
+        val match = com.lui.app.bridge.AgentRegistry.findAgent(agentName)
         if (match == null) {
             addMessage(ChatMessage(text = "No agent named '$agentName' is connected. Available: ${agents.joinToString { it.name }.ifEmpty { "none" }}.", sender = Sender.LUI))
             if (voiceEngine.conversationMode) voiceEngine.speak("No agent named $agentName is connected.")
@@ -516,9 +494,14 @@ class LuiViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     private fun forwardToAgent(agentName: String, instruction: String) {
+        val agent = com.lui.app.bridge.AgentRegistry.findAgent(agentName)
+        val resolvedName = agent?.name ?: agentName
         addMessage(ChatMessage(text = "", sender = Sender.THINKING))
         generationJob = viewModelScope.launch {
-            val response = com.lui.app.bridge.AgentRegistry.sendInstruction(agentName, instruction)
+            // Run on IO thread — sendInstruction blocks with latch.await()
+            val response = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                com.lui.app.bridge.AgentRegistry.sendInstruction(resolvedName, instruction)
+            }
             lastActionResult = response
             replaceLastWithLui(response, streaming = false)
             LuiLogger.i("AGENT", "← $agentName: ${response.take(80)}")
@@ -723,6 +706,17 @@ class LuiViewModel(application: Application) : AndroidViewModel(application) {
             }
             LuiLogger.toolResult(tc.name, actionResult is ActionResult.Success, resultMsg)
             LuiLogger.toolChain(round + 1, tc.name, resultMsg)
+
+            // Handle passthrough sentinels — these don't go back to the LLM
+            if (resultMsg.startsWith("__PASSTHROUGH_START__")) {
+                val agentName = resultMsg.removePrefix("__PASSTHROUGH_START__")
+                startPassthrough(agentName)
+                return
+            }
+            if (resultMsg == "__PASSTHROUGH_END__") {
+                endPassthrough()
+                return
+            }
 
             // Track for undo
             if (actionResult is ActionResult.Success) {

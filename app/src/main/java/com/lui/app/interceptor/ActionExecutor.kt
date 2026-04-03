@@ -157,6 +157,13 @@ object ActionExecutor {
                     ActionResult.Failure("Couldn't stop bridge: ${e.message}")
                 }
             }
+            "start_passthrough" -> {
+                ActionResult.Success("__PASSTHROUGH_START__${toolCall.params["agent"] ?: ""}")
+            }
+            "end_passthrough" -> {
+                ActionResult.Success("__PASSTHROUGH_END__")
+            }
+
             "list_agents" -> {
                 val result = AgentRegistry.listAgents()
                 val count = result.optInt("count", 0)

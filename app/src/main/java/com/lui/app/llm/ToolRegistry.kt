@@ -172,7 +172,10 @@ object ToolRegistry {
         ToolDef("stop_bridge", "Stop the BYOS WebSocket bridge"),
         ToolDef("bridge_status", "Get the bridge status: running, URL, connected agents, auth token"),
         ToolDef("list_agents", "List all remote agents currently connected to the bridge. Call this to see what agents are available before sending instructions."),
-        ToolDef("instruct_agent", "Send an instruction to a connected remote agent and get its response. The agent name is whatever the user says — just pass it through. Do NOT validate the name yourself, the tool will check.",
+        ToolDef("start_passthrough", "Enter passthrough mode with an agent. ALL subsequent messages from the user go directly to the agent until they say 'LUI come back'. Use when the user says 'patch me to X', 'connect me to X', 'talk to X', 'switch to X'.",
+            listOf(ParamDef("agent", description = "Agent name to connect to", required = true))),
+        ToolDef("end_passthrough", "Exit passthrough mode and return to LUI. Use when the user says 'LUI come back', 'disconnect', 'exit', 'back to LUI'."),
+        ToolDef("instruct_agent", "Send a one-off instruction to a connected remote agent and get its response. The agent name is whatever the user says — just pass it through. Do NOT validate the name yourself, the tool will check.",
             listOf(ParamDef("agent", description = "Agent name", required = true),
                    ParamDef("instruction", description = "What to tell the agent to do", required = true))),
 

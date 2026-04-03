@@ -1,0 +1,34 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "lui-bridge"
+version = "0.1.0"
+description = "Connect AI agents to LUI Android devices — 72 tools, MCP protocol, bidirectional communication"
+readme = "README.md"
+license = {text = "GPLv3"}
+requires-python = ">=3.9"
+authors = [{name = "LUI Project"}]
+keywords = ["android", "agent", "mcp", "bridge", "phone", "ai", "tool-use"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Topic :: Software Development :: Libraries",
+    "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
+    "Programming Language :: Python :: 3",
+]
+dependencies = [
+    "websocket-client>=1.6.0",
+    "websockets>=12.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/obirije/LUI"
+Documentation = "https://github.com/obirije/LUI/blob/main/DOCS.md"
+
+[project.scripts]
+lui = "lui.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
