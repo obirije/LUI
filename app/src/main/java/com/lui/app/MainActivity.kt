@@ -15,6 +15,13 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // Show over lock screen when wake word triggers
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O_MR1) {
+            setShowWhenLocked(true)
+            setTurnScreenOn(true)
+        }
+
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
@@ -38,6 +45,15 @@ class MainActivity : AppCompatActivity() {
         super.onNewIntent(intent)
         if (navController.currentDestination?.id != R.id.canvasFragment) {
             navController.popBackStack(R.id.canvasFragment, false)
+        }
+
+        // Wake word triggered — greet and start conversation mode
+        if (intent?.getBooleanExtra("wake_word", false) == true) {
+            val vm = androidx.lifecycle.ViewModelProvider(this)[LuiViewModel::class.java]
+            window.decorView.postDelayed({
+                // LUI responds to wake word with a greeting, then listens
+                vm.onWakeWordActivated()
+            }, 500)
         }
     }
 }

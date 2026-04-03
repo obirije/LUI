@@ -173,6 +173,26 @@ class LuiViewModel(application: Application) : AndroidViewModel(application) {
 
         val lower = text.trim().lowercase()
 
+        // ── End conversation mode ──
+        val endPhrases = listOf("goodbye", "bye", "good night", "goodnight", "bye bye",
+            "that's all", "thats all", "i'm done", "im done", "go to sleep",
+            "thanks lui", "thank you lui", "bye lui", "goodbye lui", "end conversation",
+            "stop listening", "that will be all", "nothing else")
+        if (voiceEngine.conversationMode && endPhrases.any { lower.contains(it) }) {
+            addMessage(ChatMessage(text = text.trim(), sender = Sender.USER))
+            val farewell = "Alright, talk to you later."
+            addMessage(ChatMessage(text = farewell, sender = Sender.LUI))
+            voiceEngine.conversationMode = false // Prevent auto-listen after TTS finishes
+            voiceEngine.speak(farewell)
+            viewModelScope.launch {
+                kotlinx.coroutines.delay(3000) // Wait for farewell to finish speaking
+                voiceEngine.stopListening()
+                voiceEngine.stopSpeaking()
+                LuiLogger.i("VOICE", "Conversation ended by user")
+            }
+            return
+        }
+
         // ── Agent passthrough mode: forward everything to agent ──
         if (passthroughAgent != null) {
             // Exit keywords — user addressing LUI directly
@@ -535,6 +555,20 @@ class LuiViewModel(application: Application) : AndroidViewModel(application) {
     // Voice state
     private var voiceMessageActive = false
     private var voiceBubbleAdded = false
+
+    /** Called when wake word "Hey LUI" activates the app */
+    fun onWakeWordActivated() {
+        LuiLogger.i("WAKE", "Wake word activated — greeting user")
+        val greeting = "Hey, I'm here. What can I do for you?"
+        addMessage(ChatMessage(text = greeting, sender = Sender.LUI))
+        voiceEngine.speak(greeting)
+        // After greeting finishes, start listening in conversation mode
+        viewModelScope.launch {
+            // Wait for TTS to finish (estimate based on greeting length)
+            kotlinx.coroutines.delay(2500)
+            startVoiceInput(conversationMode = true)
+        }
+    }
 
     fun startVoiceInput(conversationMode: Boolean = false) {
         voiceEngine.conversationMode = conversationMode

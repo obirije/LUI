@@ -85,6 +85,21 @@ class ConnectionHubFragment : Fragment() {
         binding.ollamaModelField.setText(keyStore.ollamaModel ?: "")
         updateOllamaFieldsVisibility(keyStore.selectedProvider == CloudProvider.OLLAMA)
 
+        // Wake word
+        binding.wakeWordSwitch.isChecked = com.lui.app.voice.WakeWordService.isRunning
+        binding.wakeWordSwitch.setOnCheckedChangeListener { _, enabled ->
+            val intent = android.content.Intent(requireContext(), com.lui.app.voice.WakeWordService::class.java)
+            if (enabled) {
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                    requireContext().startForegroundService(intent)
+                } else {
+                    requireContext().startService(intent)
+                }
+            } else {
+                requireContext().stopService(intent)
+            }
+        }
+
         // Speech
         binding.cloudSpeechSwitch.isChecked = keyStore.cloudSpeechEnabled
         when (keyStore.speechProvider) {

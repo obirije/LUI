@@ -113,6 +113,28 @@
         <!-- Divider -->
         <View android:layout_width="match_parent" android:layout_height="1dp" android:layout_marginTop="20dp" android:background="@color/lui_divider" />
 
+        <!-- ==================== Wake Word ==================== -->
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:gravity="center_vertical">
+            <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="Hey LUI wake word" android:textColor="@color/lui_white" android:textSize="14sp" />
+            <Switch android:id="@+id/wakeWordSwitch" android:layout_width="wrap_content" android:layout_height="wrap_content" android:thumbTint="@color/lui_white" android:trackTint="@color/lui_gray_dark" />
+        </LinearLayout>
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="2dp"
+            android:textColor="@color/lui_gray_dark"
+            android:textSize="10sp"
+            android:text="Always listens for Hey LUI to activate conversation mode. Uses ~2-3%% battery/hour." />
+
+        <!-- Divider -->
+        <View android:layout_width="match_parent" android:layout_height="1dp" android:layout_marginTop="14dp" android:background="@color/lui_divider" />
+
         <!-- ==================== Speech ==================== -->
 
         <TextView
