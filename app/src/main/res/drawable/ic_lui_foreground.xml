@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- "L" — hairline mono -->
+    <path
+        android:fillColor="#FAFAFA"
+        android:pathData="M32,43 L35,43 L35,63 L44,63 L44,66 L32,66 Z" />
+
+    <!-- "U" — hairline mono -->
+    <path
+        android:fillColor="#FAFAFA"
+        android:pathData="M48,43 L51,43 L51,61 C51,64 53,65 57.5,65 C62,65 64,64 64,61 L64,43 L67,43 L67,61 C67,66 63,68 57.5,68 C52,68 48,66 48,61 Z" />
+
+    <!-- "I" — hairline mono -->
+    <path
+        android:fillColor="#FAFAFA"
+        android:pathData="M72,43 L75,43 L75,66 L72,66 Z" />
+
+</vector>
