@@ -165,9 +165,9 @@ All three providers use **native structured tool use** — the model calls tools
 
 ## Roadmap
 
-**Shipped:** On-device launcher + LLM, voice conversation, 72 device tools with native function calling, BYOS WebSocket bridge (MCP protocol, event streaming, bidirectional agent communication, permission tiers, on-device approval, relay client), notification triage (The Bouncer), accessibility screen control, 25 app deep links, sensor access, chat persistence, cloud API (Gemini/Claude/OpenAI), cloud TTS (Deepgram/ElevenLabs), Connection Hub, file-based debug logging.
+**Shipped:** On-device launcher + LLM, voice conversation, 72 device tools with native function calling, BYOS WebSocket bridge (MCP protocol, event streaming, bidirectional agent communication, permission tiers, on-device approval, relay, `pip install lui-bridge`), agent passthrough mode ("patch me to hermes"), notification triage (The Bouncer), accessibility screen control, 25 app deep links, sensor access, chat persistence, cloud API (Gemini/Claude/OpenAI), cloud TTS (Deepgram/ElevenLabs), Connection Hub, file-based debug logging.
 
-**Next:** Geofencing. Biometric overwatch. Ambient context. MCP relay for remote access beyond LAN.
+**Next:** Geofencing. Biometric overwatch. Ambient context. MCP server registry.
 
 **Later:** Credit wallet. Generative UI. Web agent. MCP server.
 
