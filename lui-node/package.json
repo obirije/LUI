@@ -1,0 +1,24 @@
+{
+  "name": "lui-bridge",
+  "version": "0.1.0",
+  "description": "Connect AI agents to LUI Android devices — 72 tools, MCP protocol, bidirectional communication",
+  "main": "src/index.js",
+  "bin": {
+    "lui": "src/cli.js"
+  },
+  "scripts": {
+    "test": "node src/cli.js --help"
+  },
+  "keywords": ["android", "agent", "mcp", "bridge", "phone", "ai", "tool-use", "lui"],
+  "license": "GPL-3.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/obirije/LUI"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  },
+  "dependencies": {
+    "ws": "^8.16.0"
+  }
+}
