@@ -75,10 +75,15 @@ class ConnectionHubFragment : Fragment() {
             CloudProvider.GEMINI -> binding.rbGemini.isChecked = true
             CloudProvider.CLAUDE -> binding.rbClaude.isChecked = true
             CloudProvider.OPENAI -> binding.rbOpenAI.isChecked = true
+            CloudProvider.OLLAMA -> binding.rbOllama.isChecked = true
             null -> {}
         }
         keyStore.selectedProvider?.let { binding.apiKeyField.setText(keyStore.getApiKey(it) ?: "") }
         binding.cloudFirstSwitch.isChecked = keyStore.isCloudFirst
+        // Ollama
+        binding.ollamaEndpointField.setText(keyStore.ollamaEndpoint ?: "")
+        binding.ollamaModelField.setText(keyStore.ollamaModel ?: "")
+        updateOllamaFieldsVisibility(keyStore.selectedProvider == CloudProvider.OLLAMA)
 
         // Speech
         binding.cloudSpeechSwitch.isChecked = keyStore.cloudSpeechEnabled
@@ -127,13 +132,31 @@ class ConnectionHubFragment : Fragment() {
     private fun setupListeners() {
         // LLM
         binding.providerGroup.setOnCheckedChangeListener { _, id ->
-            val p = when (id) { R.id.rbGemini -> CloudProvider.GEMINI; R.id.rbClaude -> CloudProvider.CLAUDE; R.id.rbOpenAI -> CloudProvider.OPENAI; else -> null }
+            val p = when (id) {
+                R.id.rbGemini -> CloudProvider.GEMINI
+                R.id.rbClaude -> CloudProvider.CLAUDE
+                R.id.rbOpenAI -> CloudProvider.OPENAI
+                R.id.rbOllama -> CloudProvider.OLLAMA
+                else -> null
+            }
             keyStore.selectedProvider = p
-            p?.let { binding.apiKeyField.setText(keyStore.getApiKey(it) ?: "") }
+            val isOllama = p == CloudProvider.OLLAMA
+            updateOllamaFieldsVisibility(isOllama)
+            if (!isOllama) {
+                p?.let { binding.apiKeyField.setText(keyStore.getApiKey(it) ?: "") }
+            }
             updateStatus(); viewModel.refreshCloudConfig()
         }
         binding.apiKeyField.addTextChangedListener(watcher {
             keyStore.selectedProvider?.let { keyStore.setApiKey(it, binding.apiKeyField.text.toString()) }
+            updateStatus(); viewModel.refreshCloudConfig()
+        })
+        binding.ollamaEndpointField.addTextChangedListener(watcher {
+            keyStore.ollamaEndpoint = binding.ollamaEndpointField.text.toString()
+            updateStatus(); viewModel.refreshCloudConfig()
+        })
+        binding.ollamaModelField.addTextChangedListener(watcher {
+            keyStore.ollamaModel = binding.ollamaModelField.text.toString()
             updateStatus(); viewModel.refreshCloudConfig()
         })
         binding.cloudFirstSwitch.setOnCheckedChangeListener { _, c -> keyStore.isCloudFirst = c; viewModel.refreshCloudConfig() }
@@ -286,6 +309,14 @@ class ConnectionHubFragment : Fragment() {
         }
     }
 
+    private fun updateOllamaFieldsVisibility(isOllama: Boolean) {
+        val vis = if (isOllama) View.VISIBLE else View.GONE
+        binding.ollamaEndpointField.visibility = vis
+        binding.ollamaModelField.visibility = vis
+        // Hide API key for Ollama (no key needed)
+        binding.apiKeyField.visibility = if (isOllama) View.GONE else View.VISIBLE
+    }
+
     private fun setupBridgeSwitchListener() {
         binding.bridgeSwitch.setOnCheckedChangeListener { _, enabled ->
             if (enabled) {
@@ -392,8 +423,13 @@ class ConnectionHubFragment : Fragment() {
         val results = mutableListOf<String>()
 
         val llmProvider = keyStore.selectedProvider
-        val llmKey = llmProvider?.let { keyStore.getApiKey(it) }
-        if (llmProvider != null && llmKey != null) results.add("green:${llmProvider.displayName} configured")
+        if (llmProvider == CloudProvider.OLLAMA && keyStore.ollamaEndpoint != null) {
+            val model = keyStore.ollamaModel ?: llmProvider.defaultModel
+            results.add("green:Ollama ($model) configured")
+        } else {
+            val llmKey = llmProvider?.let { keyStore.getApiKey(it) }
+            if (llmProvider != null && llmKey != null) results.add("green:${llmProvider.displayName} configured")
+        }
 
         if (keyStore.cloudSpeechEnabled && keyStore.getSpeechKey(keyStore.speechProvider) != null)
             results.add("green:${keyStore.speechProvider.displayName} configured")
@@ -414,10 +450,14 @@ class ConnectionHubFragment : Fragment() {
 
             // Test LLM
             val llmProvider = keyStore.selectedProvider
-            val llmKey = llmProvider?.let { keyStore.getApiKey(it) }
-            if (llmProvider != null && llmKey != null) {
-                val ok = withContext(Dispatchers.IO) { testLlm(llmProvider, llmKey) }
-                results.add(if (ok) "green:${llmProvider.displayName} connected" else "red:${llmProvider.displayName} failed")
+            if (llmProvider != null) {
+                val llmKey = keyStore.getApiKey(llmProvider) ?: ""
+                // Ollama doesn't need a key, just needs endpoint configured
+                val shouldTest = llmProvider == CloudProvider.OLLAMA || llmKey.isNotBlank()
+                if (shouldTest) {
+                    val ok = withContext(Dispatchers.IO) { testLlm(llmProvider, llmKey) }
+                    results.add(if (ok) "green:${llmProvider.displayName} connected" else "red:${llmProvider.displayName} failed")
+                }
             }
 
             // Test Speech
@@ -450,6 +490,16 @@ class ConnectionHubFragment : Fragment() {
                 CloudProvider.OPENAI -> (URL(CloudProvider.OPENAI.endpoint).openConnection() as HttpURLConnection).apply {
                     requestMethod = "POST"; setRequestProperty("Content-Type", "application/json"); setRequestProperty("Authorization", "Bearer $key"); doOutput = true; connectTimeout = 10000
                     outputStream.write("""{"model":"${provider.defaultModel}","max_tokens":10,"messages":[{"role":"user","content":"hi"}]}""".toByteArray())
+                }
+                CloudProvider.OLLAMA -> {
+                    val baseUrl = keyStore.ollamaEndpoint ?: provider.endpoint
+                    val endpoint = if (baseUrl.contains("/chat/completions")) baseUrl
+                                   else "${baseUrl.trimEnd('/')}/v1/chat/completions"
+                    val model = keyStore.ollamaModel ?: provider.defaultModel
+                    (URL(endpoint).openConnection() as HttpURLConnection).apply {
+                        requestMethod = "POST"; setRequestProperty("Content-Type", "application/json"); doOutput = true; connectTimeout = 10000
+                        outputStream.write("""{"model":"$model","max_tokens":50,"messages":[{"role":"user","content":"hi"}]}""".toByteArray())
+                    }
                 }
             }
             val code = conn.responseCode; conn.disconnect(); code in 200..299

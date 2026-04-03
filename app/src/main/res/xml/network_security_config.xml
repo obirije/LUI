@@ -1,15 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <network-security-config>
-    <!-- Block cleartext (HTTP) traffic by default -->
-    <base-config cleartextTrafficPermitted="false">
+    <!-- Allow cleartext for local/LAN connections (bridge, Ollama) -->
+    <!-- Cloud APIs all use HTTPS -->
+    <base-config cleartextTrafficPermitted="true">
         <trust-anchors>
             <certificates src="system" />
         </trust-anchors>
     </base-config>
-
-    <!-- Allow cleartext only for local bridge connections -->
-    <domain-config cleartextTrafficPermitted="true">
-        <domain includeSubdomains="true">localhost</domain>
-        <domain includeSubdomains="true">127.0.0.1</domain>
-    </domain-config>
 </network-security-config>

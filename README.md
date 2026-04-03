@@ -109,7 +109,7 @@ You (voice / text)
 |:----------|:-----------|
 | Shell | Kotlin, Android XML layouts, Navigation Component |
 | LLM | llama.cpp (native C++ via JNI), Qwen3.5 0.8B Q4_K_M |
-| Cloud LLM | Gemini 2.0 Flash, Claude Sonnet 4, GPT-4o Mini (native tool use) |
+| Cloud LLM | Gemini, Claude, OpenAI, Ollama (native tool use, 4 providers) |
 | STT | Android SpeechRecognizer (on-device, streaming) |
 | TTS | Kyutai Pocket TTS INT8 via sherpa-onnx (local), Deepgram/ElevenLabs (cloud) |
 | Storage | Room (SQLite) for chat history + notification digest |
@@ -150,8 +150,21 @@ LUI works fully offline by default. For stronger reasoning and native tool use, 
 | **Gemini** | 15 RPM free | [aistudio.google.com](https://aistudio.google.com/apikey) |
 | **Claude** | None (paid) | [console.anthropic.com](https://console.anthropic.com/) |
 | **OpenAI** | None (paid) | [platform.openai.com](https://platform.openai.com/api-keys) |
+| **Ollama** | Free (self-hosted) | [ollama.com](https://ollama.com/) — run any model locally |
 
-All three providers use **native structured tool use** — the model calls tools directly through the API, not by outputting JSON in text.
+All four providers use **native structured tool use**. Ollama uses the OpenAI-compatible API — any model with tool support (Qwen 3.5, Llama 3.1, Mistral) works with all 72 tools.
+
+### Ollama Setup
+
+Run any model on your machine and connect LUI to it:
+
+1. Install Ollama: `curl -fsSL https://ollama.com/install.sh | sh`
+2. Pull a model: `ollama pull qwen3.5:9b`
+3. Set `OLLAMA_HOST=0.0.0.0` and `OLLAMA_ORIGINS=*` in your Ollama service config so LUI can reach it from the phone
+4. In LUI Connection Hub → select **Ollama** → enter your machine's IP (e.g., `http://YOUR_IP:11434`) and model name
+5. Toggle **Cloud-first** on
+
+For remote access, use a Cloudflare tunnel pointing to `localhost:11434` and enter the tunnel URL as the endpoint.
 
 ### Speech (TTS + STT)
 

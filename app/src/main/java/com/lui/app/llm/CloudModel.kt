@@ -68,12 +68,24 @@ class CloudModel(private val keyStore: SecureKeyStore, private val appContext: a
         toolResults: List<Pair<LlmToolCall, String>>? = null
     ): Flow<GenerationResult> = flow {
         val provider = keyStore.selectedProvider ?: throw Exception("No provider selected")
-        val apiKey = keyStore.getApiKey(provider) ?: throw Exception("No API key")
 
         when (provider) {
-            CloudProvider.GEMINI -> emitAll(generateGemini(apiKey, provider.defaultModel, userMessage, history, toolResults))
-            CloudProvider.CLAUDE -> emitAll(generateClaude(apiKey, provider.defaultModel, userMessage, history, toolResults))
-            CloudProvider.OPENAI -> emitAll(generateOpenAI(apiKey, provider.defaultModel, userMessage, history, toolResults))
+            CloudProvider.OLLAMA -> {
+                val baseUrl = keyStore.ollamaEndpoint ?: provider.endpoint
+                val endpoint = if (baseUrl.endsWith("/chat/completions")) baseUrl
+                               else "${baseUrl.trimEnd('/')}/v1/chat/completions"
+                val model = keyStore.ollamaModel ?: provider.defaultModel
+                emitAll(generateOpenAI("", model, userMessage, history, toolResults, endpoint))
+            }
+            else -> {
+                val apiKey = keyStore.getApiKey(provider) ?: throw Exception("No API key")
+                when (provider) {
+                    CloudProvider.GEMINI -> emitAll(generateGemini(apiKey, provider.defaultModel, userMessage, history, toolResults))
+                    CloudProvider.CLAUDE -> emitAll(generateClaude(apiKey, provider.defaultModel, userMessage, history, toolResults))
+                    CloudProvider.OPENAI -> emitAll(generateOpenAI(apiKey, provider.defaultModel, userMessage, history, toolResults))
+                    else -> {}
+                }
+            }
         }
     }.flowOn(Dispatchers.IO)
 
@@ -95,6 +107,8 @@ class CloudModel(private val keyStore: SecureKeyStore, private val appContext: a
             requestMethod = "POST"
             setRequestProperty("Content-Type", "application/json")
             doOutput = true
+            connectTimeout = 30000
+            readTimeout = 120000
         }
 
         val contents = JSONArray()
@@ -207,6 +221,8 @@ class CloudModel(private val keyStore: SecureKeyStore, private val appContext: a
             setRequestProperty("x-api-key", key)
             setRequestProperty("anthropic-version", "2023-06-01")
             doOutput = true
+            connectTimeout = 30000
+            readTimeout = 120000
         }
 
         val messages = JSONArray()
@@ -330,14 +346,17 @@ class CloudModel(private val keyStore: SecureKeyStore, private val appContext: a
     private fun generateOpenAI(
         key: String, model: String, message: String,
         history: List<ChatMessage>,
-        toolResults: List<Pair<LlmToolCall, String>>?
+        toolResults: List<Pair<LlmToolCall, String>>?,
+        customEndpoint: String? = null
     ): Flow<GenerationResult> = flow {
-        val url = URL(CloudProvider.OPENAI.endpoint)
+        val url = URL(customEndpoint ?: CloudProvider.OPENAI.endpoint)
         val conn = (url.openConnection() as HttpURLConnection).apply {
             requestMethod = "POST"
             setRequestProperty("Content-Type", "application/json")
-            setRequestProperty("Authorization", "Bearer $key")
+            if (key.isNotBlank()) setRequestProperty("Authorization", "Bearer $key")
             doOutput = true
+            connectTimeout = 30000
+            readTimeout = 120000 // Ollama/large models can take time for first token
         }
 
         val messages = JSONArray()

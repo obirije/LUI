@@ -19,6 +19,11 @@ enum class CloudProvider(
         "OpenAI",
         "https://api.openai.com/v1/chat/completions",
         "gpt-4o-mini"
+    ),
+    OLLAMA(
+        "Ollama",
+        "http://localhost:11434/v1/chat/completions",
+        "qwen2.5:7b"
     );
 
     companion object {

@@ -378,6 +378,78 @@ Configure relay URL in LUI Connection Hub → Remote Relay section.
 
 ---
 
+## Ollama Integration
+
+Run your own LLM and connect LUI to it — fully private, no API keys, no cloud costs.
+
+### Setup
+
+```bash
+# Install Ollama
+curl -fsSL https://ollama.com/install.sh | sh
+
+# Pull a model (tool-use capable)
+ollama pull qwen3.5:9b       # 6GB, fast
+ollama pull qwen3.5:35b-a3b  # 24GB, powerful
+ollama pull llama3.1:8b      # 5GB, good all-rounder
+ollama pull mistral:7b       # 4GB, lightweight
+```
+
+### Configure Ollama for LAN access
+
+Edit the Ollama service to listen on all interfaces:
+
+```bash
+sudo nano /etc/systemd/system/ollama.service
+```
+
+Add under `[Service]`:
+```ini
+Environment="OLLAMA_HOST=0.0.0.0:11434"
+Environment="OLLAMA_ORIGINS=*"
+```
+
+Then restart:
+```bash
+sudo systemctl daemon-reload && sudo systemctl restart ollama
+```
+
+### Configure LUI
+
+In Connection Hub:
+1. Select **Ollama**
+2. **Endpoint**: `http://YOUR_MACHINE_IP:11434` (LAN) or `https://your-tunnel.example.com` (Cloudflare tunnel)
+3. **Model**: `qwen3.5:9b`, `qwen3.5:35b-a3b`, `llama3.1:8b`, etc.
+4. Toggle **Cloud-first** on
+5. Tap **Test Connections** to verify
+
+### Cloudflare Tunnel (optional — for remote access)
+
+If you want LUI to reach Ollama from outside your local network:
+
+```bash
+# Install cloudflared
+curl -fsSL https://pkg.cloudflare.com/cloudflared-linux-amd64.deb -o cloudflared.deb
+sudo dpkg -i cloudflared.deb
+
+# Set up tunnel pointing to Ollama
+cloudflared tunnel create ollama
+cloudflared tunnel route dns ollama ollama.yourdomain.com
+cloudflared tunnel run --url http://localhost:11434 ollama
+```
+
+Then use `https://ollama.yourdomain.com` as the endpoint in LUI.
+
+### Notes
+
+- Ollama uses the OpenAI-compatible `/v1/chat/completions` endpoint — LUI handles the URL automatically
+- No API key needed — the API key field is hidden when Ollama is selected
+- Models with tool/function calling support (Qwen 3.5, Llama 3.1, Mistral Nemo) work with all 72 LUI tools
+- Large models (35B+) may have slow first-token time — the thinking dots animate while waiting
+- Streaming is supported — responses appear token by token
+
+---
+
 ## Hermes Integration
 
 Install the LUI skill for Hermes:

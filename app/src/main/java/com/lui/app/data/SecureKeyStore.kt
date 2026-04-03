@@ -63,8 +63,20 @@ class SecureKeyStore(context: Context) {
     val hasCloudConfigured: Boolean
         get() {
             val provider = selectedProvider ?: return false
+            // Ollama doesn't need an API key
+            if (provider == com.lui.app.llm.CloudProvider.OLLAMA) return ollamaEndpoint != null
             return getApiKey(provider) != null
         }
+
+    // ---- Ollama ----
+
+    var ollamaEndpoint: String?
+        get() = prefs.getString("ollama_endpoint", null)?.takeIf { it.isNotBlank() }
+        set(value) = prefs.edit().putString("ollama_endpoint", value ?: "").apply()
+
+    var ollamaModel: String?
+        get() = prefs.getString("ollama_model", null)?.takeIf { it.isNotBlank() }
+        set(value) = prefs.edit().putString("ollama_model", value ?: "").apply()
 
     // ---- Speech (unified STT + TTS) ----
 
