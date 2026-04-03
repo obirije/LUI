@@ -29,7 +29,7 @@ Today it's a launcher that thinks locally and acts instantly. Tomorrow it's the 
 - **Full voice pipeline** — real-time STT, natural TTS with voice cloning (Pocket TTS), streaming conversation mode where the voice starts speaking while the LLM is still generating
 - **The Bouncer** — notification triage. Urgent notifications pass through, noise gets silently killed and batched into a persisted Evening Digest, 2FA codes are auto-extracted. Only active when LUI is your launcher.
 - **AccessibilityService** — read any app's screen, tap buttons, type text, scroll. The LLM can pilot any app on your phone.
-- **BYOS Bridge** — MCP-compatible WebSocket server. Remote agents connect, authenticate, and call any tool. Event streaming pushes notifications, calls, and 2FA codes to agents in real-time. Bidirectional: agents register capabilities, user tells LUI "tell deploy-bot to run tests" and gets the result. Three permission tiers with on-device approval. See [DOCS.md](DOCS.md).
+- **BYOS Bridge** — MCP-compatible WebSocket server. `pip install lui-bridge` or `npm install -g lui-bridge` to connect any agent. Event streaming, bidirectional communication, agent passthrough ("patch me to hermes"), three permission tiers with on-device approval. See [DOCS.md](DOCS.md).
 - **25 app deep links** — "play Despacito on Spotify", "search on Netflix", "find on YouTube"
 - **Sensor access** — proximity, ambient light, step counter
 - **Persistent conversations** across restarts (Room/SQLite)
@@ -113,7 +113,8 @@ You (voice / text)
 | STT | Android SpeechRecognizer (on-device, streaming) |
 | TTS | Kyutai Pocket TTS INT8 via sherpa-onnx (local), Deepgram/ElevenLabs (cloud) |
 | Storage | Room (SQLite) for chat history + notification digest |
-| Tool System | ToolRegistry (structured schemas) → ActionExecutor → 67 tools |
+| Tool System | ToolRegistry (structured schemas) → ActionExecutor → 72 tools |
+| Bridge SDK | Python (`pip install lui-bridge`) + Node.js (`npm install -g lui-bridge`) |
 | Fonts | JetBrains Mono (logo), DM Sans (body) |
 
 ---

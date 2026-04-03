@@ -6,10 +6,14 @@ LUI is an Android agent runtime with 72 tools, exposed over an MCP-compatible We
 
 ## Getting Started
 
-### 1. Install the Python package
+### 1. Install
 
 ```bash
+# Python
 pip install lui-bridge
+
+# Node.js
+npm install -g lui-bridge
 ```
 
 ### 2. Enable the bridge on your phone
@@ -28,6 +32,8 @@ lui bridge tools --url ws://PHONE_IP:8765 --token YOUR_TOKEN
 # Call a tool
 lui bridge call --url ws://PHONE_IP:8765 --token YOUR_TOKEN --tool battery
 ```
+
+Both Python and Node.js packages share the same CLI interface.
 
 ---
 
@@ -122,50 +128,37 @@ Starts a relay server for remote access. See [Relay](#relay).
 ```python
 from lui import LuiBridge
 
-# Connect
 bridge = LuiBridge("ws://PHONE_IP:8765", "YOUR_TOKEN")
-bridge.connect()  # returns tool count
+bridge.connect()
 
-# Call tools
-bridge.call_tool("battery")                    # "Battery is at 73%."
-bridge.call_tool("get_location")               # "You're at 123 Main St..."
+bridge.call_tool("battery")                                     # "Battery is at 73%."
+bridge.call_tool("get_location")                                # "You're at 123 Main St..."
 bridge.call_tool("toggle_flashlight", {"state": "on"})
 bridge.call_tool("send_sms", {"number": "Mom", "message": "On my way"})
 bridge.call_tool("navigate", {"destination": "the airport"})
 bridge.call_tool("open_app_search", {"app": "Spotify", "query": "Despacito"})
 
-# Device state
 bridge.get_device_state()    # Time, battery, network, device model
 bridge.list_tools()          # List of tool names
 bridge.ping()                # True if alive
-
 bridge.disconnect()
 ```
 
-### Bidirectional Agent
+### Python Bidirectional Agent
 
 ```python
 from lui import LuiBridge
-
-def handle_instruction(instruction):
-    """Called when phone user says 'tell my-bot to ...'"""
-    return f"Done: {instruction}"
-
-def handle_event(event_type, data):
-    """Called for phone events"""
-    if event_type == "notification_2fa":
-        print(f"2FA code: {data['code']}")
 
 bridge = LuiBridge(
     url="ws://PHONE_IP:8765",
     token="YOUR_TOKEN",
     agent_name="my-bot",
-    on_instruction=handle_instruction,
-    on_event=handle_event
+    on_instruction=lambda instr: f"Done: {instr}",
+    on_event=lambda t, d: print(f"Event: {t}")
 )
 bridge.connect()
 
-# Now on the phone:
+# On the phone:
 #   "patch me to my-bot"        → direct chat mode
 #   "@my-bot deploy staging"    → one-off instruction
 #   "tell my-bot to run tests"  → LLM forwards
@@ -174,6 +167,51 @@ bridge.connect()
 import time
 while bridge.connected:
     time.sleep(1)
+```
+
+---
+
+## Node.js API
+
+```javascript
+const { LuiBridge } = require('lui-bridge');
+
+const bridge = new LuiBridge('ws://PHONE_IP:8765', 'YOUR_TOKEN');
+await bridge.connect();
+
+await bridge.callTool('battery');                                 // "Battery is at 73%."
+await bridge.callTool('get_location');                            // "You're at 123 Main St..."
+await bridge.callTool('toggle_flashlight', { state: 'on' });
+await bridge.callTool('send_sms', { number: 'Mom', message: 'On my way' });
+await bridge.callTool('navigate', { destination: 'the airport' });
+await bridge.callTool('open_app_search', { app: 'Spotify', query: 'Despacito' });
+
+await bridge.getDeviceState();    // Time, battery, network, device model
+bridge.listTools();               // Array of tool names
+await bridge.ping();              // true if alive
+bridge.disconnect();
+```
+
+### Node.js Bidirectional Agent
+
+```javascript
+const { LuiBridge } = require('lui-bridge');
+
+const bridge = new LuiBridge('ws://PHONE_IP:8765', 'YOUR_TOKEN', {
+  agentName: 'my-bot',
+  onInstruction: async (instruction) => {
+    console.log(`Got: ${instruction}`);
+    return `Done: ${instruction}`;
+  },
+  onEvent: (type, data) => {
+    if (type === 'notification_2fa') console.log(`2FA: ${data.code}`);
+    if (type === 'notification') console.log(`${data.title}: ${data.text}`);
+  }
+});
+
+await bridge.connect();
+// Phone user: "patch me to my-bot" → direct chat
+// "@my-bot deploy" → one-off instruction
 ```
 
 ---
