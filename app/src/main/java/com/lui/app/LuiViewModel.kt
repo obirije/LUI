@@ -650,8 +650,19 @@ class LuiViewModel(application: Application) : AndroidViewModel(application) {
                                         pipelineStarted = true
                                     }
                                     val newText = cleaned.substring(lastSpokenIndex)
-                                    val splitIdx = newText.indexOfAny(charArrayOf('.', '!', '?'))
-                                    if (splitIdx >= 0 && newText.length > 10) {
+                                    // Split on sentence-ending punctuation (eager) or clause punctuation (with min length)
+                                    // Cloud TTS needs longer chunks for natural flow; local TTS can handle shorter
+                                    val isCloud = voiceEngine.isUsingCloudTts
+                                    val sentenceEnd = newText.indexOfAny(charArrayOf('.', '!', '?'))
+                                    val clauseEnd = newText.indexOfAny(charArrayOf(',', ':', ';', '\u2014'))
+                                    val minSentenceLen = if (isCloud) 60 else 5
+                                    val minClauseLen = if (isCloud) 120 else 25
+                                    val splitIdx = when {
+                                        sentenceEnd >= 0 && newText.length > minSentenceLen -> sentenceEnd
+                                        clauseEnd >= 0 && newText.length > minClauseLen -> clauseEnd
+                                        else -> -1
+                                    }
+                                    if (splitIdx >= 0) {
                                         val chunk = newText.substring(0, splitIdx + 1).trim()
                                         if (chunk.isNotBlank()) {
                                             voiceEngine.speakSentence(chunk)
@@ -755,8 +766,14 @@ class LuiViewModel(application: Application) : AndroidViewModel(application) {
                                 pipelineStarted = true
                             }
                             val newText = cleaned.substring(lastSpokenIndex)
-                            val splitIdx = newText.indexOfAny(charArrayOf('.', '!', '?'))
-                            if (splitIdx >= 0 && newText.length > 10) {
+                            val sentenceEnd = newText.indexOfAny(charArrayOf('.', '!', '?'))
+                            val clauseEnd = newText.indexOfAny(charArrayOf(',', ':', ';', '\u2014'))
+                            val splitIdx = when {
+                                sentenceEnd >= 0 && newText.length > 5 -> sentenceEnd
+                                clauseEnd >= 0 && newText.length > 25 -> clauseEnd
+                                else -> -1
+                            }
+                            if (splitIdx >= 0) {
                                 val chunk = newText.substring(0, splitIdx + 1).trim()
                                 if (chunk.isNotBlank()) {
                                     voiceEngine.speakSentence(chunk)

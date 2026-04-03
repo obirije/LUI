@@ -73,7 +73,8 @@ class VoiceEngine(private val context: Context) {
 
     // Fall back to local TTS if cloud TTS fails repeatedly
     private var cloudTtsFailCount = 0
-    private val useCloudTts: Boolean get() = cloudTts?.isEnabled == true && cloudTtsFailCount < 3
+    val isUsingCloudTts: Boolean get() = cloudTts?.isEnabled == true && cloudTtsFailCount < 3
+    private val useCloudTts: Boolean get() = isUsingCloudTts
 
     private fun initPocketTts() {
         val ttsDir = File(context.filesDir, "models/tts/sherpa-onnx-pocket-tts-int8-2026-01-26")
@@ -123,7 +124,7 @@ class VoiceEngine(private val context: Context) {
 
     private fun makeConfig(): GenerationConfig {
         return GenerationConfig().also {
-            it.speed = 1.0f; it.sid = 0
+            it.speed = 1.15f; it.sid = 0
             it.referenceAudio = referenceAudio
             it.referenceSampleRate = referenceSampleRate
             it.referenceText = ""

@@ -158,11 +158,16 @@ class CloudTts(private val keyStore: SecureKeyStore) {
         if (track.state != AudioTrack.STATE_INITIALIZED) { track.release(); return }
 
         audioTrackRef(track)
-        track.play()
 
-        val buffer = ByteArray(4096)
+        // Pre-buffer audio before starting playback to eliminate click/pop
+        val buffer = ByteArray(8192)
         var leftover: Byte? = null
         var read: Int
+        var started = false
+        val preBuffer = mutableListOf<ShortArray>()
+        var preBufferedSamples = 0
+        val preBufferTarget = sampleRate / 2 // 500ms of audio before starting
+
         while (input.read(buffer).also { read = it } > 0) {
             var offset = 0
             var length = read
@@ -189,12 +194,42 @@ class CloudTts(private val keyStore: SecureKeyStore) {
             if (length > 0) {
                 val shorts = ShortArray(length / 2)
                 ByteBuffer.wrap(workBuffer, offset, length).order(ByteOrder.LITTLE_ENDIAN).asShortBuffer().get(shorts)
-                track.write(shorts, 0, shorts.size)
+
+                if (!started) {
+                    // Buffer audio before starting playback
+                    preBuffer.add(shorts)
+                    preBufferedSamples += shorts.size
+                    if (preBufferedSamples >= preBufferTarget) {
+                        // Apply fade-in to the very first samples to eliminate any click
+                        val first = preBuffer[0]
+                        val fadeLen = minOf(1200, first.size) // 50ms fade at 24kHz
+                        for (i in 0 until fadeLen) {
+                            first[i] = (first[i] * (i.toFloat() / fadeLen)).toInt().toShort()
+                        }
+
+                        track.play()
+                        started = true
+                        for (chunk in preBuffer) {
+                            track.write(chunk, 0, chunk.size)
+                        }
+                        preBuffer.clear()
+                    }
+                } else {
+                    track.write(shorts, 0, shorts.size)
+                }
             }
         }
 
+        // Flush any remaining pre-buffered audio if stream ended early
+        if (!started && preBuffer.isNotEmpty()) {
+            track.play()
+            for (chunk in preBuffer) {
+                track.write(chunk, 0, chunk.size)
+            }
+            preBuffer.clear()
+        }
+
         // Wait for AudioTrack to fully drain
-        val remaining = track.playbackHeadPosition
         Thread.sleep(500)
         track.stop()
         track.release()

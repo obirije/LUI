@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">LUI</string>
+    <string name="app_name">AI Assistant</string>
     <string name="input_hint">Ask LUI anything\u2026</string>
     <string name="welcome_message">Hey, I\'m LUI. I run your phone now. Ask me anything or tell me what to do.</string>
     <string name="thinking">Thinking\u2026</string>
