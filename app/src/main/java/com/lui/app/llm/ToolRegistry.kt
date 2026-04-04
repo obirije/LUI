@@ -167,6 +167,12 @@ object ToolRegistry {
         ToolDef("route_audio", "Route audio output to speaker, bluetooth, or earpiece",
             listOf(ParamDef("target", description = "speaker, bluetooth, or earpiece", required = true))),
 
+        // Vision — ONLY call when user EXPLICITLY asks for photo/image
+        ToolDef("take_photo", "Take a photo with the device camera. ONLY use when user explicitly says 'take a photo', 'snap a picture', 'what do you see', 'look around'. NEVER call for greetings or general chat."),
+        ToolDef("pick_image", "Open gallery for user to select an image. ONLY when user says 'pick image', 'choose photo', 'upload image', 'from gallery'."),
+        ToolDef("analyze_image", "Describe what is in the last photo taken or selected. The image is automatically included.",
+            listOf(ParamDef("question", description = "What to look for in the image"))),
+
         // BYOS Bridge
         ToolDef("start_bridge", "Start the BYOS WebSocket bridge so remote agents can connect and use LUI's tools"),
         ToolDef("stop_bridge", "Stop the BYOS WebSocket bridge"),

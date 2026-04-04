@@ -82,6 +82,16 @@ object ActionExecutor {
             "press_home" -> ScreenActions.pressHome(context)
             "open_lui" -> ScreenActions.openLui(context)
 
+            "take_photo" -> VisionActions.takePhoto(context)
+            "pick_image" -> ActionResult.Success("__PICK_IMAGE__")
+            "analyze_image" -> {
+                if (VisionActions.lastCapturedImage != null) {
+                    ActionResult.Success("Photo is attached to this message. Analyze it and tell the user what you see.")
+                } else {
+                    ActionResult.Failure("No photo captured yet. Use take_photo first.")
+                }
+            }
+
             "lock_screen" -> SystemActions.lockScreen(context)
             "take_screenshot" -> SystemActions.takeScreenshot(context)
             "split_screen" -> SystemActions.splitScreen(context)

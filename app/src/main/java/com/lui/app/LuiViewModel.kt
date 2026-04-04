@@ -54,6 +54,24 @@ class LuiViewModel(application: Application) : AndroidViewModel(application) {
     private var bridgeApprovalResult: java.util.concurrent.CountDownLatch? = null
     private var bridgeApprovalGranted = false
 
+    // Image picker request
+    private val _pickImageRequest = MutableLiveData<Boolean>()
+    val pickImageRequest: LiveData<Boolean> = _pickImageRequest
+
+    fun onImagePicked(bitmap: android.graphics.Bitmap?) {
+        if (bitmap != null) {
+            val stream = java.io.ByteArrayOutputStream()
+            val scaled = android.graphics.Bitmap.createScaledBitmap(bitmap, 640, 480, true)
+            scaled.compress(android.graphics.Bitmap.CompressFormat.JPEG, 80, stream)
+            val base64 = android.util.Base64.encodeToString(stream.toByteArray(), android.util.Base64.NO_WRAP)
+            com.lui.app.interceptor.actions.VisionActions.lastCapturedImage = base64
+            com.lui.app.interceptor.actions.VisionActions.lastCapturedBitmap = scaled
+            addMessage(ChatMessage(text = "", sender = Sender.LUI, imageBitmap = scaled))
+            LuiLogger.i("VISION", "Image selected from gallery")
+        }
+        _pickImageRequest.value = false
+    }
+
     // Agent passthrough mode: "patch me to hermes"
     private var passthroughAgent: String? = null
     val isInPassthrough: Boolean get() = passthroughAgent != null
@@ -751,6 +769,31 @@ class LuiViewModel(application: Application) : AndroidViewModel(application) {
             }
             LuiLogger.toolResult(tc.name, actionResult is ActionResult.Success, resultMsg)
             LuiLogger.toolChain(round + 1, tc.name, resultMsg)
+
+            // Handle pick image request
+            if (resultMsg == "__PICK_IMAGE__") {
+                _pickImageRequest.postValue(true)
+                return
+            }
+
+            // Handle photo captured — show preview and continue to LLM for analysis
+            if (resultMsg.startsWith("__PHOTO_CAPTURED__")) {
+                val cleanMsg = resultMsg.removePrefix("__PHOTO_CAPTURED__")
+                val bitmap = com.lui.app.interceptor.actions.VisionActions.lastCapturedBitmap
+                // Replace thinking dots with the photo preview
+                if (bitmap != null) {
+                    replaceLastWithLui("", streaming = false)
+                    val current = _messages.value.orEmpty().toMutableList()
+                    current[current.size - 1] = ChatMessage(text = "", sender = Sender.LUI, imageBitmap = bitmap)
+                    _messages.value = current
+                    _scrollToBottom.value = Unit
+                }
+                // Add NEW thinking dots for the analysis phase
+                addMessage(ChatMessage(text = "", sender = Sender.THINKING))
+                toolResults.add(Pair(tc, cleanMsg))
+                isFirstRound = false
+                continue
+            }
 
             // Handle passthrough sentinels — these don't go back to the LLM
             if (resultMsg.startsWith("__PASSTHROUGH_START__")) {

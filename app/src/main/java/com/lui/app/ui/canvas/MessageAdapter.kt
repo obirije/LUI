@@ -148,9 +148,18 @@ class MessageAdapter : ListAdapter<ChatMessage, RecyclerView.ViewHolder>(DiffCal
     class LuiViewHolder(view: View) : RecyclerView.ViewHolder(view) {
         private val textView: TextView = view.findViewById(R.id.messageText)
         private val cursorView: TextView = view.findViewById(R.id.cursorView)
+        private val imageView: android.widget.ImageView = view.findViewById(R.id.messageImage)
         private var cursorAnimator: ObjectAnimator? = null
 
         fun bind(message: ChatMessage) {
+            // Image preview
+            if (message.imageBitmap != null) {
+                imageView.setImageBitmap(message.imageBitmap)
+                imageView.visibility = View.VISIBLE
+            } else {
+                imageView.visibility = View.GONE
+            }
+
             if (message.streaming) {
                 textView.text = message.text
                 textView.alpha = 1f

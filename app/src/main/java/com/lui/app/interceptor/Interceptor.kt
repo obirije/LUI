@@ -18,6 +18,7 @@ object Interceptor {
         "get_location", "get_distance", "read_calendar", "read_sms",
         "now_playing", "read_clipboard", "screen_time",
         "read_screen", "find_and_tap", "type_text", "scroll_down", "press_back", "press_home", "open_lui",
+        "take_photo", "pick_image", "analyze_image",
         "lock_screen", "take_screenshot", "split_screen", "set_screen_timeout", "keep_screen_on", "bedtime_mode",
         "start_bridge", "stop_bridge", "bridge_status",
         "get_steps", "get_proximity", "get_light",
@@ -322,6 +323,13 @@ object Interceptor {
         if (lower.matches(Regex(".*(?:2fa|otp|verification|verify)\\s*(?:code)?.*")) ||
             lower.matches(Regex(".*(?:what(?:'s| is)\\s+(?:the|my)\\s+(?:code|otp|2fa)).*")))
             return ToolCall("get_2fa_code")
+
+        // ── Vision / Camera ──
+
+        if (lower.matches(Regex(".*(?:take|capture|snap)\\s+(?:a\\s+)?(?:photo|picture|pic|image|selfie).*")) ||
+            lower.matches(Regex(".*(?:what(?:'s| is|do you)\\s+(?:in front|around|see|near)).*")) ||
+            lower == "take a photo" || lower == "take photo")
+            return ToolCall("take_photo")
 
         // ── Screen control (Accessibility) ──
 

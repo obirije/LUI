@@ -136,10 +136,44 @@ class CloudModel(private val keyStore: SecureKeyStore, private val appContext: a
                     JSONObject().put("name", toolCall.name)
                         .put("response", JSONObject().put("result", result)))
                 contents.put(JSONObject().put("role", "user").put("parts", JSONArray().put(frPart)))
+
+                // If this was a photo tool, attach image as a SEPARATE user message
+                if (toolCall.name in listOf("take_photo", "analyze_image", "pick_image")) {
+                    val pendingImage = com.lui.app.interceptor.actions.VisionActions.lastCapturedImage
+                    if (pendingImage != null) {
+                        val imageParts = JSONArray()
+                        imageParts.put(JSONObject().put("text", "Here is the photo I just captured. Describe what you see to the user."))
+                        imageParts.put(JSONObject().apply {
+                            put("inlineData", JSONObject().apply {
+                                put("mimeType", "image/jpeg")
+                                put("data", pendingImage)
+                            })
+                        })
+                        contents.put(JSONObject().put("role", "user").put("parts", imageParts))
+                        LuiLogger.i("VISION", "Image attached as separate message (${pendingImage.length} chars)")
+                        com.lui.app.interceptor.actions.VisionActions.lastCapturedImage = null
+                    }
+                }
             }
         } else {
-            // Current message
-            contents.put(JSONObject().put("role", "user").put("parts", JSONArray().put(JSONObject().put("text", message))))
+            // Current message — always include pending image if available
+            val parts = JSONArray()
+            parts.put(JSONObject().put("text", message))
+
+            val pendingImage = com.lui.app.interceptor.actions.VisionActions.lastCapturedImage
+            if (pendingImage != null) {
+                parts.put(JSONObject().apply {
+                    put("inlineData", JSONObject().apply {
+                        put("mimeType", "image/jpeg")
+                        put("data", pendingImage)
+                    })
+                })
+                LuiLogger.i("VISION", "Image attached to Gemini request (${pendingImage.length} chars)")
+                // Clear after attaching so it's not sent repeatedly
+                com.lui.app.interceptor.actions.VisionActions.lastCapturedImage = null
+            }
+
+            contents.put(JSONObject().put("role", "user").put("parts", parts))
         }
 
         val body = JSONObject()
