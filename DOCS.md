@@ -1,6 +1,6 @@
 # LUI Developer Documentation
 
-LUI is an Android agent runtime with 72 tools, exposed over an MCP-compatible WebSocket bridge. Any agent — Claude Code, Hermes, custom bots — can connect and control the phone.
+LUI is an Android agent runtime with 75+ tools, exposed over an MCP-compatible WebSocket bridge. Any agent — Claude Code, Hermes, custom bots — can connect and control the phone.
 
 ---
 
@@ -501,7 +501,7 @@ adb exec-out run-as com.lui.app.debug cat files/lui_log.txt
 
 ---
 
-## Tool Categories (72 total)
+## Tool Categories (75+ total)
 
 | Category | Count | Examples |
 |:---------|:------|:--------|
@@ -514,10 +514,12 @@ adb exec-out run-as com.lui.app.debug cat files/lui_log.txt
 | Navigation | 4 | navigate, map search, location, distance |
 | Device Info | 7 | time, date, battery, Wi-Fi, storage, device info |
 | Sensors | 3 | steps, proximity, ambient light |
+| Vision | 3 | take photo, pick image from gallery, analyze image |
 | Notifications | 6 | read, clear, digest, 2FA, triage config |
 | Screen Control | 6 | read screen, tap, type, scroll, back, home |
 | Clipboard | 3 | copy, read, share |
 | Audio | 1 | route to speaker/bluetooth/earpiece |
+| Voice | 1 | "Hey LUI" wake word — activates conversation from lock screen |
 | Settings | 5 | settings, Wi-Fi/BT, wallpaper, bedtime mode |
 | Bridge | 5 | start/stop, status, list agents, instruct agent |
 | Agent | 2 | start/end passthrough |

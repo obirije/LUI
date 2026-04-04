@@ -23,10 +23,12 @@ Today it's a launcher that thinks locally and acts instantly. Tomorrow it's the 
 ## What It Does Now
 
 - **Replaces your home screen** with a monochrome conversational canvas
-- **70 headless device tools** — hardware controls, communication, calendar, media, navigation, sensors, screen control, notifications, file management, and more
-- **Native tool use** with Gemini, Claude, and OpenAI — structured function calling, not JSON-in-text hacks. Multi-turn tool chaining (up to 5 rounds per request).
+- **75+ headless device tools** — hardware controls, communication, calendar, media, navigation, sensors, screen control, notifications, camera/vision, file management, and more
+- **Native tool use** with Gemini, Claude, OpenAI, and Ollama — structured function calling, multi-turn tool chaining (up to 5 rounds per request)
 - **On-device LLM** (Qwen3.5 0.8B via llama.cpp) — no cloud, no API keys, fully private
-- **Full voice pipeline** — real-time STT, natural TTS with voice cloning (Pocket TTS), streaming conversation mode where the voice starts speaking while the LLM is still generating
+- **"Hey LUI" wake word** — say it even when the phone is locked/sleeping. Wakes the screen, greets you, enters conversation mode. 5MB keyword spotter model, ~2-3% battery/hour.
+- **Vision** — "take a photo and tell me what you see" captures with the camera and sends to Gemini for analysis. Photo preview shown in chat.
+- **Full voice pipeline** — real-time STT, natural TTS (Pocket TTS local, Deepgram cloud), streaming conversation mode, "goodbye" to end conversation. Optimized sentence chunking for natural speech pacing.
 - **The Bouncer** — notification triage. Urgent notifications pass through, noise gets silently killed and batched into a persisted Evening Digest, 2FA codes are auto-extracted. Only active when LUI is your launcher.
 - **AccessibilityService** — read any app's screen, tap buttons, type text, scroll. The LLM can pilot any app on your phone.
 - **BYOS Bridge** — MCP-compatible WebSocket server. `pip install lui-bridge` or `npm install -g lui-bridge` to connect any agent. Event streaming, bidirectional communication, agent passthrough ("patch me to hermes"), three permission tiers with on-device approval. See [DOCS.md](DOCS.md).
