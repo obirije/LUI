@@ -1,6 +1,6 @@
 # lui-bridge
 
-Connect AI agents to LUI Android devices. 72 phone tools, MCP protocol, bidirectional communication.
+Connect AI agents to LUI Android devices. 78 phone tools, MCP protocol, bidirectional communication.
 
 ## Install
 
@@ -57,6 +57,11 @@ bridge.call_tool("set_volume", {"direction": "up"})
 bridge.call_tool("send_sms", {"number": "Mom", "message": "On my way"})
 bridge.call_tool("navigate", {"destination": "the airport"})
 bridge.call_tool("open_app_search", {"app": "Spotify", "query": "Despacito"})
+
+# Vision — trigger camera or gallery remotely
+bridge.call_tool("take_photo")                # captures photo via Camera2 API
+bridge.call_tool("pick_image")                # opens gallery picker on phone
+bridge.call_tool("analyze_image")             # describe what's in the last captured/selected image
 
 # Get device state
 print(bridge.get_device_state())

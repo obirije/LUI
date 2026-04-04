@@ -1,6 +1,6 @@
 # lui-bridge
 
-Connect AI agents to LUI Android devices. 72 phone tools, MCP protocol, bidirectional communication.
+Connect AI agents to LUI Android devices. 78 phone tools, MCP protocol, bidirectional communication.
 
 ## Install
 
@@ -38,6 +38,10 @@ await bridge.connect();
 console.log(await bridge.callTool('battery'));
 console.log(await bridge.callTool('get_location'));
 console.log(await bridge.callTool('toggle_flashlight', { state: 'on' }));
+
+// Vision
+console.log(await bridge.callTool('take_photo'));     // Camera2 capture
+console.log(await bridge.callTool('analyze_image'));  // Describe last photo
 
 // Device info
 console.log(await bridge.getDeviceState());
