@@ -770,10 +770,42 @@ class LuiViewModel(application: Application) : AndroidViewModel(application) {
             LuiLogger.toolResult(tc.name, actionResult is ActionResult.Success, resultMsg)
             LuiLogger.toolChain(round + 1, tc.name, resultMsg)
 
-            // Handle pick image request
+            // Handle pick image request — launch picker and wait
             if (resultMsg == "__PICK_IMAGE__") {
                 _pickImageRequest.postValue(true)
-                return
+                // Wait for image selection (up to 60s)
+                val pickLatch = java.util.concurrent.CountDownLatch(1)
+                val observer = object : androidx.lifecycle.Observer<Boolean> {
+                    override fun onChanged(value: Boolean) {
+                        if (value == false) pickLatch.countDown()
+                    }
+                }
+                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                    _pickImageRequest.observeForever(observer)
+                }
+                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                    pickLatch.await(60, java.util.concurrent.TimeUnit.SECONDS)
+                }
+                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                    _pickImageRequest.removeObserver(observer)
+                }
+
+                val bitmap = com.lui.app.interceptor.actions.VisionActions.lastCapturedBitmap
+                if (bitmap != null) {
+                    // Show preview and continue to LLM for analysis
+                    replaceLastWithLui("", streaming = false)
+                    val current = _messages.value.orEmpty().toMutableList()
+                    current[current.size - 1] = ChatMessage(text = "", sender = Sender.LUI, imageBitmap = bitmap)
+                    _messages.value = current
+                    _scrollToBottom.value = Unit
+                    addMessage(ChatMessage(text = "", sender = Sender.THINKING))
+                    toolResults.add(Pair(tc, "Image selected from gallery. Now describe what you see in the image to the user."))
+                    isFirstRound = false
+                    continue
+                } else {
+                    replaceLastWithLui("No image selected.", streaming = false)
+                    return
+                }
             }
 
             // Handle photo captured — show preview and continue to LLM for analysis
@@ -917,6 +949,19 @@ class LuiViewModel(application: Application) : AndroidViewModel(application) {
             localModel.isReady -> "ready"
             cloudModel.isReady -> "cloud"
             else -> "no_model"
+        }
+    }
+
+    fun loadLocalModel() {
+        viewModelScope.launch {
+            _llmStatus.value = "Loading model..."
+            val result = localModel.initialize()
+            _llmStatus.value = when {
+                result.isSuccess && keyStore.isCloudFirst && cloudModel.isReady -> "cloud"
+                result.isSuccess -> "ready"
+                cloudModel.isReady -> "cloud"
+                else -> "Model failed to load"
+            }
         }
     }
 

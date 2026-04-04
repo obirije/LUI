@@ -24,12 +24,16 @@ import com.lui.app.bridge.BridgeProtocol
 import com.lui.app.bridge.LuiBridgeService
 import com.lui.app.bridge.LuiBridgeServer
 import com.lui.app.llm.CloudProvider
+import com.lui.app.llm.ModelDownloader
+import com.lui.app.llm.LocalModel
 import com.lui.app.llm.SpeechProvider
 import com.lui.app.voice.CloudTts
 import org.json.JSONObject
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.io.File
 import java.net.HttpURLConnection
 import java.net.URL
 
@@ -41,6 +45,7 @@ class ConnectionHubFragment : Fragment() {
     private lateinit var viewModel: LuiViewModel
 
     private var bridgeStateListener: ((Boolean) -> Unit)? = null
+    private var downloadJob: Job? = null
 
     private data class VoiceOption(val id: String, val name: String) {
         override fun toString() = name
@@ -60,6 +65,7 @@ class ConnectionHubFragment : Fragment() {
         loadConfig()
         setupListeners()
         updateStatus()
+        updateLocalModelStatus()
 
         // Auto-scroll to focused field when keyboard opens
         val focusListener = View.OnFocusChangeListener { v, hasFocus ->
@@ -240,6 +246,11 @@ class ConnectionHubFragment : Fragment() {
                 binding.bridgeTokenText.text = "Token: $token (tap to copy)"
             }, 2000)
         }
+
+        // Local model download
+        binding.btnDownloadModel.setOnClickListener { startModelDownload() }
+        binding.btnCancelDownload.setOnClickListener { cancelModelDownload() }
+        binding.btnDeleteModel.setOnClickListener { deleteModel() }
 
         // Test all
         binding.btnTest.setOnClickListener { testAllConnections() }
@@ -454,6 +465,100 @@ class ConnectionHubFragment : Fragment() {
         } else {
             showColoredResults(results)
         }
+    }
+
+    private fun updateLocalModelStatus() {
+        val modelsDir = File(requireContext().filesDir, "models")
+        val modelFile = File(modelsDir, LocalModel.MODEL_FILENAME)
+        val partFile = File(modelsDir, "${LocalModel.MODEL_FILENAME}.part")
+
+        if (modelFile.exists() && modelFile.length() > 1_000_000) {
+            val sizeMb = "%.1f".format(modelFile.length() / 1_048_576.0)
+            binding.localModelStatus.text = "\u25CF ${LocalModel.MODEL_FILENAME} (${sizeMb}MB)"
+            binding.localModelStatus.setTextColor(ContextCompat.getColor(requireContext(), R.color.lui_green))
+            binding.btnDownloadModel.visibility = View.GONE
+            binding.btnDeleteModel.visibility = View.VISIBLE
+            binding.btnCancelDownload.visibility = View.GONE
+            binding.modelProgressBar.visibility = View.GONE
+            binding.modelProgressText.visibility = View.GONE
+        } else if (partFile.exists() && partFile.length() > 0) {
+            val sizeMb = "%.1f".format(partFile.length() / 1_048_576.0)
+            binding.localModelStatus.text = "Partial download: ${sizeMb}MB"
+            binding.localModelStatus.setTextColor(ContextCompat.getColor(requireContext(), R.color.lui_amber))
+            binding.btnDownloadModel.text = "Resume"
+            binding.btnDownloadModel.visibility = View.VISIBLE
+            binding.btnDeleteModel.visibility = View.GONE
+            binding.btnCancelDownload.visibility = View.GONE
+        } else {
+            binding.localModelStatus.text = "No local model installed"
+            binding.localModelStatus.setTextColor(ContextCompat.getColor(requireContext(), R.color.lui_gray_dark))
+            binding.btnDownloadModel.text = "Download"
+            binding.btnDownloadModel.visibility = View.VISIBLE
+            binding.btnDeleteModel.visibility = View.GONE
+            binding.btnCancelDownload.visibility = View.GONE
+        }
+    }
+
+    private fun startModelDownload() {
+        binding.btnDownloadModel.visibility = View.GONE
+        binding.btnCancelDownload.visibility = View.VISIBLE
+        binding.btnDeleteModel.visibility = View.GONE
+        binding.modelProgressBar.visibility = View.VISIBLE
+        binding.modelProgressBar.progress = 0
+        binding.modelProgressText.visibility = View.VISIBLE
+        binding.modelProgressText.text = "Connecting..."
+        binding.localModelStatus.text = "Downloading..."
+        binding.localModelStatus.setTextColor(ContextCompat.getColor(requireContext(), R.color.lui_blue))
+
+        downloadJob = viewLifecycleOwner.lifecycleScope.launch {
+            ModelDownloader.downloadModel(
+                requireContext(),
+                url = ModelDownloader.DEFAULT_MODEL_URL,
+                filename = ModelDownloader.DEFAULT_MODEL_FILENAME
+            ).collect { progress ->
+                if (progress.error != null) {
+                    binding.localModelStatus.text = "Error: ${progress.error}"
+                    binding.localModelStatus.setTextColor(ContextCompat.getColor(requireContext(), R.color.lui_amber))
+                    binding.modelProgressBar.visibility = View.GONE
+                    binding.modelProgressText.visibility = View.GONE
+                    binding.btnCancelDownload.visibility = View.GONE
+                    binding.btnDownloadModel.visibility = View.VISIBLE
+                    binding.btnDownloadModel.text = "Retry"
+                    return@collect
+                }
+
+                if (progress.done) {
+                    updateLocalModelStatus()
+                    // Trigger model load
+                    viewModel.loadLocalModel()
+                    return@collect
+                }
+
+                binding.modelProgressBar.progress = progress.percent
+                binding.modelProgressText.text = "${progress.megabytesDownloaded}/${progress.totalMegabytes} MB  •  ${progress.speedMbps} MB/s  •  ${progress.percent}%"
+            }
+        }
+    }
+
+    private fun cancelModelDownload() {
+        downloadJob?.cancel()
+        downloadJob = null
+        binding.btnCancelDownload.visibility = View.GONE
+        binding.modelProgressBar.visibility = View.GONE
+        binding.modelProgressText.visibility = View.GONE
+        updateLocalModelStatus()
+    }
+
+    private fun deleteModel() {
+        android.app.AlertDialog.Builder(requireContext())
+            .setTitle("Delete Local Model")
+            .setMessage("Remove ${LocalModel.MODEL_FILENAME} from device?")
+            .setPositiveButton("Delete") { _, _ ->
+                ModelDownloader.deleteModel(requireContext())
+                updateLocalModelStatus()
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
     }
 
     private fun testAllConnections() {

@@ -110,6 +110,106 @@
             <Switch android:id="@+id/cloudFirstSwitch" android:layout_width="wrap_content" android:layout_height="wrap_content" android:thumbTint="@color/lui_white" android:trackTint="@color/lui_gray_dark" />
         </LinearLayout>
 
+        <!-- ==================== Local Model ==================== -->
+
+        <!-- Divider -->
+        <View android:layout_width="match_parent" android:layout_height="1dp" android:layout_marginTop="20dp" android:background="@color/lui_divider" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="20dp"
+            android:text="Local Model"
+            android:textColor="@color/lui_white"
+            android:textSize="16sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:text="On-device LLM for offline use. Downloads ~400MB."
+            android:textColor="@color/lui_gray_dark"
+            android:textSize="11sp" />
+
+        <!-- Model status -->
+        <TextView
+            android:id="@+id/localModelStatus"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:textColor="@color/lui_gray"
+            android:textSize="12sp" />
+
+        <!-- Progress bar -->
+        <ProgressBar
+            android:id="@+id/modelProgressBar"
+            style="@android:style/Widget.ProgressBar.Horizontal"
+            android:layout_width="match_parent"
+            android:layout_height="6dp"
+            android:layout_marginTop="8dp"
+            android:max="100"
+            android:progressTint="@color/lui_green"
+            android:progressBackgroundTint="@color/lui_gray_dark"
+            android:visibility="gone" />
+
+        <!-- Progress text (speed, size) -->
+        <TextView
+            android:id="@+id/modelProgressText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:fontFamily="@font/jetbrains_mono"
+            android:textColor="@color/lui_gray"
+            android:textSize="11sp"
+            android:visibility="gone" />
+
+        <!-- Download / Cancel / Delete buttons -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:orientation="horizontal">
+
+            <Button
+                android:id="@+id/btnDownloadModel"
+                android:layout_width="0dp"
+                android:layout_height="40dp"
+                android:layout_weight="1"
+                android:background="@drawable/btn_outlined"
+                android:text="Download"
+                android:textAllCaps="false"
+                android:textColor="@color/lui_white"
+                android:textSize="13sp" />
+
+            <Button
+                android:id="@+id/btnCancelDownload"
+                android:layout_width="0dp"
+                android:layout_height="40dp"
+                android:layout_weight="1"
+                android:layout_marginStart="8dp"
+                android:background="@drawable/btn_outlined"
+                android:text="Cancel"
+                android:textAllCaps="false"
+                android:textColor="@color/lui_amber"
+                android:textSize="13sp"
+                android:visibility="gone" />
+
+            <Button
+                android:id="@+id/btnDeleteModel"
+                android:layout_width="0dp"
+                android:layout_height="40dp"
+                android:layout_weight="1"
+                android:layout_marginStart="8dp"
+                android:background="@drawable/btn_outlined"
+                android:text="Delete"
+                android:textAllCaps="false"
+                android:textColor="@color/lui_amber"
+                android:textSize="13sp"
+                android:visibility="gone" />
+
+        </LinearLayout>
+
         <!-- Divider -->
         <View android:layout_width="match_parent" android:layout_height="1dp" android:layout_marginTop="20dp" android:background="@color/lui_divider" />
 

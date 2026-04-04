@@ -39,6 +39,23 @@ class CanvasFragment : Fragment() {
     private var pulseAnimator: AnimatorSet? = null
     private var mentionPopup: PopupWindow? = null
 
+    private val imagePickerLauncher = registerForActivityResult(
+        ActivityResultContracts.GetContent()
+    ) { uri ->
+        if (uri != null) {
+            try {
+                val inputStream = requireContext().contentResolver.openInputStream(uri)
+                val bitmap = android.graphics.BitmapFactory.decodeStream(inputStream)
+                inputStream?.close()
+                viewModel.onImagePicked(bitmap)
+            } catch (e: Exception) {
+                viewModel.onImagePicked(null)
+            }
+        } else {
+            viewModel.onImagePicked(null)
+        }
+    }
+
     private val micPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { granted ->
@@ -315,6 +332,13 @@ class CanvasFragment : Fragment() {
                         ContextCompat.getColorStateList(requireContext(), R.color.lui_amber)
                     binding.inputField.hint = status
                 }
+            }
+        }
+
+        // Image picker
+        viewModel.pickImageRequest.observe(viewLifecycleOwner) { requested ->
+            if (requested == true) {
+                imagePickerLauncher.launch("image/*")
             }
         }
 
