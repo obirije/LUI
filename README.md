@@ -12,41 +12,39 @@
 
 ---
 
-Voice assistants like Siri and Google Assistant can answer questions, but they can't actually *use* your phone. AI chatbots sit in an app waiting for you to copy and paste. LUI replaces your Android home screen with a single conversational interface backed by real agency — 78 native tools, a full voice pipeline, and an on-device LLM. You say what you want, and the phone does it.
+Voice assistants like Siri and Google Assistant can answer questions, but they can't actually *use* your phone. AI chatbots sit in an app waiting for you to copy and paste. LUI replaces your Android home screen with a conversational interface backed by real agency — 78 native tools, a full voice pipeline, and an on-device LLM. You speak, it acts.
 
-**For developers:** Your AI agents deserve better than a Telegram bot. LUI is a native mobile terminal that gives your swarms a physical body. Connect Claude Code, Hermes, or any MCP-compatible agent via WebSocket — they get first-class access to Android hardware, sensors, notifications, 2FA codes, and screen control. `pip install lui-bridge` and go.
-
----
-
-## What Can It Do?
-
-**Talk to your phone like a person:**
-
-> "Turn the flashlight on"
-> "Text mum I'm on my way"
-> "What's on my calendar tomorrow?"
-> "Navigate to the nearest pharmacy"
-> "Play Despacito on Spotify"
-> "Read my notifications"
-> "Take a photo and tell me what you see"
-> "Set an alarm for 7am"
-
-**All by voice.** Say "Hey LUI" even when the phone is locked — it wakes up, greets you, and listens. Say "goodbye" when you're done.
+For developers — your AI agents deserve better than a Telegram bot. LUI gives your swarms a physical body. Connect Claude Code, OpenClaw, Hermes, or any MCP agent via WebSocket — first-class access to Android hardware, sensors, notifications, 2FA codes, and screen control. `pip install lui-bridge` and go.
 
 ---
 
-## Features
+## What Can It Do? 💬
+
+> *"Turn the flashlight on"*
+> *"Text mum I'm on my way"*
+> *"What's on my calendar tomorrow?"*
+> *"Navigate to the nearest pharmacy"*
+> *"Play Despacito on Spotify"*
+> *"Read my notifications"*
+> *"Take a photo and tell me what you see"*
+> *"Set an alarm for 7am"*
+
+All by voice. Say **"Hey LUI"** even when the phone is locked — it wakes up, greets you, and listens. Say "goodbye" when you're done.
+
+---
+
+## Features ⚡
 
 - **Replaces your home screen** — no icons, no widgets, no noise. Just a clean chat interface.
-- **78 native device tools** — hardware controls, calls, SMS, calendar, navigation, media, camera, notifications, screen control, sensors, files, and more.
-- **Voice-first** — full streaming voice pipeline. Wake word ("Hey LUI"), conversation mode, natural TTS. Works hands-free.
-- **On-device LLM** — Qwen3.5 0.8B runs locally via llama.cpp. No cloud, no API keys, fully private. Auto-downloads from the Connection Hub.
-- **Cloud LLM** — connect Gemini, Claude, OpenAI, or Ollama for stronger reasoning with native function calling.
+- **78 native device tools** — hardware, calls, SMS, calendar, navigation, media, camera, notifications, screen control, sensors, files, and more.
+- **Voice-first** — streaming voice pipeline with wake word ("Hey LUI"), conversation mode, and natural TTS. Hands-free.
+- **On-device LLM** — Qwen3.5 0.8B runs locally via llama.cpp. No cloud, no API keys, fully private. Auto-downloads from Connection Hub.
+- **Cloud LLM** — Gemini, Claude, OpenAI, or Ollama with native function calling.
 - **Vision** — camera capture and gallery picker with AI image analysis.
-- **The Bouncer** — notification triage. Urgent notifications pass through, noise gets batched into an Evening Digest, 2FA codes auto-extracted.
-- **Screen control** — read any app's screen, tap buttons, type text, scroll. The LLM can pilot any app on your phone.
-- **Agent bridge (BYOS)** — MCP-compatible WebSocket server. Connect any AI agent with `pip install lui-bridge` or `npm install -g lui-bridge`. Event streaming, bidirectional communication, permission tiers, relay for remote access.
-- **Agent passthrough** — "Patch me to Hermes" enters direct chat with a remote agent. "@claude-code deploy" sends a one-off instruction.
+- **The Bouncer** — notification triage. Urgent apps pass through, noise batched into an Evening Digest, 2FA codes auto-extracted.
+- **Screen pilot** — read any app's screen, tap buttons, type text, scroll. The LLM can drive any app.
+- **Agent bridge** — MCP WebSocket server. `pip install lui-bridge` or `npm install -g lui-bridge`. Event streaming, bidirectional, permission tiers, relay.
+- **Agent passthrough** — "Patch me to Hermes" for direct chat. "@claude-code deploy" for one-off instructions.
 - **28 app deep links** — search inside apps by voice (see list below).
 - **Persistent conversations** across restarts (Room/SQLite).
 
@@ -57,6 +55,7 @@ LUI has been tested end-to-end with these agent frameworks:
 | Agent | How it connects | Mode |
 |:------|:---------------|:-----|
 | **[Claude Code](https://claude.ai/claude-code)** | `lui bridge connect --mode claude-code` | Full conversation + command execution |
+| **[OpenClaw](https://openclaw.ai/)** | Native MCP via MCPorter | Connects directly to LUI's MCP bridge |
 | **[Hermes](https://github.com/hermes-ai/hermes)** | `lui bridge connect --mode hermes` | Single-query via `-q` flag |
 | **Any shell command** | `lui bridge connect --mode shell` | Raw bash execution |
 | **Custom agents** | Python/Node.js API | Build your own with `pip install lui-bridge` |
@@ -78,7 +77,7 @@ Say "play Despacito on Spotify" or "search cats on YouTube" — LUI deep-links d
 
 ---
 
-## Getting Started
+## Getting Started 🚀
 
 ### Install
 
@@ -115,7 +114,7 @@ Without cloud speech, LUI uses on-device TTS (Pocket TTS).
 
 ---
 
-## Connect Your AI Agents
+## Connect Your AI Agents 🤖
 
 LUI exposes all 78 phone tools over an MCP-compatible WebSocket bridge. Any agent framework can connect.
 
@@ -149,7 +148,7 @@ Also available: `npm install -g lui-bridge` for Node.js.
 
 ---
 
-## Tools (78)
+## Tools 🔧 (78)
 
 | Category | Count | Examples |
 |:---------|:------|:--------|
@@ -220,7 +219,7 @@ You (voice / text)
 
 ---
 
-## Roadmap
+## Roadmap 🗺️
 
 **Shipped:** On-device launcher + LLM, voice conversation, 78 device tools with native function calling, BYOS WebSocket bridge (MCP, event streaming, bidirectional, permission tiers, relay), agent passthrough, notification triage, accessibility screen control, 25 app deep links, cloud TTS, camera/gallery vision, wake word, model auto-download, Connection Hub.
 
