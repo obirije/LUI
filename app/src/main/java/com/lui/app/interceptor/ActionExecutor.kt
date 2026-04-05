@@ -217,6 +217,9 @@ object ActionExecutor {
             "search_web" -> WebActions.searchWeb(context, query = toolCall.params["query"] ?: "")
             "browse_url" -> WebActions.browseUrl(context, url = toolCall.params["url"] ?: "")
 
+            // web_open/read/click/type/scroll removed — replaced by Jina-powered browse_url
+            // The LLM chains search_web + browse_url for multi-step web tasks
+
             "ambient_context" -> AmbientActions.getAmbientContext(context)
             "bluetooth_devices" -> AmbientActions.getBluetoothDevices(context)
             "network_state" -> AmbientActions.getNetworkState(context)

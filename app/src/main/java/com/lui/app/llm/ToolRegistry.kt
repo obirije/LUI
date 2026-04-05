@@ -188,7 +188,7 @@ object ToolRegistry {
         // Web
         ToolDef("search_web", "Search the web and return top results",
             listOf(ParamDef("query", description = "Search query", required = true))),
-        ToolDef("browse_url", "Browse a URL and return the page text content",
+        ToolDef("browse_url", "Browse a URL and return clean readable text. Works with any website including JS-heavy sites like Booking.com, Airbnb, Wikipedia. Use after search_web to read a specific result.",
             listOf(ParamDef("url", description = "URL to browse", required = true))),
 
         // Ambient context

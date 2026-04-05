@@ -787,7 +787,28 @@ class LuiViewModel(application: Application) : AndroidViewModel(application) {
             }
 
             LuiLogger.toolExecute(tc.name, tc.args)
-            replaceLastWithThinking()
+
+            // Show descriptive status for web agent and slow tools
+            val statusHint = when (tc.name) {
+                "web_open" -> "Opening ${tc.args["url"]?.take(40) ?: "page"}..."
+                "web_read" -> "Reading page..."
+                "web_click" -> "Clicking ${tc.args["target"]?.take(30) ?: "element"}..."
+                "web_type" -> "Typing..."
+                "web_scroll" -> "Scrolling..."
+                "search_web" -> "Searching..."
+                "browse_url" -> "Browsing ${tc.args["url"]?.take(40) ?: "page"}..."
+                else -> null
+            }
+            if (statusHint != null) {
+                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                    replaceLastWithLui(statusHint, streaming = true)
+                }
+                kotlinx.coroutines.delay(100) // Let UI render
+            } else {
+                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                    replaceLastWithThinking()
+                }
+            }
 
             val toolCallData = com.lui.app.data.ToolCall(tc.name, tc.args)
             val actionResult = ActionExecutor.execute(getApplication(), toolCallData)

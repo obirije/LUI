@@ -7,7 +7,7 @@ import androidx.room.RoomDatabase
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 
-@Database(entities = [ChatMessageEntity::class, DigestEntity::class], version = 2, exportSchema = false)
+@Database(entities = [ChatMessageEntity::class, DigestEntity::class], version = 3, exportSchema = false)
 abstract class LuiDatabase : RoomDatabase() {
     abstract fun chatMessageDao(): ChatMessageDao
     abstract fun digestDao(): DigestDao
@@ -31,10 +31,16 @@ abstract class LuiDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE chat_messages ADD COLUMN cardType TEXT DEFAULT NULL")
+            }
+        }
+
         fun getInstance(context: Context): LuiDatabase {
             return INSTANCE ?: synchronized(this) {
                 Room.databaseBuilder(context.applicationContext, LuiDatabase::class.java, "lui_db")
-                    .addMigrations(MIGRATION_1_2)
+                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
                     .build()
                     .also { INSTANCE = it }
             }

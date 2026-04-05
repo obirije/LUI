@@ -69,7 +69,8 @@ object WebActions {
     }
 
     /**
-     * Browse a URL and return the text content.
+     * Browse a URL via Jina Reader API — returns clean LLM-friendly text.
+     * No API key needed. Handles JS-rendered pages, strips ads/nav.
      */
     fun browseUrl(context: Context, url: String): ActionResult {
         if (url.isBlank()) return ActionResult.Failure("No URL provided.")
@@ -81,7 +82,7 @@ object WebActions {
                 browseUrlSync(fullUrl)
             }
             Thread(result).start()
-            result.get(20, java.util.concurrent.TimeUnit.SECONDS)
+            result.get(30, java.util.concurrent.TimeUnit.SECONDS)
         } catch (e: Exception) {
             LuiLogger.e("WebActions", "Browse wrapper failed: ${e.javaClass.simpleName}: ${e.message}", e)
             ActionResult.Failure("Couldn't load URL: ${e.message ?: e.javaClass.simpleName}")
@@ -90,28 +91,30 @@ object WebActions {
 
     private fun browseUrlSync(fullUrl: String): ActionResult {
         return try {
-            val conn = (URL(fullUrl).openConnection() as HttpURLConnection).apply {
+            // Use Jina Reader API — free, no key, returns clean text
+            val jinaUrl = URL("https://r.jina.ai/$fullUrl")
+            val conn = (jinaUrl.openConnection() as HttpURLConnection).apply {
                 requestMethod = "GET"
+                setRequestProperty("Accept", "text/plain")
                 setRequestProperty("User-Agent", "LUI/1.0")
-                connectTimeout = 10000
-                readTimeout = 15000
+                connectTimeout = 15000
+                readTimeout = 25000
                 instanceFollowRedirects = true
             }
 
             val code = conn.responseCode
             if (code !in 200..299) {
+                val err = try { conn.errorStream?.bufferedReader()?.readText()?.take(200) } catch (_: Exception) { "unknown" }
                 conn.disconnect()
-                return ActionResult.Failure("Failed to load $fullUrl (HTTP $code)")
+                return ActionResult.Failure("Failed to load $fullUrl (HTTP $code: $err)")
             }
 
-            val html = conn.inputStream.bufferedReader().readText()
+            val text = conn.inputStream.bufferedReader().readText()
             conn.disconnect()
 
-            val text = extractText(html)
             if (text.isBlank()) {
                 ActionResult.Failure("Page loaded but no readable text found.")
             } else {
-                // Truncate to ~3000 chars to stay within LLM context
                 val truncated = if (text.length > 3000) text.take(3000) + "\n\n[Truncated — page is longer]" else text
                 ActionResult.Success("Content from $fullUrl:\n\n$truncated")
             }
