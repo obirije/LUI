@@ -36,11 +36,14 @@ All by voice. Say **"Hey LUI"** even when the phone is locked — it wakes up, g
 ## Features ⚡
 
 - **Replaces your home screen** — no icons, no widgets, no noise. Just a clean chat interface.
-- **78 native device tools** — hardware, calls, SMS, calendar, navigation, media, camera, notifications, screen control, sensors, files, and more.
+- **83 native device tools** — hardware, calls, SMS, calendar, navigation, media, camera, notifications, screen control, sensors, web search, files, and more.
 - **Voice-first** — streaming voice pipeline with wake word ("Hey LUI"), conversation mode, and natural TTS. Hands-free.
 - **On-device LLM** — Qwen3.5 0.8B runs locally via llama.cpp. No cloud, no API keys, fully private. Auto-downloads from Connection Hub.
 - **Cloud LLM** — Gemini, Claude, OpenAI, or Ollama with native function calling.
 - **Vision** — camera capture and gallery picker with AI image analysis.
+- **Web search & browse** — search DuckDuckGo and browse any URL, all by voice. No API key needed.
+- **Rich cards** — search results show as clickable link cards, device status as color-coded panels. Not just text.
+- **Ambient context** — battery, charging, network, Bluetooth, audio state, screen brightness in one query.
 - **The Bouncer** — notification triage. Urgent apps pass through, noise batched into an Evening Digest, 2FA codes auto-extracted.
 - **Screen pilot** — read any app's screen, tap buttons, type text, scroll. The LLM can drive any app.
 - **Agent bridge** — MCP WebSocket server. `pip install lui-bridge` or `npm install -g lui-bridge`. Event streaming, bidirectional, permission tiers, relay.
@@ -116,7 +119,7 @@ Without cloud speech, LUI uses on-device TTS (Pocket TTS).
 
 ## Connect Your AI Agents 🤖
 
-LUI exposes all 78 phone tools over an MCP-compatible WebSocket bridge. Any agent framework can connect.
+LUI exposes all 83 phone tools over an MCP-compatible WebSocket bridge. Any agent framework can connect.
 
 ```bash
 pip install lui-bridge
@@ -148,7 +151,7 @@ Also available: `npm install -g lui-bridge` for Node.js.
 
 ---
 
-## Tools 🔧 (78)
+## Tools 🔧 (83)
 
 | Category | Count | Examples |
 |:---------|:------|:--------|
@@ -157,8 +160,9 @@ Also available: `npm install -g lui-bridge` for Node.js.
 | Communication | 5 | Call, SMS, search/create contacts, read SMS |
 | Calendar | 2 | Create/read events |
 | Media | 5 | Play/pause, next/prev track, now playing |
-| Apps & Navigation | 7 | Open app, deep link search (25 apps), navigate, search map, get location, distance |
-| Device & Sensors | 8 | Time, date, battery, device info, Wi-Fi, step counter, proximity, light |
+| Apps & Navigation | 7 | Open app, deep link search (28 apps), navigate, search map, get location, distance |
+| Device & Sensors | 11 | Time, date, battery, device info, Wi-Fi, step counter, proximity, light, ambient context, Bluetooth devices, network state |
+| Web | 2 | Search the web (DuckDuckGo), browse any URL |
 | Notifications | 5 | Read, clear, digest, 2FA code, triage config |
 | Screen Control | 6 | Read screen, find & tap, type text, scroll, back, home |
 | Storage & Files | 4 | Storage info, download file, query media, audio routing |
@@ -221,9 +225,9 @@ You (voice / text)
 
 ## Roadmap 🗺️
 
-**Shipped:** On-device launcher + LLM, voice conversation, 78 device tools with native function calling, BYOS WebSocket bridge (MCP, event streaming, bidirectional, permission tiers, relay), agent passthrough, notification triage, accessibility screen control, 25 app deep links, cloud TTS, camera/gallery vision, wake word, model auto-download, Connection Hub.
+**Shipped:** On-device launcher + LLM, voice conversation, 83 device tools with native function calling, BYOS WebSocket bridge (MCP, event streaming, bidirectional, permission tiers, relay), agent passthrough, notification triage, accessibility screen control, 28 app deep links, cloud TTS, camera/gallery vision, wake word, model auto-download, web search & browse, ambient context, rich message cards, Connection Hub.
 
-**Next:** Health Connect integration. Geofencing. Biometric overwatch. Ambient context.
+**Next:** Web agent (WebView + JS piloting). Health Connect integration. Geofencing. Biometric overwatch.
 
 **Later:** Generative UI. Web agent. MCP server registry.
 
