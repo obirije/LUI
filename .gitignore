@@ -24,3 +24,12 @@ llama/src/main/cpp/llama.cpp
 idea.md
 HACKATHON.md
 *.aar
+
+# Python packaging
+dist/
+*.egg-info/
+__pycache__/
+
+# Node
+node_modules/
+*.tgz
