@@ -293,9 +293,25 @@ class LuiViewModel(application: Application) : AndroidViewModel(application) {
             }
 
             LuiLogger.i("FORCE", "Forcing tool call: ${forceToolCall.tool}")
-            addMessage(ChatMessage(text = "", sender = Sender.THINKING))
+            val forceStatusHint = when (forceToolCall.tool) {
+                "search_web" -> "Searching the web..."
+                "browse_url" -> "Reading page..."
+                "get_location", "get_distance" -> "Getting location..."
+                "read_notifications" -> "Checking notifications..."
+                "read_screen" -> "Reading screen..."
+                "battery" -> "Checking battery..."
+                "ambient_context" -> "Checking device status..."
+                else -> null
+            }
+            if (forceStatusHint != null) {
+                addMessage(ChatMessage(text = forceStatusHint, sender = Sender.LUI, streaming = true))
+            } else {
+                addMessage(ChatMessage(text = "", sender = Sender.THINKING))
+            }
             generationJob = viewModelScope.launch {
-                val result = ActionExecutor.execute(getApplication(), forceToolCall)
+                val result = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                    ActionExecutor.execute(getApplication(), forceToolCall)
+                }
                 val resultMsg = when (result) {
                     is ActionResult.Success -> result.message
                     is ActionResult.Failure -> result.message
@@ -492,8 +508,7 @@ class LuiViewModel(application: Application) : AndroidViewModel(application) {
             "read_screen",
             "get_steps", "get_proximity", "get_light",
             "storage_info", "wifi_info", "query_media",
-            "ambient_context", "bluetooth_devices", "network_state",
-            "search_web", "browse_url"
+            "ambient_context", "bluetooth_devices", "network_state"
         )
         return if (toolCall.tool in liveStateTools) toolCall else null
     }
@@ -788,30 +803,30 @@ class LuiViewModel(application: Application) : AndroidViewModel(application) {
 
             LuiLogger.toolExecute(tc.name, tc.args)
 
-            // Show descriptive status for web agent and slow tools
+            // Show descriptive status for slow tools BEFORE executing
             val statusHint = when (tc.name) {
-                "web_open" -> "Opening ${tc.args["url"]?.take(40) ?: "page"}..."
-                "web_read" -> "Reading page..."
-                "web_click" -> "Clicking ${tc.args["target"]?.take(30) ?: "element"}..."
-                "web_type" -> "Typing..."
-                "web_scroll" -> "Scrolling..."
-                "search_web" -> "Searching..."
-                "browse_url" -> "Browsing ${tc.args["url"]?.take(40) ?: "page"}..."
+                "search_web" -> "Searching the web..."
+                "browse_url" -> "Reading ${tc.args["url"]?.replace("https://", "")?.replace("http://", "")?.take(30) ?: "page"}..."
+                "get_location", "get_distance" -> "Getting location..."
+                "take_photo" -> "Capturing photo..."
+                "read_screen" -> "Reading screen..."
                 else -> null
             }
-            if (statusHint != null) {
-                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+
+            // Update UI on main thread, then yield so it actually renders
+            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                if (statusHint != null) {
                     replaceLastWithLui(statusHint, streaming = true)
-                }
-                kotlinx.coroutines.delay(100) // Let UI render
-            } else {
-                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                } else {
                     replaceLastWithThinking()
                 }
             }
 
+            // Execute tool on IO thread — main thread is free to render the status
             val toolCallData = com.lui.app.data.ToolCall(tc.name, tc.args)
-            val actionResult = ActionExecutor.execute(getApplication(), toolCallData)
+            val actionResult = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                ActionExecutor.execute(getApplication(), toolCallData)
+            }
             val resultMsg = when (actionResult) {
                 is ActionResult.Success -> actionResult.message
                 is ActionResult.Failure -> actionResult.message

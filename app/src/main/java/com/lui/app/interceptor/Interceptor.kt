@@ -376,9 +376,11 @@ object Interceptor {
                 return ToolCall("search_web", mapOf("query" to query))
         }
 
-        Regex("(?:browse|visit|go to|open|fetch|read)\\s+(?:the\\s+)?(?:url\\s+|website\\s+|page\\s+|site\\s+)?(https?://\\S+|\\S+\\.\\S+)", RegexOption.IGNORE_CASE).find(lower)?.let {
+        // Only match explicit "browse X.com" — not "go to X" which should go to LLM for reasoning
+        Regex("(?:browse|visit)\\s+(?:the\\s+)?(?:url\\s+|website\\s+|page\\s+|site\\s+)?(https?://\\S+|\\S+\\.\\S+)", RegexOption.IGNORE_CASE).find(lower)?.let {
             val url = it.groupValues[1].trim()
-            if (url.contains(".") && !url.endsWith(".") && url.length > 4)
+            // Don't match if there's more intent after the URL ("and search for...")
+            if (url.contains(".") && !url.endsWith(".") && url.length > 4 && !lower.contains(" and "))
                 return ToolCall("browse_url", mapOf("url" to url))
         }
 

@@ -186,10 +186,10 @@ object ToolRegistry {
                    ParamDef("instruction", description = "What to tell the agent to do", required = true))),
 
         // Web
-        ToolDef("search_web", "Search the web and return top results",
+        ToolDef("search_web", "Search the web and return top results. Use this first to find relevant URLs, then use browse_url to read a specific page.",
             listOf(ParamDef("query", description = "Search query", required = true))),
-        ToolDef("browse_url", "Browse a URL and return clean readable text. Works with any website including JS-heavy sites like Booking.com, Airbnb, Wikipedia. Use after search_web to read a specific result.",
-            listOf(ParamDef("url", description = "URL to browse", required = true))),
+        ToolDef("browse_url", "Fetch a URL and return clean readable text. Works with any website. You can construct search URLs directly — e.g. browse_url(url='https://en.wikipedia.org/wiki/Liverpool_F.C.') or browse_url(url='https://www.booking.com/searchresults.html?ss=Rio+de+Janeiro&checkin=2027-06-05'). Use after search_web to read a result, or build a URL from the user's intent.",
+            listOf(ParamDef("url", description = "URL to fetch — can be a direct page or a constructed search URL", required = true))),
 
         // Ambient context
         ToolDef("ambient_context", "Get full device context: battery, charging, network, Bluetooth, audio, brightness"),
