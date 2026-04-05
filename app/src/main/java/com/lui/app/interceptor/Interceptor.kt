@@ -370,7 +370,7 @@ object Interceptor {
             return ToolCall("search_web", mapOf("query" to it.groupValues[1].trim()))
         }
         // Fallback: "search X" without "on <app>" → web search
-        Regex("^(?:search|look up)\\s+(?:for\\s+)?(.{3,})$", RegexOption.IGNORE_CASE).find(lower)?.let {
+        Regex("^(?:search|look up)\\s+(?:for\\s+)?(.{3,})\\s*$", RegexOption.IGNORE_CASE).find(lower)?.let {
             val query = it.groupValues[1].trim()
             if (!query.startsWith("contact") && !query.startsWith("map"))
                 return ToolCall("search_web", mapOf("query" to query))

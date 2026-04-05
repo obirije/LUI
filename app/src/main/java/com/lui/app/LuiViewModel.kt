@@ -301,6 +301,15 @@ class LuiViewModel(application: Application) : AndroidViewModel(application) {
                     is ActionResult.Failure -> result.message
                 }
                 lastActionResult = resultMsg
+
+                // Show rich card if applicable
+                val cardMsg = buildCardMessage(forceToolCall.tool, result, resultMsg)
+                if (cardMsg.cardType != null) {
+                    replaceLastWithLui("", streaming = false)
+                    addMessage(cardMsg)
+                    addMessage(ChatMessage(text = "", sender = Sender.THINKING))
+                }
+
                 // Let LLM interpret the result naturally
                 val history = _messages.value.orEmpty().filter {
                     it.sender == Sender.USER || it.sender == Sender.LUI
@@ -428,7 +437,11 @@ class LuiViewModel(application: Application) : AndroidViewModel(application) {
             }
         }
         lastActionResult = response
-        addMessage(ChatMessage(text = response, sender = Sender.LUI))
+
+        // Try to render as a rich card, fall back to plain text
+        val cardMessage = buildCardMessage(toolCall.tool, result, response)
+        addMessage(cardMessage)
+
         LuiLogger.d("VOICE", "ToolExec: convMode=${voiceEngine.conversationMode} text=${response.take(50)}")
         if (voiceEngine.conversationMode) voiceEngine.speak(response)
     }
@@ -478,7 +491,9 @@ class LuiViewModel(application: Application) : AndroidViewModel(application) {
             "get_2fa_code", "get_digest",
             "read_screen",
             "get_steps", "get_proximity", "get_light",
-            "storage_info", "wifi_info", "query_media"
+            "storage_info", "wifi_info", "query_media",
+            "ambient_context", "bluetooth_devices", "network_state",
+            "search_web", "browse_url"
         )
         return if (toolCall.tool in liveStateTools) toolCall else null
     }
@@ -783,6 +798,16 @@ class LuiViewModel(application: Application) : AndroidViewModel(application) {
             LuiLogger.toolResult(tc.name, actionResult is ActionResult.Success, resultMsg)
             LuiLogger.toolChain(round + 1, tc.name, resultMsg)
 
+            // Show rich card for search results / status (before LLM interprets)
+            val cardMsg = buildCardMessage(tc.name, actionResult, resultMsg)
+            if (cardMsg.cardType != null) {
+                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                    replaceLastWithLui("", streaming = false)
+                    addMessage(cardMsg)
+                    addMessage(ChatMessage(text = "", sender = Sender.THINKING))
+                }
+            }
+
             // Handle pick image request — launch picker and wait
             if (resultMsg == "__PICK_IMAGE__") {
                 _pickImageRequest.postValue(true)
@@ -954,6 +979,78 @@ class LuiViewModel(application: Application) : AndroidViewModel(application) {
             _messages.value = current
             _scrollToBottom.value = Unit
         }
+    }
+
+    private fun buildCardMessage(toolName: String, result: ActionResult, text: String): ChatMessage {
+        if (result is ActionResult.Failure) return ChatMessage(text = text, sender = Sender.LUI)
+
+        return when (toolName) {
+            "search_web" -> {
+                val cardData = parseSearchResultsToCards(text)
+                if (cardData.isNotEmpty()) {
+                    ChatMessage(text = text, sender = Sender.LUI, cardType = ChatMessage.CardType.SEARCH_RESULTS, cardData = cardData)
+                } else {
+                    ChatMessage(text = text, sender = Sender.LUI)
+                }
+            }
+            "ambient_context", "device_info" -> {
+                val cardData = parseStatusToCards(text)
+                if (cardData.isNotEmpty()) {
+                    ChatMessage(text = text, sender = Sender.LUI, cardType = ChatMessage.CardType.DEVICE_STATUS, cardData = cardData)
+                } else {
+                    ChatMessage(text = text, sender = Sender.LUI)
+                }
+            }
+            "battery" -> {
+                val pct = Regex("(\\d+)%").find(text)?.groupValues?.get(1)?.toIntOrNull()
+                val color = when {
+                    pct == null -> "#9E9E9E"
+                    pct > 60 -> "#4CAF50"
+                    pct > 20 -> "#FFC107"
+                    else -> "#F44336"
+                }
+                ChatMessage(text = text, sender = Sender.LUI, cardType = ChatMessage.CardType.DEVICE_STATUS,
+                    cardData = listOf(mapOf("label" to "Battery", "value" to text, "color" to color)))
+            }
+            else -> ChatMessage(text = text, sender = Sender.LUI)
+        }
+    }
+
+    private fun parseSearchResultsToCards(text: String): List<Map<String, String>> {
+        val results = mutableListOf<Map<String, String>>()
+        // Parse the formatted search results: "1. Title\n   Snippet\n   URL"
+        val pattern = Regex("""(\d+)\.\s+(.+)\n\s+(.+)\n\s+(https?://\S+)""")
+        for (match in pattern.findAll(text)) {
+            results.add(mapOf(
+                "title" to match.groupValues[2].trim(),
+                "snippet" to match.groupValues[3].trim(),
+                "url" to match.groupValues[4].trim()
+            ))
+        }
+        return results
+    }
+
+    private fun parseStatusToCards(text: String): List<Map<String, String>> {
+        val rows = mutableListOf<Map<String, String>>()
+        for (line in text.lines()) {
+            val parts = line.split(":", limit = 2)
+            if (parts.size == 2 && parts[0].trim().isNotBlank()) {
+                val label = parts[0].trim()
+                val value = parts[1].trim()
+                val color = when {
+                    value.contains("not charging", true) -> "#FFC107"
+                    value.contains("charging", true) -> "#4CAF50"
+                    value.contains("disconnected", true) -> "#F44336"
+                    value.contains("Wi-Fi", true) -> "#4CAF50"
+                    value.contains("off", true) -> "#9E9E9E"
+                    else -> null
+                }
+                val map = mutableMapOf("label" to label, "value" to value)
+                if (color != null) map["color"] = color
+                rows.add(map)
+            }
+        }
+        return rows
     }
 
     fun refreshCloudConfig() {

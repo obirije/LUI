@@ -23,13 +23,23 @@ class MessageAdapter : ListAdapter<ChatMessage, RecyclerView.ViewHolder>(DiffCal
         private const val TYPE_LUI = 1
         private const val TYPE_WELCOME = 2
         private const val TYPE_THINKING = 3
+        private const val TYPE_CARD_SEARCH = 4
+        private const val TYPE_CARD_STATUS = 5
     }
 
     private var lastAnimatedPosition = -1
     private var welcomeAnimated = false
 
     override fun getItemViewType(position: Int): Int {
-        return when (getItem(position).sender) {
+        val msg = getItem(position)
+        if (msg.cardType != null) {
+            return when (msg.cardType) {
+                com.lui.app.data.ChatMessage.CardType.SEARCH_RESULTS -> TYPE_CARD_SEARCH
+                com.lui.app.data.ChatMessage.CardType.DEVICE_STATUS -> TYPE_CARD_STATUS
+                com.lui.app.data.ChatMessage.CardType.LINK_PREVIEW -> TYPE_CARD_SEARCH
+            }
+        }
+        return when (msg.sender) {
             Sender.USER -> TYPE_USER
             Sender.LUI -> TYPE_LUI
             Sender.WELCOME -> TYPE_WELCOME
@@ -43,6 +53,8 @@ class MessageAdapter : ListAdapter<ChatMessage, RecyclerView.ViewHolder>(DiffCal
             TYPE_WELCOME -> WelcomeViewHolder(inflater.inflate(R.layout.item_message_welcome, parent, false))
             TYPE_USER -> UserViewHolder(inflater.inflate(R.layout.item_message_user, parent, false))
             TYPE_THINKING -> ThinkingViewHolder(inflater.inflate(R.layout.item_message_thinking, parent, false))
+            TYPE_CARD_SEARCH -> SearchResultsViewHolder(inflater.inflate(R.layout.item_card_search_results, parent, false))
+            TYPE_CARD_STATUS -> DeviceStatusViewHolder(inflater.inflate(R.layout.item_card_device_status, parent, false))
             else -> LuiViewHolder(inflater.inflate(R.layout.item_message_lui, parent, false))
         }
     }
@@ -54,6 +66,8 @@ class MessageAdapter : ListAdapter<ChatMessage, RecyclerView.ViewHolder>(DiffCal
             is UserViewHolder -> holder.bind(message)
             is LuiViewHolder -> holder.bind(message)
             is ThinkingViewHolder -> holder.startPulse()
+            is SearchResultsViewHolder -> holder.bind(message)
+            is DeviceStatusViewHolder -> holder.bind(message)
         }
 
         if (message.sender == Sender.USER && position > lastAnimatedPosition) {
@@ -211,6 +225,72 @@ class MessageAdapter : ListAdapter<ChatMessage, RecyclerView.ViewHolder>(DiffCal
             messageText.translationY = 20f
             messageText.animate().alpha(1f).translationY(0f)
                 .setStartDelay(500).setDuration(500).setInterpolator(DecelerateInterpolator(2f)).start()
+        }
+    }
+
+    class SearchResultsViewHolder(view: View) : RecyclerView.ViewHolder(view) {
+        private val container: android.widget.LinearLayout = view.findViewById(R.id.resultsContainer)
+
+        fun bind(message: ChatMessage) {
+            container.removeAllViews()
+            val inflater = LayoutInflater.from(container.context)
+            val results = message.cardData ?: return
+
+            for (result in results) {
+                val row = inflater.inflate(R.layout.item_search_result_row, container, false)
+                row.findViewById<TextView>(R.id.resultTitle).text = result["title"] ?: ""
+                row.findViewById<TextView>(R.id.resultSnippet).text = result["snippet"] ?: ""
+                row.findViewById<TextView>(R.id.resultUrl).text = result["url"] ?: ""
+
+                val url = result["url"]
+                if (!url.isNullOrBlank()) {
+                    row.setOnClickListener {
+                        try {
+                            val intent = android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(url))
+                            container.context.startActivity(intent)
+                        } catch (_: Exception) {}
+                    }
+                }
+
+                // Divider between results
+                if (container.childCount > 0) {
+                    val divider = View(container.context).apply {
+                        layoutParams = android.widget.LinearLayout.LayoutParams(
+                            android.widget.LinearLayout.LayoutParams.MATCH_PARENT, 1
+                        ).apply { topMargin = 2; bottomMargin = 2 }
+                        setBackgroundColor(android.graphics.Color.parseColor("#2A2A2A"))
+                    }
+                    container.addView(divider)
+                }
+                container.addView(row)
+            }
+        }
+    }
+
+    class DeviceStatusViewHolder(view: View) : RecyclerView.ViewHolder(view) {
+        private val container: android.widget.LinearLayout = view.findViewById(R.id.statusContainer)
+
+        fun bind(message: ChatMessage) {
+            container.removeAllViews()
+            val inflater = LayoutInflater.from(container.context)
+            val rows = message.cardData ?: return
+
+            for (row in rows) {
+                val label = row["label"] ?: continue
+                val value = row["value"] ?: continue
+                val rowView = inflater.inflate(R.layout.item_status_row, container, false)
+                rowView.findViewById<TextView>(R.id.statusLabel).text = label
+                val valueView = rowView.findViewById<TextView>(R.id.statusValue)
+                valueView.text = value
+
+                // Color code certain values
+                val color = row["color"]
+                if (color != null) {
+                    try { valueView.setTextColor(android.graphics.Color.parseColor(color)) } catch (_: Exception) {}
+                }
+
+                container.addView(rowView)
+            }
         }
     }
 
