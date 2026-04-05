@@ -185,6 +185,17 @@ object ToolRegistry {
             listOf(ParamDef("agent", description = "Agent name", required = true),
                    ParamDef("instruction", description = "What to tell the agent to do", required = true))),
 
+        // Web
+        ToolDef("search_web", "Search the web and return top results",
+            listOf(ParamDef("query", description = "Search query", required = true))),
+        ToolDef("browse_url", "Browse a URL and return the page text content",
+            listOf(ParamDef("url", description = "URL to browse", required = true))),
+
+        // Ambient context
+        ToolDef("ambient_context", "Get full device context: battery, charging, network, Bluetooth, audio, brightness"),
+        ToolDef("bluetooth_devices", "List paired Bluetooth devices"),
+        ToolDef("network_state", "Get network type, speed, metered status, VPN"),
+
         // Meta
         ToolDef("undo", "Undo/reverse the last action where possible")
     )

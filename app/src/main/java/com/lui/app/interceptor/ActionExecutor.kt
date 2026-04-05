@@ -214,6 +214,13 @@ object ActionExecutor {
                 ActionResult.Success("LUI wallpaper set.")
             }
 
+            "search_web" -> WebActions.searchWeb(context, query = toolCall.params["query"] ?: "")
+            "browse_url" -> WebActions.browseUrl(context, url = toolCall.params["url"] ?: "")
+
+            "ambient_context" -> AmbientActions.getAmbientContext(context)
+            "bluetooth_devices" -> AmbientActions.getBluetoothDevices(context)
+            "network_state" -> AmbientActions.getNetworkState(context)
+
             else -> ActionResult.Failure("Unknown action: ${toolCall.tool}")
         }
     }

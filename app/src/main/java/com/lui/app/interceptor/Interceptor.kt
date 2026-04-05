@@ -23,7 +23,9 @@ object Interceptor {
         "start_bridge", "stop_bridge", "bridge_status",
         "get_steps", "get_proximity", "get_light",
         "storage_info", "wifi_info", "download_file", "query_media", "route_audio",
-        "get_digest", "clear_digest", "get_2fa_code", "config_triage"
+        "get_digest", "clear_digest", "get_2fa_code", "config_triage",
+        "search_web", "browse_url", "ambient_context", "bluetooth_devices", "network_state",
+        "list_agents", "instruct_agent", "start_passthrough", "end_passthrough"
     )
 
     /** Parse user input — tries JSON extraction then keyword matching */
@@ -356,10 +358,44 @@ object Interceptor {
             return ToolCall("open_lui")
 
         // ── Deep link app search — "play X on Spotify", "search X on YouTube" ──
+        // Must come before web search to catch "search X on YouTube" as an app deep link, not a web search
 
         Regex("(?:play|search|search for|find|look up)\\s+(.+?)\\s+(?:on|in|with)\\s+(\\w+.*)$", RegexOption.IGNORE_CASE).find(lower)?.let {
             return ToolCall("open_app_search", mapOf("query" to it.groupValues[1].trim(), "app" to it.groupValues[2].trim()))
         }
+
+        // ── Web search & browse ──
+
+        Regex("(?:search the web|web search|google|look up online|search online)\\s+(?:for\\s+)?(.+)", RegexOption.IGNORE_CASE).find(lower)?.let {
+            return ToolCall("search_web", mapOf("query" to it.groupValues[1].trim()))
+        }
+        // Fallback: "search X" without "on <app>" → web search
+        Regex("^(?:search|look up)\\s+(?:for\\s+)?(.{3,})$", RegexOption.IGNORE_CASE).find(lower)?.let {
+            val query = it.groupValues[1].trim()
+            if (!query.startsWith("contact") && !query.startsWith("map"))
+                return ToolCall("search_web", mapOf("query" to query))
+        }
+
+        Regex("(?:browse|visit|go to|open|fetch|read)\\s+(?:the\\s+)?(?:url\\s+|website\\s+|page\\s+|site\\s+)?(https?://\\S+|\\S+\\.\\S+)", RegexOption.IGNORE_CASE).find(lower)?.let {
+            val url = it.groupValues[1].trim()
+            if (url.contains(".") && !url.endsWith(".") && url.length > 4)
+                return ToolCall("browse_url", mapOf("url" to url))
+        }
+
+        // ── Ambient context ──
+
+        if (lower.matches(Regex(".*(?:ambient|device\\s+context|phone\\s+status|full\\s+status|everything\\s+about\\s+(?:my\\s+)?(?:phone|device)).*")) ||
+            lower.matches(Regex(".*(?:what(?:'s| is)\\s+(?:the\\s+)?(?:status|state|context)\\s+(?:of\\s+)?(?:my\\s+)?(?:phone|device)).*")))
+            return ToolCall("ambient_context")
+
+        if (lower.matches(Regex(".*(?:bluetooth|bt)\\s+(?:devices?|paired|connected|list).*")) ||
+            lower.matches(Regex(".*(?:what(?:'s| is)\\s+(?:connected|paired)\\s+(?:to\\s+)?(?:bluetooth|bt)).*")) ||
+            lower.matches(Regex(".*(?:list|show)\\s+(?:my\\s+)?(?:bluetooth|bt)\\s+(?:devices?).*")))
+            return ToolCall("bluetooth_devices")
+
+        if (lower.matches(Regex(".*(?:network|internet|connection)\\s+(?:state|status|info|details|type|speed).*")) ||
+            lower.matches(Regex(".*(?:am\\s+i\\s+on)\\s+(?:wifi|mobile|data|4g|5g|lte).*")))
+            return ToolCall("network_state")
 
         // ── Lock / Screenshot / Split Screen ──
 
