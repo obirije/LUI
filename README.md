@@ -36,7 +36,7 @@ All by voice. Say **"Hey LUI"** even when the phone is locked — it wakes up, g
 ## Features ⚡
 
 - **Replaces your home screen** — no icons, no widgets, no noise. Just a clean chat interface.
-- **83 native device tools** — hardware, calls, SMS, calendar, navigation, media, camera, notifications, screen control, sensors, web search, files, and more.
+- **87 native device tools** — hardware, calls, SMS, calendar, navigation, media, camera, notifications, screen control, sensors, web search, triggers, files, and more.
 - **Voice-first** — streaming voice pipeline with wake word ("Hey LUI"), conversation mode, and natural TTS. Hands-free.
 - **On-device LLM** — Qwen3.5 0.8B runs locally via llama.cpp. No cloud, no API keys, fully private. Auto-downloads from Connection Hub.
 - **Cloud LLM** — Gemini, Claude, OpenAI, or Ollama with native function calling.
@@ -44,6 +44,7 @@ All by voice. Say **"Hey LUI"** even when the phone is locked — it wakes up, g
 - **Web search & browse** — search DuckDuckGo and browse any URL, all by voice. No API key needed.
 - **Rich cards** — search results show as clickable link cards, device status as color-coded panels. Not just text.
 - **Ambient context** — battery, charging, network, Bluetooth, audio state, screen brightness in one query.
+- **Triggers** — geofencing ("when I arrive at work, enable DND") and scheduled actions ("in 5 minutes, lock my phone"). Any tool can be triggered by location or time.
 - **The Bouncer** — notification triage. Urgent apps pass through, noise batched into an Evening Digest, 2FA codes auto-extracted.
 - **Screen pilot** — read any app's screen, tap buttons, type text, scroll. The LLM can drive any app.
 - **Agent bridge** — MCP WebSocket server. `pip install lui-bridge` or `npm install -g lui-bridge`. Event streaming, bidirectional, permission tiers, relay.
@@ -119,7 +120,7 @@ Without cloud speech, LUI uses on-device TTS (Pocket TTS).
 
 ## Connect Your AI Agents 🤖
 
-LUI exposes all 83 phone tools over an MCP-compatible WebSocket bridge. Any agent framework can connect.
+LUI exposes all 87 phone tools over an MCP-compatible WebSocket bridge. Any agent framework can connect.
 
 ```bash
 pip install lui-bridge
@@ -151,7 +152,7 @@ Also available: `npm install -g lui-bridge` for Node.js.
 
 ---
 
-## Tools 🔧 (83)
+## Tools 🔧 (87)
 
 | Category | Count | Examples |
 |:---------|:------|:--------|
@@ -162,7 +163,8 @@ Also available: `npm install -g lui-bridge` for Node.js.
 | Media | 5 | Play/pause, next/prev track, now playing |
 | Apps & Navigation | 7 | Open app, deep link search (28 apps), navigate, search map, get location, distance |
 | Device & Sensors | 11 | Time, date, battery, device info, Wi-Fi, step counter, proximity, light, ambient context, Bluetooth devices, network state |
-| Web | 2 | Search the web (DuckDuckGo), browse any URL |
+| Web | 2 | Search the web (DuckDuckGo), browse any URL (Jina Reader) |
+| Triggers | 4 | Create geofence, schedule action, list triggers, delete trigger |
 | Notifications | 5 | Read, clear, digest, 2FA code, triage config |
 | Screen Control | 6 | Read screen, find & tap, type text, scroll, back, home |
 | Storage & Files | 4 | Storage info, download file, query media, audio routing |
@@ -225,9 +227,9 @@ You (voice / text)
 
 ## Roadmap 🗺️
 
-**Shipped:** On-device launcher + LLM, voice conversation, 83 device tools with native function calling, BYOS WebSocket bridge (MCP, event streaming, bidirectional, permission tiers, relay), agent passthrough, notification triage, accessibility screen control, 28 app deep links, cloud TTS, camera/gallery vision, wake word, model auto-download, web search & browse, ambient context, rich message cards, Connection Hub.
+**Shipped:** On-device launcher + LLM, voice conversation, 87 device tools with native function calling, BYOS WebSocket bridge (MCP, event streaming, bidirectional, permission tiers, relay), agent passthrough, notification triage, accessibility screen control, 28 app deep links, cloud TTS, camera/gallery vision, wake word, model auto-download, web search & browse (Jina Reader), ambient context, rich message cards, geofencing & scheduled triggers, Connection Hub. Published to PyPI + npm as `lui-bridge` v0.2.0.
 
-**Next:** Geofencing. Health ring integration. Biometric overwatch.
+**Next:** Health ring integration (Colmi R09). Biometric overwatch.
 
 **Later:** Cloud browser API (interactive web tasks). Generative UI. MCP server registry.
 
