@@ -227,9 +227,9 @@ You (voice / text)
 
 **Shipped:** On-device launcher + LLM, voice conversation, 83 device tools with native function calling, BYOS WebSocket bridge (MCP, event streaming, bidirectional, permission tiers, relay), agent passthrough, notification triage, accessibility screen control, 28 app deep links, cloud TTS, camera/gallery vision, wake word, model auto-download, web search & browse, ambient context, rich message cards, Connection Hub.
 
-**Next:** Web agent (WebView + JS piloting). Health Connect integration. Geofencing. Biometric overwatch.
+**Next:** Geofencing. Health ring integration. Biometric overwatch.
 
-**Later:** Generative UI. Web agent. MCP server registry.
+**Later:** Cloud browser API (interactive web tasks). Generative UI. MCP server registry.
 
 ---
 
