@@ -758,6 +758,19 @@ class LuiViewModel(application: Application) : AndroidViewModel(application) {
 
             // Execute the tool call
             val tc = pendingToolCall!!
+
+            // Check permission before executing
+            val permReq = PermissionHelper.getRequiredPermission(tc.name)
+            if (permReq != null && !PermissionHelper.hasPermission(getApplication(), permReq.permission)) {
+                val permToolCall = com.lui.app.data.ToolCall(tc.name, tc.args)
+                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                    this@LuiViewModel.pendingToolCall = permToolCall
+                    replaceLastWithLui(permReq.explanation, streaming = false)
+                    _permissionRequest.value = permReq
+                }
+                return
+            }
+
             LuiLogger.toolExecute(tc.name, tc.args)
             replaceLastWithThinking()
 
