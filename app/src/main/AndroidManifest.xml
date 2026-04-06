@@ -70,6 +70,11 @@
     <!-- Location -->
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
+
+    <!-- Scheduling -->
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
     <!-- Usage stats -->
     <uses-permission android:name="android.permission.PACKAGE_USAGE_STATS"
@@ -146,6 +151,24 @@
                 android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
                 android:value="WebSocket bridge for remote AI agent connections" />
         </service>
+
+        <!-- Trigger Receiver (geofence + scheduled actions) -->
+        <receiver
+            android:name=".triggers.TriggerReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.lui.app.TRIGGER_FIRED" />
+            </intent-filter>
+        </receiver>
+
+        <!-- Re-register triggers on device boot -->
+        <receiver
+            android:name=".triggers.BootReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+            </intent-filter>
+        </receiver>
 
         <!-- Accessibility Service (Tier 4: screen reading + tap simulation) -->
         <service

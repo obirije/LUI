@@ -101,6 +101,14 @@ object BridgeEvents {
         })
     }
 
+    fun pushTriggerEvent(triggerName: String, toolName: String, result: String) {
+        emit("trigger_fired", JSONObject().apply {
+            put("trigger", triggerName)
+            put("tool", toolName)
+            put("result", result)
+        })
+    }
+
     // ── Core emit ──
 
     private fun emit(type: String, data: JSONObject) {

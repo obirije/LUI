@@ -25,6 +25,7 @@ object Interceptor {
         "storage_info", "wifi_info", "download_file", "query_media", "route_audio",
         "get_digest", "clear_digest", "get_2fa_code", "config_triage",
         "search_web", "browse_url", "ambient_context", "bluetooth_devices", "network_state",
+        "create_geofence", "schedule_action", "list_triggers", "delete_trigger",
         "list_agents", "instruct_agent", "start_passthrough", "end_passthrough"
     )
 

@@ -23,6 +23,7 @@ out/
 llama/src/main/cpp/llama.cpp
 idea.md
 HACKATHON.md
+LUI_IDEA.md
 *.aar
 
 # Python packaging

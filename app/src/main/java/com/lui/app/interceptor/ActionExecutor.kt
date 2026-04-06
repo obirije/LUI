@@ -224,6 +224,23 @@ object ActionExecutor {
             "bluetooth_devices" -> AmbientActions.getBluetoothDevices(context)
             "network_state" -> AmbientActions.getNetworkState(context)
 
+            "create_geofence" -> TriggerActions.createGeofence(context,
+                place = toolCall.params["place"] ?: "",
+                latitude = toolCall.params["latitude"]?.toDoubleOrNull() ?: 0.0,
+                longitude = toolCall.params["longitude"]?.toDoubleOrNull() ?: 0.0,
+                trigger = toolCall.params["trigger"] ?: "enter",
+                action = toolCall.params["action"] ?: "",
+                actionParams = toolCall.params["action_params"] ?: "{}",
+                radius = toolCall.params["radius"]?.toFloatOrNull() ?: 200f)
+            "schedule_action" -> TriggerActions.createScheduled(context,
+                time = toolCall.params["time"] ?: "",
+                action = toolCall.params["action"] ?: "",
+                actionParams = toolCall.params["action_params"] ?: "{}",
+                recurring = toolCall.params["recurring"]?.toBoolean() ?: false)
+            "list_triggers" -> TriggerActions.listTriggers(context)
+            "delete_trigger" -> TriggerActions.deleteTrigger(context,
+                target = toolCall.params["target"] ?: "")
+
             else -> ActionResult.Failure("Unknown action: ${toolCall.tool}")
         }
     }

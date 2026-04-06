@@ -196,6 +196,24 @@ object ToolRegistry {
         ToolDef("bluetooth_devices", "List paired Bluetooth devices"),
         ToolDef("network_state", "Get network type, speed, metered status, VPN"),
 
+        // Triggers — geofence and scheduled actions
+        ToolDef("create_geofence", "Set a location-based trigger. When the user enters or exits a place, execute a tool. You MUST resolve the place to GPS coordinates first using get_location or by asking the user.",
+            listOf(ParamDef("place", description = "Name of the place", required = true),
+                   ParamDef("latitude", description = "GPS latitude", required = true),
+                   ParamDef("longitude", description = "GPS longitude", required = true),
+                   ParamDef("trigger", description = "enter or exit", required = false),
+                   ParamDef("action", description = "Tool name to execute when triggered", required = true),
+                   ParamDef("action_params", description = "JSON params for the tool", required = false),
+                   ParamDef("radius", description = "Radius in meters (default 200)", required = false))),
+        ToolDef("schedule_action", "Schedule a tool to run at a specific time or after a delay. Examples: '5 minutes', '30 seconds', '6:32pm', '18:30'.",
+            listOf(ParamDef("time", description = "When to fire: relative ('5 minutes') or absolute ('6:32pm')", required = true),
+                   ParamDef("action", description = "Tool name to execute", required = true),
+                   ParamDef("action_params", description = "JSON params for the tool", required = false),
+                   ParamDef("recurring", description = "true for daily repeat, false for one-time", required = false))),
+        ToolDef("list_triggers", "List all active geofence and scheduled triggers"),
+        ToolDef("delete_trigger", "Delete a trigger by its ID number or name",
+            listOf(ParamDef("target", description = "Trigger ID or name to delete", required = true))),
+
         // Meta
         ToolDef("undo", "Undo/reverse the last action where possible")
     )
