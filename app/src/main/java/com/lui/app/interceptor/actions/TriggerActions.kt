@@ -28,6 +28,24 @@ object TriggerActions {
         actionParams: String = "{}",
         radius: Float = 200f
     ): ActionResult {
+        // Check background location permission — required for geofencing on Android 10+
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+            val bgGranted = androidx.core.content.ContextCompat.checkSelfPermission(
+                context, android.Manifest.permission.ACCESS_BACKGROUND_LOCATION
+            ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+            if (!bgGranted) {
+                // Open app permission settings so user can grant "Allow all the time"
+                try {
+                    val intent = android.content.Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                        data = android.net.Uri.parse("package:${context.packageName}")
+                        addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                    }
+                    context.startActivity(intent)
+                } catch (_: Exception) {}
+                return ActionResult.Failure("Geofencing needs background location permission. I've opened Settings — tap Permissions → Location → Allow all the time. Then try again.")
+            }
+        }
+
         return try {
             val result = runBlocking {
                 TriggerManager.createGeofence(
