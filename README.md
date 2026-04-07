@@ -5,7 +5,8 @@
 </p>
 
 <p align="center">
-  An AI assistant that actually assists.
+  An AI assistant that actually assists.<br>
+  <em>The Siri alternative that speaks MCP.</em>
 </p>
 
 <!-- TODO: Add screenshots / screen recording here -->
