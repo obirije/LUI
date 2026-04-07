@@ -37,7 +37,7 @@ All by voice. Say **"Hey LUI"** even when the phone is locked — it wakes up, g
 
 - **Replaces your home screen** — no icons, no widgets, no noise. Just a clean chat interface.
 - **87 native device tools** — hardware, calls, SMS, calendar, navigation, media, camera, notifications, screen control, sensors, web search, triggers, files, and more.
-- **Voice-first** — streaming voice pipeline with wake word ("Hey LUI"), conversation mode, and natural TTS. Hands-free.
+- **Voice-first** — streaming voice pipeline with wake word ("Hey LUI"), conversation mode, and natural TTS. Hands-free. Experimental: full-duplex real-time audio conversation via GPU server.
 - **On-device LLM** — Qwen3.5 0.8B runs locally via llama.cpp. No cloud, no API keys, fully private. Auto-downloads from Connection Hub.
 - **Cloud LLM** — Gemini, Claude, OpenAI, or Ollama with native function calling.
 - **Vision** — camera capture and gallery picker with AI image analysis.
@@ -231,7 +231,7 @@ You (voice / text)
 
 **Next:** Health ring integration (Colmi R09). Biometric overwatch.
 
-**Later:** Cloud browser API (interactive web tasks). Generative UI. MCP server registry.
+**Later:** Real-time voice conversation (full-duplex, GPU server). Cloud browser API. Generative UI. MCP server registry.
 
 ---
 
