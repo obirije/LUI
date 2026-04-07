@@ -211,6 +211,23 @@ class ConnectionHubFragment : Fragment() {
             override fun onNothingSelected(parent: AdapterView<*>?) {}
         }
 
+        // PersonaPlex
+        binding.personaPlexSwitch.isChecked = keyStore.personaPlexEnabled
+        binding.personaPlexUrlField.setText(keyStore.personaPlexUrl ?: "")
+        binding.personaPlexRoleField.setText(keyStore.personaPlexRole ?: "")
+        binding.personaPlexSwitch.setOnCheckedChangeListener { _, enabled ->
+            keyStore.personaPlexEnabled = enabled
+            updatePersonaPlexStatus()
+        }
+        binding.personaPlexUrlField.addTextChangedListener(watcher {
+            keyStore.personaPlexUrl = binding.personaPlexUrlField.text.toString()
+            updatePersonaPlexStatus()
+        })
+        binding.personaPlexRoleField.addTextChangedListener(watcher {
+            keyStore.personaPlexRole = binding.personaPlexRoleField.text.toString()
+        })
+        updatePersonaPlexStatus()
+
         // Bridge
         setupBridgeSwitchListener()
 
@@ -559,6 +576,21 @@ class ConnectionHubFragment : Fragment() {
             }
             .setNegativeButton("Cancel", null)
             .show()
+    }
+
+    private fun updatePersonaPlexStatus() {
+        val enabled = keyStore.personaPlexEnabled
+        val url = keyStore.personaPlexUrl
+        if (enabled && !url.isNullOrBlank()) {
+            binding.personaPlexStatus.text = "PersonaPlex enabled — long-press mic to start conversation"
+            binding.personaPlexStatus.setTextColor(ContextCompat.getColor(requireContext(), R.color.lui_green))
+        } else if (enabled) {
+            binding.personaPlexStatus.text = "Enter server URL to connect"
+            binding.personaPlexStatus.setTextColor(ContextCompat.getColor(requireContext(), R.color.lui_amber))
+        } else {
+            binding.personaPlexStatus.text = "Using standard voice pipeline (STT → LLM → TTS)"
+            binding.personaPlexStatus.setTextColor(ContextCompat.getColor(requireContext(), R.color.lui_gray_dark))
+        }
     }
 
     private fun testAllConnections() {

@@ -2,6 +2,7 @@ package com.lui.app.voice
 
 import android.content.Context
 import android.content.Intent
+import com.lui.app.helper.LuiLogger
 import android.media.AudioAttributes
 import android.media.AudioFormat
 import android.media.AudioTrack
@@ -61,13 +62,19 @@ class VoiceEngine(private val context: Context) {
 
     var conversationMode = false
 
+    // PersonaPlex real-time voice conversation
+    val personaPlex = PersonaPlexClient()
+    private var keyStoreRef: com.lui.app.data.SecureKeyStore? = null
+    val personaPlexEnabled: Boolean get() = keyStoreRef?.personaPlexEnabled == true && !keyStoreRef?.personaPlexUrl.isNullOrBlank()
+
     val isReady: Boolean get() = SpeechRecognizer.isRecognitionAvailable(context)
 
     fun initialize(keyStore: com.lui.app.data.SecureKeyStore? = null) {
         try { initPocketTts() } catch (e: Exception) { Log.e(TAG, "Local TTS init failed", e) }
         if (keyStore != null) {
             cloudTts = CloudTts(keyStore)
-            Log.i(TAG, "Cloud TTS available: ${cloudTts?.isEnabled}")
+            keyStoreRef = keyStore
+            Log.i(TAG, "Cloud TTS available: ${cloudTts?.isEnabled}, PersonaPlex: $personaPlexEnabled")
         }
     }
 
@@ -128,6 +135,39 @@ class VoiceEngine(private val context: Context) {
             it.referenceAudio = referenceAudio
             it.referenceSampleRate = referenceSampleRate
             it.referenceText = ""
+        }
+    }
+
+    // ---- PersonaPlex ----
+
+    /**
+     * Start a PersonaPlex real-time conversation session.
+     * Mic audio streams directly to the server, spoken responses play back immediately.
+     * Returns the transcript flows for tool detection.
+     */
+    fun startPersonaPlex(url: String, rolePrompt: String? = null) {
+        if (personaPlex.isConnected) return
+        stopSpeaking()
+        stopListening()
+
+        val textPrompt = rolePrompt ?: "You are LUI (pronounced Louie), a helpful, direct, and subtly witty phone assistant. Keep responses to 1-2 sentences."
+        personaPlex.connect(baseUrl = url, voicePrompt = "NATF2.pt", textPrompt = textPrompt)
+        _state.value = State.LISTENING
+        LuiLogger.i(TAG, "PersonaPlex conversation started → $url")
+    }
+
+    fun stopPersonaPlex() {
+        personaPlex.disconnect()
+        _state.value = State.IDLE
+        LuiLogger.i(TAG, "PersonaPlex conversation stopped")
+    }
+
+    /**
+     * Feed a tool result into PersonaPlex so it speaks the response naturally.
+     */
+    fun injectPersonaPlexContext(text: String) {
+        if (personaPlex.isConnected) {
+            personaPlex.injectContext(text)
         }
     }
 
@@ -396,6 +436,6 @@ class VoiceEngine(private val context: Context) {
     }
 
     fun release() {
-        stopListening(); stopSpeaking(); scope.cancel(); tts?.release(); tts = null
+        stopListening(); stopSpeaking(); personaPlex.disconnect(); scope.cancel(); tts?.release(); tts = null
     }
 }

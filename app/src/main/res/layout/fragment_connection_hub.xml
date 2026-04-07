@@ -311,6 +311,73 @@
         <!-- Divider -->
         <View android:layout_width="match_parent" android:layout_height="1dp" android:layout_marginTop="20dp" android:background="@color/lui_divider" />
 
+        <!-- ==================== PersonaPlex ==================== -->
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="20dp"
+            android:text="Real-Time Voice"
+            android:textColor="@color/lui_white"
+            android:textSize="16sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:text="PersonaPlex audio-to-audio conversation. Requires a GPU server."
+            android:textColor="@color/lui_gray_dark"
+            android:textSize="11sp" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:gravity="center_vertical">
+            <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="Enable PersonaPlex" android:textColor="@color/lui_white" android:textSize="14sp" />
+            <Switch android:id="@+id/personaPlexSwitch" android:layout_width="wrap_content" android:layout_height="wrap_content" android:thumbTint="@color/lui_white" android:trackTint="@color/lui_gray_dark" />
+        </LinearLayout>
+
+        <EditText
+            android:id="@+id/personaPlexUrlField"
+            android:layout_width="match_parent"
+            android:layout_height="44dp"
+            android:layout_marginTop="8dp"
+            android:background="@drawable/input_background"
+            android:hint="Server URL (e.g., ws://192.168.1.100:8998)"
+            android:inputType="textUri"
+            android:paddingStart="16dp"
+            android:paddingEnd="16dp"
+            android:textColor="@color/lui_white"
+            android:textColorHint="@color/lui_gray_dark"
+            android:textSize="12sp" />
+
+        <EditText
+            android:id="@+id/personaPlexRoleField"
+            android:layout_width="match_parent"
+            android:layout_height="44dp"
+            android:layout_marginTop="6dp"
+            android:background="@drawable/input_background"
+            android:hint="Role prompt (e.g., You are a helpful phone assistant)"
+            android:inputType="textMultiLine"
+            android:paddingStart="16dp"
+            android:paddingEnd="16dp"
+            android:textColor="@color/lui_white"
+            android:textColorHint="@color/lui_gray_dark"
+            android:textSize="12sp" />
+
+        <TextView
+            android:id="@+id/personaPlexStatus"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:textColor="@color/lui_gray"
+            android:textSize="11sp" />
+
+        <!-- Divider -->
+        <View android:layout_width="match_parent" android:layout_height="1dp" android:layout_marginTop="20dp" android:background="@color/lui_divider" />
+
         <!-- ==================== BYOS Bridge ==================== -->
 
         <TextView

@@ -130,4 +130,17 @@ class SecureKeyStore(context: Context) {
     var relayEnabled: Boolean
         get() = prefs.getBoolean("relay_enabled", false)
         set(value) = prefs.edit().putBoolean("relay_enabled", value).apply()
+
+    // PersonaPlex (real-time voice conversation)
+    var personaPlexUrl: String?
+        get() = prefs.getString("personaplex_url", null)?.takeIf { it.isNotBlank() }
+        set(value) = prefs.edit().putString("personaplex_url", value ?: "").apply()
+
+    var personaPlexEnabled: Boolean
+        get() = prefs.getBoolean("personaplex_enabled", false)
+        set(value) = prefs.edit().putBoolean("personaplex_enabled", value).apply()
+
+    var personaPlexRole: String?
+        get() = prefs.getString("personaplex_role", null)?.takeIf { it.isNotBlank() }
+        set(value) = prefs.edit().putString("personaplex_role", value ?: "").apply()
 }

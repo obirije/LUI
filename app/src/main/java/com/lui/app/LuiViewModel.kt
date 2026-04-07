@@ -620,6 +620,43 @@ class LuiViewModel(application: Application) : AndroidViewModel(application) {
 
     fun startVoiceInput(conversationMode: Boolean = false) {
         voiceEngine.conversationMode = conversationMode
+
+        // PersonaPlex mode — full-duplex audio conversation
+        if (conversationMode && voiceEngine.personaPlexEnabled) {
+            val url = keyStore.personaPlexUrl ?: return
+            val role = keyStore.personaPlexRole ?: "You are LUI (pronounced Louie), a helpful, direct, and subtly witty phone assistant. Keep responses to 1-2 sentences."
+            voiceEngine.startPersonaPlex(url, role)
+
+            // Listen for transcripts and route tool calls
+            viewModelScope.launch {
+                voiceEngine.personaPlex.userTranscript.collect { transcript ->
+                    // Show in chat
+                    addMessage(ChatMessage(text = transcript, sender = Sender.USER))
+
+                    // Check if it needs a tool
+                    val toolCall = com.lui.app.interceptor.Interceptor.parse(transcript)
+                    if (toolCall != null) {
+                        LuiLogger.i("PersonaPlex", "Tool detected: ${toolCall.tool}")
+                        val result = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                            com.lui.app.interceptor.ActionExecutor.execute(getApplication(), toolCall)
+                        }
+                        val msg = when (result) {
+                            is com.lui.app.interceptor.actions.ActionResult.Success -> result.message
+                            is com.lui.app.interceptor.actions.ActionResult.Failure -> result.message
+                        }
+                        // Feed result back to PersonaPlex — it will speak it naturally
+                        voiceEngine.injectPersonaPlexContext(msg)
+                    }
+                }
+            }
+            viewModelScope.launch {
+                voiceEngine.personaPlex.assistantTranscript.collect { transcript ->
+                    addMessage(ChatMessage(text = transcript, sender = Sender.LUI))
+                }
+            }
+            return
+        }
+
         voiceEngine.startListening()
         voiceMessageActive = true
         voiceBubbleAdded = false
