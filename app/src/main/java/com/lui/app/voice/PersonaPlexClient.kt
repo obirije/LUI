@@ -119,14 +119,10 @@ class PersonaPlexClient {
                             startPlayback()
                         }
                         0x01 -> {
-                            // Audio — Ogg/Opus pages from server
-                            LuiLogger.d(TAG, "Audio frame received: ${payload.size} bytes")
                             playOpusAudio(payload)
                         }
                         0x02 -> {
-                            // Text transcript
                             val text = String(payload, Charsets.UTF_8)
-                            LuiLogger.d(TAG, "Text token: ${text.take(50)}")
                             handleTextToken(text)
                         }
                         else -> LuiLogger.d(TAG, "Unknown tag: $tag")
@@ -395,10 +391,6 @@ class PersonaPlexClient {
         try {
             // Extract raw Opus packets from Ogg pages
             val opusPackets = reader.feed(oggData)
-            if (opusPackets.isNotEmpty()) {
-                LuiLogger.d(TAG, "Decoded ${opusPackets.size} Opus packets from ${oggData.size} bytes")
-            }
-
             for (packet in opusPackets) {
                 val inputIdx = decoder.dequeueInputBuffer(5000)
                 if (inputIdx >= 0) {
@@ -422,7 +414,6 @@ class PersonaPlexClient {
                     val pcm = ShortArray(bufInfo.size / 2)
                     outputBuf.order(ByteOrder.LITTLE_ENDIAN).asShortBuffer().get(pcm)
                     decoder.releaseOutputBuffer(outputIdx, false)
-                    LuiLogger.d(TAG, "Playing ${pcm.size} samples")
                     track.write(pcm, 0, pcm.size)
                     outputIdx = decoder.dequeueOutputBuffer(bufInfo, 0)
                 }

@@ -311,7 +311,14 @@
         <!-- Divider -->
         <View android:layout_width="match_parent" android:layout_height="1dp" android:layout_marginTop="20dp" android:background="@color/lui_divider" />
 
-        <!-- ==================== PersonaPlex ==================== -->
+        <!-- ==================== Real-Time Voice (experimental, hidden until stable) ==================== -->
+
+        <LinearLayout
+            android:id="@+id/realTimeVoiceSection"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:visibility="gone">
 
         <TextView
             android:layout_width="wrap_content"
@@ -326,7 +333,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="4dp"
-            android:text="PersonaPlex audio-to-audio conversation. Requires a GPU server."
+            android:text="Full-duplex audio conversation. Requires a GPU server."
             android:textColor="@color/lui_gray_dark"
             android:textSize="11sp" />
 
@@ -391,6 +398,9 @@
             android:layout_marginTop="6dp"
             android:textColor="@color/lui_gray"
             android:textSize="11sp" />
+
+        </LinearLayout>
+        <!-- end realTimeVoiceSection -->
 
         <!-- Divider -->
         <View android:layout_width="match_parent" android:layout_height="1dp" android:layout_marginTop="20dp" android:background="@color/lui_divider" />

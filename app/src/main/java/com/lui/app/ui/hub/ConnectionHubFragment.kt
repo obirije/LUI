@@ -618,13 +618,13 @@ class ConnectionHubFragment : Fragment() {
         val enabled = keyStore.personaPlexEnabled
         val url = keyStore.personaPlexUrl
         if (enabled && !url.isNullOrBlank()) {
-            binding.personaPlexStatus.text = "PersonaPlex enabled — long-press mic to start conversation"
+            binding.personaPlexStatus.text = "Enabled — long-press mic to start real-time conversation"
             binding.personaPlexStatus.setTextColor(ContextCompat.getColor(requireContext(), R.color.lui_green))
         } else if (enabled) {
             binding.personaPlexStatus.text = "Enter server URL to connect"
             binding.personaPlexStatus.setTextColor(ContextCompat.getColor(requireContext(), R.color.lui_amber))
         } else {
-            binding.personaPlexStatus.text = "Using standard voice pipeline (STT → LLM → TTS)"
+            binding.personaPlexStatus.text = "Off — using standard voice pipeline"
             binding.personaPlexStatus.setTextColor(ContextCompat.getColor(requireContext(), R.color.lui_gray_dark))
         }
     }
