@@ -143,4 +143,8 @@ class SecureKeyStore(context: Context) {
     var personaPlexRole: String?
         get() = prefs.getString("personaplex_role", null)?.takeIf { it.isNotBlank() }
         set(value) = prefs.edit().putString("personaplex_role", value ?: "").apply()
+
+    var personaPlexVoice: String
+        get() = prefs.getString("personaplex_voice", "NATF2.pt") ?: "NATF2.pt"
+        set(value) = prefs.edit().putString("personaplex_voice", value).apply()
 }

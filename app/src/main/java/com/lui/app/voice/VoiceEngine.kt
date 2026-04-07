@@ -145,15 +145,15 @@ class VoiceEngine(private val context: Context) {
      * Mic audio streams directly to the server, spoken responses play back immediately.
      * Returns the transcript flows for tool detection.
      */
-    fun startPersonaPlex(url: String, rolePrompt: String? = null) {
+    fun startPersonaPlex(url: String, rolePrompt: String? = null, voicePrompt: String = "NATF2.pt") {
         if (personaPlex.isConnected) return
         stopSpeaking()
         stopListening()
 
         val textPrompt = rolePrompt ?: "You are LUI (pronounced Louie), a helpful, direct, and subtly witty phone assistant. Keep responses to 1-2 sentences."
-        personaPlex.connect(baseUrl = url, voicePrompt = "NATF2.pt", textPrompt = textPrompt)
+        personaPlex.connect(baseUrl = url, voicePrompt = voicePrompt, textPrompt = textPrompt)
         _state.value = State.LISTENING
-        LuiLogger.i(TAG, "PersonaPlex conversation started → $url")
+        LuiLogger.i(TAG, "PersonaPlex conversation started → $url voice=$voicePrompt")
     }
 
     fun stopPersonaPlex() {

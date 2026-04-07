@@ -226,6 +226,42 @@ class ConnectionHubFragment : Fragment() {
         binding.personaPlexRoleField.addTextChangedListener(watcher {
             keyStore.personaPlexRole = binding.personaPlexRoleField.text.toString()
         })
+
+        // Voice selector
+        val ppVoices = listOf(
+            "NATF0.pt" to "Natural Female 1",
+            "NATF1.pt" to "Natural Female 2",
+            "NATF2.pt" to "Natural Female 3",
+            "NATF3.pt" to "Natural Female 4",
+            "NATM0.pt" to "Natural Male 1",
+            "NATM1.pt" to "Natural Male 2",
+            "NATM2.pt" to "Natural Male 3",
+            "NATM3.pt" to "Natural Male 4",
+            "VARF0.pt" to "Variety Female 1",
+            "VARF1.pt" to "Variety Female 2",
+            "VARF2.pt" to "Variety Female 3",
+            "VARF3.pt" to "Variety Female 4",
+            "VARF4.pt" to "Variety Female 5",
+            "VARM0.pt" to "Variety Male 1",
+            "VARM1.pt" to "Variety Male 2",
+            "VARM2.pt" to "Variety Male 3",
+            "VARM3.pt" to "Variety Male 4",
+            "VARM4.pt" to "Variety Male 5",
+        )
+        val ppVoiceNames = ppVoices.map { it.second }
+        val ppAdapter = ArrayAdapter(requireContext(), android.R.layout.simple_spinner_item, ppVoiceNames)
+        ppAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+        binding.personaPlexVoiceSpinner.adapter = ppAdapter
+        val savedVoice = keyStore.personaPlexVoice
+        val savedIdx = ppVoices.indexOfFirst { it.first == savedVoice }
+        if (savedIdx >= 0) binding.personaPlexVoiceSpinner.setSelection(savedIdx)
+        binding.personaPlexVoiceSpinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(parent: AdapterView<*>?, view: android.view.View?, position: Int, id: Long) {
+                keyStore.personaPlexVoice = ppVoices[position].first
+            }
+            override fun onNothingSelected(parent: AdapterView<*>?) {}
+        }
+
         updatePersonaPlexStatus()
 
         // Bridge

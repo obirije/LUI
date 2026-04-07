@@ -68,6 +68,9 @@ class PersonaPlexClient {
     // Accumulate text tokens into sentences
     private val textBuffer = StringBuilder()
 
+    // Callback for parallel STT — receives same PCM data sent to PersonaPlex
+    var onPcmCaptured: ((ShortArray, Int) -> Unit)? = null
+
     /**
      * Connect to a PersonaPlex server.
      * @param baseUrl e.g. "https://talk.writerlm.com" or "ws://192.168.1.100:8998"
@@ -233,6 +236,8 @@ class PersonaPlexClient {
                 val read = audioRecord?.read(pcmBuffer, 0, pcmBuffer.size) ?: break
                 if (read > 0 && handshakeReceived) {
                     encodeAndSendAudio(pcmBuffer, read)
+                    // Fork PCM to parallel STT for tool detection
+                    onPcmCaptured?.invoke(pcmBuffer.copyOf(read), read)
                 }
             }
         }

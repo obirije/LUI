@@ -625,35 +625,70 @@ class LuiViewModel(application: Application) : AndroidViewModel(application) {
         if (conversationMode && voiceEngine.personaPlexEnabled) {
             val url = keyStore.personaPlexUrl ?: return
             val role = keyStore.personaPlexRole ?: "You are LUI (pronounced Louie), a helpful, direct, and subtly witty phone assistant. Keep responses to 1-2 sentences."
-            voiceEngine.startPersonaPlex(url, role)
+            val voice = keyStore.personaPlexVoice
 
-            // Listen for transcripts and route tool calls
-            viewModelScope.launch {
-                voiceEngine.personaPlex.userTranscript.collect { transcript ->
-                    // Show in chat
-                    addMessage(ChatMessage(text = transcript, sender = Sender.USER))
+            // Initialize parallel STT (Deepgram cloud) for user transcript + tool detection
+            val parallelStt = com.lui.app.voice.ParallelStt()
+            val deepgramKey = keyStore.getSpeechKey(com.lui.app.llm.SpeechProvider.DEEPGRAM)
+            val sttReady = deepgramKey != null && parallelStt.initialize(deepgramKey)
 
-                    // Check if it needs a tool
-                    val toolCall = com.lui.app.interceptor.Interceptor.parse(transcript)
-                    if (toolCall != null) {
-                        LuiLogger.i("PersonaPlex", "Tool detected: ${toolCall.tool}")
-                        val result = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-                            com.lui.app.interceptor.ActionExecutor.execute(getApplication(), toolCall)
+            if (sttReady) {
+                // Fork mic PCM to STT
+                voiceEngine.personaPlex.onPcmCaptured = { samples, count ->
+                    parallelStt.feedPcm(samples, count)
+                }
+
+                // Show partial user transcript in chat
+                var userBubbleActive = false
+                viewModelScope.launch {
+                    parallelStt.transcript.collect { partial ->
+                        if (!userBubbleActive) {
+                            addMessage(ChatMessage(text = partial, sender = Sender.USER, streaming = true))
+                            userBubbleActive = true
+                        } else {
+                            updateLastMessage(partial, streaming = true)
                         }
-                        val msg = when (result) {
-                            is com.lui.app.interceptor.actions.ActionResult.Success -> result.message
-                            is com.lui.app.interceptor.actions.ActionResult.Failure -> result.message
-                        }
-                        // Feed result back to PersonaPlex — it will speak it naturally
-                        voiceEngine.injectPersonaPlexContext(msg)
                     }
                 }
+
+                // On final transcript — finalize bubble + check for tool calls
+                viewModelScope.launch {
+                    parallelStt.finalTranscript.collect { text ->
+                        if (userBubbleActive) {
+                            updateLastMessage(text, streaming = false)
+                            userBubbleActive = false
+                        } else {
+                            addMessage(ChatMessage(text = text, sender = Sender.USER))
+                        }
+
+                        // Route tool calls
+                        val toolCall = com.lui.app.interceptor.Interceptor.parse(text)
+                        if (toolCall != null) {
+                            LuiLogger.i("PersonaPlex", "Tool from STT: ${toolCall.tool}")
+                            val result = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                                com.lui.app.interceptor.ActionExecutor.execute(getApplication(), toolCall)
+                            }
+                            val msg = when (result) {
+                                is com.lui.app.interceptor.actions.ActionResult.Success -> result.message
+                                is com.lui.app.interceptor.actions.ActionResult.Failure -> result.message
+                            }
+                            addMessage(ChatMessage(text = msg, sender = Sender.LUI))
+                            voiceEngine.injectPersonaPlexContext(msg)
+                        }
+                    }
+                }
+            } else {
+                LuiLogger.w("PersonaPlex", "Parallel STT not available — tool calls via text only")
             }
+
+            // Show assistant transcript in chat
             viewModelScope.launch {
                 voiceEngine.personaPlex.assistantTranscript.collect { transcript ->
                     addMessage(ChatMessage(text = transcript, sender = Sender.LUI))
                 }
             }
+
+            voiceEngine.startPersonaPlex(url, role, voice)
             return
         }
 
