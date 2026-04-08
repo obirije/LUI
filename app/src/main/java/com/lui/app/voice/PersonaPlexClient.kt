@@ -73,7 +73,7 @@ class PersonaPlexClient {
 
     /**
      * Connect to a PersonaPlex server.
-     * @param baseUrl e.g. "https://talk.writerlm.com" or "ws://192.168.1.100:8998"
+     * @param baseUrl e.g. "https://your-server.com" or "ws://192.168.1.100:8998"
      * @param voicePrompt e.g. "NATF2.pt" — filename of voice embedding on server
      * @param textPrompt role/system prompt
      */
