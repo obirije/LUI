@@ -300,6 +300,14 @@ class ConnectionHubFragment : Fragment() {
             }, 2000)
         }
 
+        binding.btnRefreshToken.setOnClickListener {
+            keyStore.clearBridgeToken()
+            val newToken = LuiBridgeService.getAuthToken(requireContext())
+            binding.bridgeTokenText.text = "Token: $newToken (tap to copy)"
+            binding.btnRefreshToken.text = "✓"
+            binding.btnRefreshToken.postDelayed({ binding.btnRefreshToken.text = "↻" }, 1500)
+        }
+
         // Local model download
         binding.btnDownloadModel.setOnClickListener { startModelDownload() }
         binding.btnCancelDownload.setOnClickListener { cancelModelDownload() }
@@ -451,7 +459,7 @@ class ConnectionHubFragment : Fragment() {
     }
 
     private fun updateBridgeUI(running: Boolean) {
-        val views = listOf(binding.bridgeStatusText, binding.bridgeUrlText, binding.bridgeTokenText,
+        val views = listOf(binding.bridgeStatusText, binding.bridgeUrlText, binding.bridgeTokenRow,
             binding.tierLabel, binding.tierGroup, binding.tierDescription)
 
         val relayViews = listOf(binding.relaySection, binding.relayDescription,

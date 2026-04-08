@@ -391,7 +391,9 @@ class VoiceEngine(private val context: Context) {
 
     private fun autoListen() {
         CoroutineScope(Dispatchers.Main).launch {
-            delay(70)
+            // Wait for speaker to fully drain before listening
+            // Prevents mic from picking up TTS output
+            delay(800)
             _autoListenStarted.emit(Unit)
             startListening()
         }

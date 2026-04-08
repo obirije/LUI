@@ -113,6 +113,9 @@ class SecureKeyStore(context: Context) {
     fun saveBridgeToken(token: String) =
         prefs.edit().putString("bridge_token", token).apply()
 
+    fun clearBridgeToken() =
+        prefs.edit().remove("bridge_token").apply()
+
     var isBridgeEnabled: Boolean
         get() = prefs.getBoolean("bridge_enabled", false)
         set(value) = prefs.edit().putBoolean("bridge_enabled", value).apply()

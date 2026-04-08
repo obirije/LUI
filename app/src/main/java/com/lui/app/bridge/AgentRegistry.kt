@@ -112,14 +112,14 @@ object AgentRegistry {
 
         // Wait for response (blocking — called from tool execution context)
         val latch = java.util.concurrent.CountDownLatch(1)
-        var response = "Agent did not respond within 30 seconds."
+        var response = "Agent did not respond within 2 minutes."
 
         pendingResponses[instructionId] = { result ->
             response = result
             latch.countDown()
         }
 
-        latch.await(30, java.util.concurrent.TimeUnit.SECONDS)
+        latch.await(120, java.util.concurrent.TimeUnit.SECONDS)
         pendingResponses.remove(instructionId)
 
         return response

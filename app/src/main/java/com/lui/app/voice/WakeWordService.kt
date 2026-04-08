@@ -83,8 +83,8 @@ class WakeWordService : Service() {
                     modelType = "zipformer2",
                 ),
                 keywordsFile = "kws/keywords.txt",
-                keywordsScore = 3.0f,
-                keywordsThreshold = 0.06f,  // Very sensitive — may get false positives
+                keywordsScore = 1.0f,    // Lower = more sensitive to keyword matches
+                keywordsThreshold = 0.01f,  // Very low threshold — catches soft/distant speech
             )
 
             kws = KeywordSpotter(assetManager = assets, config = config)
@@ -97,20 +97,24 @@ class WakeWordService : Service() {
         }
     }
 
-    private fun startListening() {
+    @Suppress("MissingPermission")
+    private fun initAudioRecord() {
         val bufferSize = AudioRecord.getMinBufferSize(
             SAMPLE_RATE,
             AudioFormat.CHANNEL_IN_MONO,
             AudioFormat.ENCODING_PCM_16BIT
         )
-
         audioRecord = AudioRecord(
-            MediaRecorder.AudioSource.VOICE_RECOGNITION, // AGC enabled — better for wake word
+            MediaRecorder.AudioSource.VOICE_RECOGNITION,
             SAMPLE_RATE,
             AudioFormat.CHANNEL_IN_MONO,
             AudioFormat.ENCODING_PCM_16BIT,
-            maxOf(bufferSize, SAMPLE_RATE * 2) // 2 second buffer
+            maxOf(bufferSize, SAMPLE_RATE * 2)
         )
+    }
+
+    private fun startListening() {
+        initAudioRecord()
 
         if (audioRecord?.state != AudioRecord.STATE_INITIALIZED) {
             LuiLogger.e(TAG, "AudioRecord failed to initialize")
@@ -163,19 +167,8 @@ class WakeWordService : Service() {
         val verifyBuffer = ShortArray(verifySamples)
         val read = audioRecord?.read(verifyBuffer, 0, verifySamples) ?: 0
 
-        if (read > 0) {
-            // Check audio level — if too quiet, probably false positive
-            var maxAmp = 0f
-            for (i in 0 until read) {
-                val amp = kotlin.math.abs(verifyBuffer[i] / 32768.0f)
-                if (amp > maxAmp) maxAmp = amp
-            }
-
-            if (maxAmp < 0.002f) {
-                LuiLogger.d(TAG, "False positive — audio too quiet (maxAmp=$maxAmp)")
-                return
-            }
-        }
+        // Skip amplitude check — let STT verification handle false positives
+        // The keyword spotter + STT two-stage check is sufficient
 
         // Verified enough — activate
         LuiLogger.i(TAG, "Wake word confirmed — activating!")
@@ -192,9 +185,12 @@ class WakeWordService : Service() {
         )
         screenLock.acquire(5000)
 
-        // Stop listening temporarily — conversation mode will take over the mic
+        // Release mic fully — conversation mode needs it for STT + TTS
         listening = false
         audioRecord?.stop()
+        audioRecord?.release()
+        audioRecord = null
+        LuiLogger.i(TAG, "Released mic for conversation mode")
 
         // Launch LUI in conversation mode
         val intent = Intent(this, MainActivity::class.java).apply {
@@ -204,11 +200,12 @@ class WakeWordService : Service() {
         }
         startActivity(intent)
 
-        // Resume listening after conversation ends
+        // Resume listening after conversation ends — recreate AudioRecord
         Thread {
             Thread.sleep(30000)
             if (isRunning && !listening) {
                 try {
+                    initAudioRecord()
                     audioRecord?.startRecording()
                     listening = true
                     LuiLogger.i(TAG, "Resumed wake word listening")

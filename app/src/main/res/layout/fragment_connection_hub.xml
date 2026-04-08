@@ -455,17 +455,37 @@
             android:textIsSelectable="true"
             android:visibility="gone" />
 
-        <!-- Bridge Token (tap to copy) -->
-        <TextView
-            android:id="@+id/bridgeTokenText"
+        <!-- Bridge Token (tap to copy, long-press to refresh) -->
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="4dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:visibility="gone"
+            android:id="@+id/bridgeTokenRow">
+
+        <TextView
+            android:id="@+id/bridgeTokenText"
+            android:layout_width="0dp"
+            android:layout_weight="1"
+            android:layout_height="wrap_content"
             android:fontFamily="@font/jetbrains_mono"
             android:textColor="@color/lui_amber"
             android:textSize="11sp"
-            android:textIsSelectable="true"
-            android:visibility="gone" />
+            android:textIsSelectable="true" />
+
+        <TextView
+            android:id="@+id/btnRefreshToken"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="8dp"
+            android:text="↻"
+            android:textColor="@color/lui_gray"
+            android:textSize="18sp"
+            android:padding="4dp" />
+
+        </LinearLayout>
 
         <!-- Permission Tier -->
         <TextView

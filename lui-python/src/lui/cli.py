@@ -168,7 +168,7 @@ def _execute_shell(instruction):
     try:
         result = subprocess.run(
             ["bash", "-c", instruction],
-            capture_output=True, text=True, timeout=30,
+            capture_output=True, text=True, timeout=120,
             cwd=os.path.expanduser("~")
         )
         output = result.stdout.strip()
