@@ -19,7 +19,30 @@ android {
         minSdkVersion 26
         targetSdkVersion 35
         versionCode 1
-        versionName "0.1.0-mvp"
+        versionName "0.2.0"
+    }
+
+    flavorDimensions "distribution"
+    productFlavors {
+        // Full build — all 87 tools, all permissions, Play Services included
+        // For sideloading, debug, and direct APK distribution
+        full {
+            dimension "distribution"
+            buildConfigField "boolean", "HAS_PLAY_SERVICES", "true"
+            buildConfigField "boolean", "HAS_SMS_PERMISSION", "true"
+        }
+        // Play Store build — restricted SMS (uses intents instead), includes Play Services
+        playstore {
+            dimension "distribution"
+            buildConfigField "boolean", "HAS_PLAY_SERVICES", "true"
+            buildConfigField "boolean", "HAS_SMS_PERMISSION", "false"
+        }
+        // F-Droid build — no Play Services, no SMS, fully open source
+        fdroid {
+            dimension "distribution"
+            buildConfigField "boolean", "HAS_PLAY_SERVICES", "false"
+            buildConfigField "boolean", "HAS_SMS_PERMISSION", "false"
+        }
     }
 
     buildTypes {
@@ -73,6 +96,8 @@ dependencies {
     // WebSocket server (BYOS bridge)
     implementation 'org.java-websocket:Java-WebSocket:1.5.7'
 
-    // Google Play Services (geofencing)
-    implementation 'com.google.android.gms:play-services-location:21.3.0'
+    // Google Play Services (geofencing) — only for full + playstore flavors
+    fullImplementation 'com.google.android.gms:play-services-location:21.3.0'
+    playstoreImplementation 'com.google.android.gms:play-services-location:21.3.0'
+    // fdroid flavor: no Play Services — geofencing disabled at runtime via BuildConfig.HAS_PLAY_SERVICES
 }

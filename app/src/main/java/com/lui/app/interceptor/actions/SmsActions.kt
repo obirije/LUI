@@ -2,11 +2,13 @@ package com.lui.app.interceptor.actions
 
 import android.Manifest
 import android.content.Context
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.provider.ContactsContract
 import android.telephony.SmsManager
 import androidx.core.content.ContextCompat
+import com.lui.app.BuildConfig
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -14,6 +16,22 @@ import java.util.Locale
 object SmsActions {
 
     fun sendSms(context: Context, number: String, message: String): ActionResult {
+        // On Play Store build, use intent instead of direct SMS
+        if (!BuildConfig.HAS_SMS_PERMISSION) {
+            val resolved = resolveNumber(context, number)
+            return try {
+                val intent = Intent(Intent.ACTION_SENDTO).apply {
+                    data = Uri.parse("smsto:$resolved")
+                    putExtra("sms_body", message)
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+                context.startActivity(intent)
+                ActionResult.Success("Opening SMS to $number — tap send to confirm.")
+            } catch (e: Exception) {
+                ActionResult.Failure("Couldn't open SMS app: ${e.message}")
+            }
+        }
+
         if (ContextCompat.checkSelfPermission(context, Manifest.permission.SEND_SMS)
             != PackageManager.PERMISSION_GRANTED) {
             return ActionResult.Failure("I need SMS permission to send messages. Grant it in Settings > Apps > LUI > Permissions.")
@@ -54,6 +72,9 @@ object SmsActions {
     }
 
     fun readSms(context: Context, from: String?, count: Int = 5): ActionResult {
+        if (!BuildConfig.HAS_SMS_PERMISSION) {
+            return ActionResult.Failure("SMS reading isn't available in this build. Open your messaging app to check messages.")
+        }
         if (ContextCompat.checkSelfPermission(context, Manifest.permission.READ_SMS)
             != PackageManager.PERMISSION_GRANTED) {
             return ActionResult.Failure("I need SMS permission to read messages.")

@@ -1,6 +1,7 @@
 package com.lui.app.interceptor.actions
 
 import android.content.Context
+import com.lui.app.BuildConfig
 import com.lui.app.helper.LuiLogger
 import com.lui.app.triggers.TriggerManager
 import kotlinx.coroutines.runBlocking
@@ -28,6 +29,10 @@ object TriggerActions {
         actionParams: String = "{}",
         radius: Float = 200f
     ): ActionResult {
+        if (!BuildConfig.HAS_PLAY_SERVICES) {
+            return ActionResult.Failure("Geofencing isn't available in this build (no Play Services). Scheduled triggers still work — try schedule_action instead.")
+        }
+
         // Check background location permission — required for geofencing on Android 10+
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
             val bgGranted = androidx.core.content.ContextCompat.checkSelfPermission(

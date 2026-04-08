@@ -8,9 +8,7 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import androidx.core.content.ContextCompat
-import com.google.android.gms.location.Geofence
-import com.google.android.gms.location.GeofencingRequest
-import com.google.android.gms.location.LocationServices
+import com.lui.app.BuildConfig
 import com.lui.app.data.LuiDatabase
 import com.lui.app.data.TriggerEntity
 import com.lui.app.helper.LuiLogger
@@ -140,6 +138,10 @@ object TriggerManager {
 
     @Suppress("MissingPermission")
     private fun registerGeofence(context: Context, trigger: TriggerEntity) {
+        if (!BuildConfig.HAS_PLAY_SERVICES) {
+            LuiLogger.w(TAG, "Geofencing not available (no Play Services in this build)")
+            return
+        }
         if (!hasLocationPermission(context)) {
             LuiLogger.w(TAG, "No location permission for geofence ${trigger.name}")
             return
@@ -149,35 +151,9 @@ object TriggerManager {
         val lng = trigger.longitude ?: return
         val radius = trigger.radius ?: 200f
 
-        val transitionType = when (trigger.transition) {
-            "exit" -> Geofence.GEOFENCE_TRANSITION_EXIT
-            else -> Geofence.GEOFENCE_TRANSITION_ENTER
-        }
-
-        val geofence = Geofence.Builder()
-            .setRequestId("lui_trigger_${trigger.id}")
-            .setCircularRegion(lat, lng, radius)
-            .setExpirationDuration(Geofence.NEVER_EXPIRE)
-            .setTransitionTypes(transitionType)
-            .build()
-
-        val request = GeofencingRequest.Builder()
-            .setInitialTrigger(GeofencingRequest.INITIAL_TRIGGER_ENTER)
-            .addGeofence(geofence)
-            .build()
-
-        val intent = Intent(context, TriggerReceiver::class.java).apply {
-            action = "com.lui.app.TRIGGER_FIRED"
-            putExtra("trigger_id", trigger.id)
-        }
-        val pendingIntent = PendingIntent.getBroadcast(
-            context, trigger.id.toInt(), intent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE
-        )
-
         try {
-            val client = LocationServices.getGeofencingClient(context)
-            client.addGeofences(request, pendingIntent)
+            // Use reflection-safe approach — these classes don't exist in F-Droid builds
+            GeofenceHelper.register(context, trigger, lat, lng, radius)
             LuiLogger.i(TAG, "Registered geofence: ${trigger.name} at $lat,$lng r=$radius")
         } catch (e: Exception) {
             LuiLogger.e(TAG, "Failed to register geofence: ${e.message}", e)
@@ -185,9 +161,9 @@ object TriggerManager {
     }
 
     private fun unregisterGeofence(context: Context, trigger: TriggerEntity) {
+        if (!BuildConfig.HAS_PLAY_SERVICES) return
         try {
-            val client = LocationServices.getGeofencingClient(context)
-            client.removeGeofences(listOf("lui_trigger_${trigger.id}"))
+            GeofenceHelper.unregister(context, trigger)
             LuiLogger.i(TAG, "Unregistered geofence: ${trigger.name}")
         } catch (e: Exception) {
             LuiLogger.e(TAG, "Failed to unregister geofence: ${e.message}", e)
