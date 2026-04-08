@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LuiOS — The Siri Alternative That Speaks MCP</title>
+    <meta name="description" content="The AI assistant that actually assists. 87 device tools, voice-first, open source Android launcher.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        :root {
+            --bg: #000; --surface: #0a0a0a; --border: #1a1a1a;
+            --text: #f5f5f7; --text-secondary: #86868b; --text-tertiary: #48484a;
+            --accent: #4a9eff; --green: #30d158; --amber: #ffd60a;
+        }
+        body {
+            font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg); color: var(--text);
+            -webkit-font-smoothing: antialiased; overflow-x: hidden;
+        }
+
+        /* Nav */
+        nav { position: fixed; top: 0; width: 100%; z-index: 100; backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); background: rgba(0,0,0,0.7); border-bottom: 1px solid var(--border); }
+        nav .inner { max-width: 1080px; margin: 0 auto; padding: 16px 24px; display: flex; align-items: center; justify-content: space-between; }
+        nav .logo { font-weight: 700; font-size: 18px; letter-spacing: 3px; }
+        nav .links { display: flex; gap: 32px; align-items: center; }
+        nav .links a { color: var(--text-secondary); text-decoration: none; font-size: 14px; transition: color 0.2s; }
+        nav .links a:hover { color: var(--text); }
+        nav .links .btn-nav { background: var(--text); color: var(--bg); padding: 8px 20px; border-radius: 20px; font-weight: 500; font-size: 13px; transition: opacity 0.2s; }
+        nav .links .btn-nav:hover { opacity: 0.85; }
+
+        /* Hero */
+        .hero { min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 120px 24px 80px; position: relative; }
+        .hero::after { content: ''; position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); width: 600px; height: 600px; background: radial-gradient(circle, rgba(74,158,255,0.06) 0%, transparent 70%); pointer-events: none; }
+        .hero h1 { font-size: clamp(60px, 12vw, 120px); font-weight: 700; letter-spacing: 0.3em; line-height: 1; margin-bottom: 24px; opacity: 0; animation: fadeUp 0.8s ease 0.2s forwards; }
+        .hero .tagline { font-size: clamp(18px, 3vw, 24px); font-weight: 300; color: var(--text-secondary); max-width: 700px; line-height: 1.5; margin-bottom: 16px; opacity: 0; animation: fadeUp 0.8s ease 0.4s forwards; }
+        .hero .tagline #rotating-text { color: var(--accent); display: inline-block; vertical-align: baseline; white-space: nowrap; transition: opacity 0.4s ease, transform 0.4s ease, filter 0.4s ease, width 0.5s cubic-bezier(0.25,0.1,0.25,1); }
+        .hero .tagline #rotating-text.out { opacity: 0; transform: translateY(20px); filter: blur(4px); }
+        .hero .tagline #rotating-text.in { opacity: 0; transform: translateY(-20px); filter: blur(4px); }
+        .hero .tagline-sub { font-size: 16px; color: var(--text-tertiary); margin-bottom: 48px; opacity: 0; animation: fadeUp 0.8s ease 0.6s forwards; }
+        .hero .cta-group { display: flex; gap: 16px; flex-wrap: wrap; justify-content: center; opacity: 0; animation: fadeUp 0.8s ease 0.8s forwards; }
+        .btn-primary { background: var(--text); color: var(--bg); padding: 14px 32px; border-radius: 28px; font-weight: 600; font-size: 15px; text-decoration: none; transition: transform 0.2s, opacity 0.2s; display: inline-flex; align-items: center; gap: 8px; }
+        .btn-primary:hover { transform: scale(1.02); opacity: 0.9; }
+        .btn-secondary { background: transparent; color: var(--text); padding: 14px 32px; border-radius: 28px; font-weight: 500; font-size: 15px; text-decoration: none; border: 1px solid var(--border); transition: border-color 0.2s, background 0.2s; display: inline-flex; align-items: center; gap: 8px; }
+        .btn-secondary:hover { border-color: #333; background: rgba(255,255,255,0.03); }
+
+        /* Sections */
+        section { max-width: 1080px; margin: 0 auto; padding: 120px 24px; }
+        .section-label { font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 2px; color: var(--accent); margin-bottom: 16px; }
+        section h2 { font-size: clamp(32px, 5vw, 48px); font-weight: 600; line-height: 1.2; margin-bottom: 24px; }
+        section .subtitle { font-size: 18px; color: var(--text-secondary); line-height: 1.6; max-width: 640px; margin-bottom: 64px; }
+
+        /* Features */
+        .features { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1px; background: var(--border); border: 1px solid var(--border); border-radius: 16px; overflow: hidden; }
+        .feature { background: var(--surface); padding: 40px 32px; transition: background 0.3s; }
+        .feature:hover { background: #111; }
+        .feature .icon { font-size: 28px; margin-bottom: 16px; display: block; }
+        .feature h3 { font-size: 17px; font-weight: 600; margin-bottom: 8px; }
+        .feature p { font-size: 14px; color: var(--text-secondary); line-height: 1.6; }
+
+        /* Code */
+        .code-section { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; overflow: hidden; }
+        .code-header { padding: 16px 24px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 8px; }
+        .code-dot { width: 12px; height: 12px; border-radius: 50%; }
+        .code-dot.red { background: #ff5f57; } .code-dot.yellow { background: #febc2e; } .code-dot.green { background: #28c840; }
+        .code-header span { margin-left: 12px; font-size: 13px; color: var(--text-tertiary); }
+        .code-body { padding: 24px; font-family: 'JetBrains Mono', monospace; font-size: 14px; line-height: 1.8; color: var(--text-secondary); overflow-x: auto; }
+        .code-body .comment { color: var(--text-tertiary); } .code-body .cmd { color: var(--green); } .code-body .flag { color: var(--accent); } .code-body .str { color: var(--amber); }
+
+        /* Stats */
+        .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 48px; text-align: center; padding: 80px 0; }
+        .stat-number { font-family: 'JetBrains Mono', monospace; font-size: 56px; font-weight: 700; margin-bottom: 8px; }
+        .stat-label { font-size: 14px; color: var(--text-secondary); }
+
+        /* Agents */
+        .agents-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; }
+        .agent-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 24px; transition: border-color 0.3s; }
+        .agent-card:hover { border-color: #333; }
+        .agent-card h4 { font-size: 16px; margin-bottom: 6px; }
+        .agent-card p { font-size: 13px; color: var(--text-secondary); }
+
+        /* CTA */
+        .final-cta { text-align: center; padding: 160px 24px; }
+        .final-cta h2 { font-size: clamp(28px, 5vw, 44px); font-weight: 600; margin-bottom: 16px; }
+        .final-cta p { color: var(--text-secondary); font-size: 18px; margin-bottom: 40px; }
+
+        /* Footer */
+        footer { border-top: 1px solid var(--border); padding: 40px 24px; }
+        footer .inner { max-width: 1080px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px; }
+        footer a { color: var(--text-tertiary); text-decoration: none; font-size: 13px; transition: color 0.2s; }
+        footer a:hover { color: var(--text-secondary); }
+        footer .copyright { font-size: 13px; color: var(--text-tertiary); }
+
+        /* Animations */
+        @keyframes fadeUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        .reveal { opacity: 0; transform: translateY(30px); transition: opacity 0.6s ease, transform 0.6s ease; }
+        .reveal.visible { opacity: 1; transform: translateY(0); }
+
+        @media (max-width: 768px) {
+            nav .links { gap: 16px; } nav .links a:not(.btn-nav) { display: none; }
+            .stats { grid-template-columns: repeat(2, 1fr); gap: 32px; }
+            .features { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+
+<nav><div class="inner">
+    <div class="logo">LuiOS</div>
+    <div class="links">
+        <a href="#features">Features</a>
+        <a href="#agents">Agents</a>
+        <a href="#install">Install</a>
+        <a href="https://github.com/obirije/LUI" class="btn-nav">GitHub</a>
+    </div>
+</div></nav>
+
+<div class="hero">
+    <h1>LUI</h1>
+    <p class="tagline">The AI assistant that <span id="rotating-text">actually assists.</span></p>
+    <div class="cta-group">
+        <a href="https://github.com/obirije/LUI" class="btn-primary">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+            View on GitHub
+        </a>
+        <a href="#install" class="btn-secondary">Get Started</a>
+    </div>
+</div>
+
+<section>
+    <div class="stats reveal">
+        <div><div class="stat-number">87</div><div class="stat-label">Device tools</div></div>
+        <div><div class="stat-number">28</div><div class="stat-label">App deep links</div></div>
+        <div><div class="stat-number">4</div><div class="stat-label">LLM providers</div></div>
+        <div><div class="stat-number">0</div><div class="stat-label">Icons on your home screen</div></div>
+    </div>
+</section>
+
+<section id="features">
+    <div class="section-label reveal">Features</div>
+    <h2 class="reveal">Your phone, but it listens.</h2>
+    <p class="subtitle reveal">LUI replaces your Android home screen with a single conversational interface. Voice or text — 87 tools execute your intent instantly.</p>
+    <div class="features reveal">
+        <div class="feature"><span class="icon">🎙</span><h3>Voice-First</h3><p>Wake word ("Hey LUI"), conversation mode, streaming TTS. Works hands-free, even when the phone is locked.</p></div>
+        <div class="feature"><span class="icon">🧠</span><h3>On-Device LLM</h3><p>Qwen 3.5 0.8B runs locally. No cloud, no API keys, fully private. Auto-downloads from the Connection Hub.</p></div>
+        <div class="feature"><span class="icon">☁️</span><h3>Cloud LLM</h3><p>Gemini, Claude, OpenAI, or Ollama with native structured function calling. 5-round tool chaining.</p></div>
+        <div class="feature"><span class="icon">🔍</span><h3>Web Search & Browse</h3><p>Search DuckDuckGo, browse any URL. Results shown as clickable rich cards. No API key needed.</p></div>
+        <div class="feature"><span class="icon">📸</span><h3>Vision</h3><p>Camera capture and gallery picker with AI image analysis. "Take a photo and tell me what you see."</p></div>
+        <div class="feature"><span class="icon">📍</span><h3>Triggers</h3><p>Geofencing and scheduled actions. "When I leave home, enable DND." "In 5 minutes, lock my phone."</p></div>
+        <div class="feature"><span class="icon">🔔</span><h3>The Bouncer</h3><p>Notification triage. Urgent apps pass through, noise batched into an Evening Digest. 2FA codes auto-extracted.</p></div>
+        <div class="feature"><span class="icon">👆</span><h3>Screen Pilot</h3><p>Read any app's screen, tap buttons, type text, scroll. The LLM can drive any app on your phone.</p></div>
+        <div class="feature"><span class="icon">🌐</span><h3>MCP Bridge</h3><p>WebSocket server for remote AI agents. pip install lui-bridge. Event streaming, bidirectional, permission tiers.</p></div>
+    </div>
+</section>
+
+<section id="agents">
+    <div class="section-label reveal">Agents</div>
+    <h2 class="reveal">Your agents deserve a phone body.</h2>
+    <p class="subtitle reveal">Stop texting sandboxed bots. Connect any MCP-compatible agent and give it first-class access to Android hardware, sensors, notifications, and screen control.</p>
+    <div class="agents-grid reveal">
+        <div class="agent-card"><h4>Claude Code</h4><p>Full conversation + command execution. Pipe tasks through Claude's CLI directly from your phone.</p></div>
+        <div class="agent-card"><h4>OpenClaw</h4><p>Native MCP via MCPorter. Connects directly to LUI's bridge — zero adapter code.</p></div>
+        <div class="agent-card"><h4>Hermes</h4><p>Single-query agent execution. Optimized for fast one-off tasks via the -q flag.</p></div>
+        <div class="agent-card"><h4>Your Agent</h4><p>pip install lui-bridge. 10 lines of Python. Any framework, any model, full phone control.</p></div>
+    </div>
+</section>
+
+<section id="install">
+    <div class="section-label reveal">Get Started</div>
+    <h2 class="reveal">Up and running in 2 minutes.</h2>
+    <p class="subtitle reveal">Clone, build, install. Or connect your agent to an existing LUI device.</p>
+    <div class="code-section reveal">
+        <div class="code-header">
+            <div class="code-dot red"></div><div class="code-dot yellow"></div><div class="code-dot green"></div>
+            <span>terminal</span>
+        </div>
+        <div class="code-body">
+            <span class="comment"># Build the Android app</span><br>
+            <span class="cmd">git clone</span> <span class="flag">--recurse-submodules</span> <span class="str">https://github.com/obirije/LUI.git</span><br>
+            <span class="cmd">cd</span> LUI && <span class="cmd">./gradlew</span> assembleDebug<br>
+            <span class="cmd">adb install</span> app/build/outputs/apk/debug/app-debug.apk<br><br>
+            <span class="comment"># Or connect your agent</span><br>
+            <span class="cmd">pip install</span> <span class="str">lui-bridge</span><br>
+            <span class="cmd">lui bridge connect</span> <span class="flag">--url</span> ws://PHONE_IP:8765 <span class="flag">--token</span> TOKEN <span class="flag">--agent</span> my-bot<br><br>
+            <span class="comment"># Call tools remotely</span><br>
+            <span class="cmd">lui bridge call</span> <span class="flag">--tool</span> battery<br>
+            <span class="cmd">lui bridge call</span> <span class="flag">--tool</span> get_location<br>
+            <span class="cmd">lui bridge call</span> <span class="flag">--tool</span> toggle_flashlight <span class="flag">--args</span> <span class="str">'{"state":"on"}'</span>
+        </div>
+    </div>
+</section>
+
+<div class="final-cta">
+    <h2 class="reveal">Fork it. Break it.<br>Build the Agentic Web.</h2>
+    <p class="reveal">Open source. GPLv3. Made for builders.</p>
+    <div class="cta-group reveal">
+        <a href="https://github.com/obirije/LUI" class="btn-primary">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+            Star on GitHub
+        </a>
+        <a href="https://pypi.org/project/lui-bridge/" class="btn-secondary">pip install lui-bridge</a>
+    </div>
+</div>
+
+<footer><div class="inner">
+    <span class="copyright">LuiOS &copy; 2026</span>
+    <div style="display: flex; gap: 24px;">
+        <a href="https://github.com/obirije/LUI">GitHub</a>
+        <a href="https://pypi.org/project/lui-bridge/">PyPI</a>
+        <a href="https://www.npmjs.com/package/lui-bridge">npm</a>
+        <a href="https://github.com/obirije/LUI/blob/main/PRIVACY.md">Privacy</a>
+    </div>
+</div></footer>
+
+<script>
+    const phrases = [
+        "actually assists.", "connects Claude Code.", "controls your phone.",
+        "searches the web.", "reads your screen.", "connects OpenClaw.",
+        "speaks MCP.", "sets your alarms.", "navigates for you.",
+        "runs 87 tools.", "calls your mum.", "connects Hermes.",
+        "reads your notifications.", "works offline.", "takes photos.",
+        "triggers on location.",
+    ];
+    let phraseIndex = 0;
+    const el = document.getElementById('rotating-text');
+
+    // Measure widths upfront for smooth transitions
+    const measureEl = document.createElement('span');
+    measureEl.style.cssText = 'visibility:hidden;position:absolute;white-space:nowrap;font:inherit;';
+    el.parentElement.appendChild(measureEl);
+
+    function getWidth(text) {
+        measureEl.textContent = text;
+        return measureEl.offsetWidth;
+    }
+
+    // Set initial width
+    el.style.width = getWidth(phrases[0]) + 'px';
+
+    setInterval(() => {
+        el.classList.add('out');
+        setTimeout(() => {
+            phraseIndex = (phraseIndex + 1) % phrases.length;
+            const nextWidth = getWidth(phrases[phraseIndex]);
+            el.style.width = nextWidth + 'px';
+            el.textContent = phrases[phraseIndex];
+            el.classList.remove('out');
+            el.classList.add('in');
+            void el.offsetWidth;
+            el.classList.remove('in');
+        }, 400);
+    }, 2500);
+
+    // Scroll reveal
+    const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => { if (entry.isIntersecting) entry.target.classList.add('visible'); });
+    }, { threshold: 0.1 });
+    document.querySelectorAll('.reveal').forEach(e => observer.observe(e));
+</script>
+
+</body>
+</html>
