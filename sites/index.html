@@ -34,7 +34,7 @@
         .hero { min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 120px 24px 80px; position: relative; }
         .hero::after { content: ''; position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); width: 600px; height: 600px; background: radial-gradient(circle, rgba(74,158,255,0.06) 0%, transparent 70%); pointer-events: none; }
         .hero h1 { font-size: clamp(60px, 12vw, 120px); font-weight: 700; letter-spacing: 0.3em; line-height: 1; margin-bottom: 24px; opacity: 0; animation: fadeUp 0.8s ease 0.2s forwards; }
-        .hero .tagline { font-size: clamp(18px, 3vw, 24px); font-weight: 300; color: var(--text-secondary); max-width: 700px; line-height: 1.5; margin-bottom: 16px; opacity: 0; animation: fadeUp 0.8s ease 0.4s forwards; }
+        .hero .tagline { font-size: clamp(18px, 3vw, 24px); font-weight: 300; color: var(--text-secondary); max-width: 700px; line-height: 1.5; margin-bottom: 48px; opacity: 0; animation: fadeUp 0.8s ease 0.4s forwards; text-align: left; width: 100%; max-width: 700px; }
         .hero .tagline #rotating-text { color: var(--accent); display: inline-block; vertical-align: baseline; white-space: nowrap; transition: opacity 0.4s ease, transform 0.4s ease, filter 0.4s ease, width 0.5s cubic-bezier(0.25,0.1,0.25,1); }
         .hero .tagline #rotating-text.out { opacity: 0; transform: translateY(20px); filter: blur(4px); }
         .hero .tagline #rotating-text.in { opacity: 0; transform: translateY(-20px); filter: blur(4px); }
