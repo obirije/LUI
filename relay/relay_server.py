@@ -171,7 +171,14 @@ async def main():
     log.info(f"Device URL:  ws://HOST:{PORT}/device?device_token=YOUR_TOKEN")
     log.info(f"Agent URL:   ws://HOST:{PORT}/agent?device_token=DEVICE_TOKEN")
 
-    async with websockets.serve(router, "0.0.0.0", PORT):
+    # process_request=None skips strict HTTP header validation
+    # Required for Fly.io/Cloudflare proxies that send Connection: keep-alive
+    async with websockets.serve(
+        router, "0.0.0.0", PORT,
+        process_request=None,
+        ping_interval=30,
+        ping_timeout=10,
+    ):
         await asyncio.Future()  # run forever
 
 
