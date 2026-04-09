@@ -22,9 +22,13 @@
 
 ---
 
-Voice assistants like Siri and Google Assistant can answer questions, but they can't actually *use* your phone. AI chatbots sit in an app waiting for you to copy and paste. LUI replaces your Android home screen with a conversational interface backed by real agency — 78 native tools, a full voice pipeline, and an on-device LLM. You speak, it acts.
+Voice assistants like Siri and Google Assistant can answer questions, but they can't actually *use* your phone. AI chatbots sit in an app waiting for you to copy and paste. 
 
-For developers — your AI agents deserve better than a Telegram bot. LUI gives your swarms a physical body. Connect Claude Code, OpenClaw, Hermes, or any MCP agent via WebSocket — first-class access to Android hardware, sensors, notifications, 2FA codes, and screen control. `pip install lui-bridge` and go.
+LUI replaces your Android home screen with a conversational interface backed by real agency — 78 native tools, a full voice pipeline, and an on-device LLM. You speak, it acts.
+
+For developers — your AI agents deserve better than a Telegram bot. 
+
+LUI gives your swarms a physical body. Connect Claude Code, OpenClaw, Hermes, or any MCP agent via WebSocket — first-class access to Android hardware, sensors, notifications, 2FA codes, and screen control. `pip install lui-bridge` and go.
 
 ---
 
