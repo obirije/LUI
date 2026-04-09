@@ -25,6 +25,9 @@ idea.md
 HACKATHON.md
 LUI_IDEA.md
 *.aar
+*.jks
+*.keystore
+keystore.properties
 
 # Python packaging
 dist/
