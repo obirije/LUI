@@ -46,22 +46,22 @@ All by voice. Say **"Hey LUI"** even when the phone is locked — it wakes up, g
 
 ## Features ⚡
 
-- **Replaces your home screen** — no icons, no widgets, no noise. Just a clean chat interface.
-- **87 native device tools** — hardware, calls, SMS, calendar, navigation, media, camera, notifications, screen control, sensors, web search, triggers, files, and more.
-- **Voice-first** — streaming voice pipeline with wake word ("Hey LUI"), conversation mode, and natural TTS. Hands-free. Experimental: full-duplex real-time audio conversation via GPU server.
-- **On-device LLM** — Qwen3.5 0.8B runs locally via llama.cpp. No cloud, no API keys, fully private. Auto-downloads from Connection Hub.
-- **Cloud LLM** — Gemini, Claude, OpenAI, or Ollama with native function calling.
-- **Vision** — camera capture and gallery picker with AI image analysis.
-- **Web search & browse** — search DuckDuckGo and browse any URL, all by voice. No API key needed.
-- **Rich cards** — search results show as clickable link cards, device status as color-coded panels. Not just text.
-- **Ambient context** — battery, charging, network, Bluetooth, audio state, screen brightness in one query.
-- **Triggers** — geofencing ("when I arrive at work, enable DND") and scheduled actions ("in 5 minutes, lock my phone"). Any tool can be triggered by location or time.
-- **The Bouncer** — notification triage. Urgent apps pass through, noise batched into an Evening Digest, 2FA codes auto-extracted.
-- **Screen pilot** — read any app's screen, tap buttons, type text, scroll. The LLM can drive any app.
-- **Agent bridge** — MCP WebSocket server. `pip install lui-bridge` or `npm install -g lui-bridge`. Event streaming, bidirectional, permission tiers, relay.
-- **Agent passthrough** — "Patch me to Hermes" for direct chat. "@claude-code deploy" for one-off instructions.
-- **28 app deep links** — search inside apps by voice (see list below).
-- **Persistent conversations** across restarts (Room/SQLite).
+- 🏠 **Replaces your home screen** — no icons, no widgets, no noise. Just a clean chat interface.
+- 🛠 **87 native device tools** — hardware, calls, SMS, calendar, navigation, media, camera, notifications, screen control, sensors, web search, triggers, files, and more.
+- 🎙 **Voice-first** — streaming voice pipeline with wake word ("Hey LUI"), conversation mode, and natural TTS. Hands-free. Experimental: full-duplex real-time audio conversation via GPU server.
+- 🧠 **On-device LLM** — Qwen3.5 0.8B runs locally via llama.cpp. No cloud, no API keys, fully private. Auto-downloads from Connection Hub.
+- ☁️ **Cloud LLM** — Gemini, Claude, OpenAI, or Ollama with native function calling.
+- 📸 **Vision** — camera capture and gallery picker with AI image analysis.
+- 🔍 **Web search & browse** — search DuckDuckGo and browse any URL, all by voice. No API key needed.
+- 🃏 **Rich cards** — search results show as clickable link cards, device status as color-coded panels. Not just text.
+- 📊 **Ambient context** — battery, charging, network, Bluetooth, audio state, screen brightness in one query.
+- 📍 **Triggers** — geofencing ("when I arrive at work, enable DND") and scheduled actions ("in 5 minutes, lock my phone"). Any tool can be triggered by location or time.
+- 🔔 **The Bouncer** — notification triage. Urgent apps pass through, noise batched into an Evening Digest, 2FA codes auto-extracted.
+- 👆 **Screen pilot** — read any app's screen, tap buttons, type text, scroll. The LLM can drive any app.
+- 🌐 **Agent bridge** — MCP WebSocket server. `pip install lui-bridge` or `npm install -g lui-bridge`. Event streaming, bidirectional, permission tiers, relay.
+- 🔀 **Agent passthrough** — "Patch me to Hermes" for direct chat. "@claude-code deploy" for one-off instructions.
+- 🔗 **28 app deep links** — search inside apps by voice (see list below).
+- 💾 **Persistent conversations** across restarts (Room/SQLite).
 
 ### Compatible Agents
 

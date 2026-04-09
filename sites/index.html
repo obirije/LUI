@@ -27,8 +27,8 @@
         nav .links { display: flex; gap: 32px; align-items: center; }
         nav .links a { color: var(--text-secondary); text-decoration: none; font-size: 14px; transition: color 0.2s; }
         nav .links a:hover { color: var(--text); }
-        nav .links .btn-nav { background: var(--text); color: var(--bg); padding: 8px 20px; border-radius: 20px; font-weight: 500; font-size: 13px; transition: opacity 0.2s; }
-        nav .links .btn-nav:hover { opacity: 0.85; }
+        nav .links .btn-nav { background: var(--text); color: var(--bg); padding: 8px 20px; border-radius: 20px; font-weight: 500; font-size: 13px; transition: background 0.2s, color 0.2s; }
+        nav .links .btn-nav:hover { background: var(--text-secondary); color: var(--bg); }
 
         /* Hero */
         .hero { min-height: 100vh; display: flex; flex-direction: row; align-items: center; justify-content: center; gap: 80px; padding: 120px 24px 80px; position: relative; max-width: 1200px; margin: 0 auto; }
@@ -44,11 +44,11 @@
         .hero .cta-group { display: flex; gap: 16px; flex-wrap: wrap; justify-content: center; opacity: 0; animation: fadeUp 0.8s ease 0.8s forwards; }
         .hero-phones { position: relative; width: 420px; height: 500px; opacity: 0; animation: fadeUp 0.8s ease 0.6s forwards; }
         .hero-phones .phone { position: absolute; max-width: 200px; border-radius: 20px; box-shadow: 0 30px 60px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.05); transition: transform 0.4s ease; }
-        .hero-phones .phone-left { top: 40px; left: 0; transform: rotate(-8deg) scale(0.9); z-index: 1; opacity: 0.7; }
-        .hero-phones .phone-center { top: 0; left: 110px; transform: scale(1); z-index: 3; }
-        .hero-phones .phone-right { top: 40px; right: 0; transform: rotate(8deg) scale(0.9); z-index: 1; opacity: 0.7; }
-        .hero-phones:hover .phone-left { transform: rotate(-18deg) scale(0.88) translateX(-30px); opacity: 0.9; }
-        .hero-phones:hover .phone-right { transform: rotate(18deg) scale(0.88) translateX(30px); opacity: 0.9; }
+        .hero-phones .phone-left { top: 40px; left: 0; transform: rotate(-8deg) scale(0.9); z-index: 1; }
+        .hero-phones .phone-center { top: 0; left: 110px; transform: scale(1); z-index: 3; filter: brightness(0.7); }
+        .hero-phones .phone-right { top: 40px; right: 0; transform: rotate(8deg) scale(0.9); z-index: 1; filter: brightness(0.7); }
+        .hero-phones:hover .phone-left { transform: rotate(-18deg) scale(0.88) translateX(-30px); }
+        .hero-phones:hover .phone-right { transform: rotate(18deg) scale(0.88) translateX(30px); }
         .hero-phones:hover .phone-center { transform: scale(1.03); }
         .btn-primary { background: var(--text); color: var(--bg); padding: 14px 32px; border-radius: 28px; font-weight: 600; font-size: 15px; text-decoration: none; transition: transform 0.2s, opacity 0.2s; display: inline-flex; align-items: center; gap: 8px; }
         .btn-primary:hover { transform: scale(1.02); opacity: 0.9; }
@@ -85,10 +85,11 @@
 
         /* Agents */
         .agents-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; }
-        .agent-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 24px; transition: border-color 0.3s; }
+        .agent-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 28px 24px 32px; transition: border-color 0.3s; }
         .agent-card:hover { border-color: #333; }
-        .agent-card h4 { font-size: 16px; margin-bottom: 6px; }
-        .agent-card p { font-size: 13px; color: var(--text-secondary); }
+        .agent-card h4 { font-size: 16px; margin-bottom: 10px; display: flex; align-items: center; gap: 10px; }
+        .agent-card h4 img { width: 24px; height: 24px; border-radius: 6px; }
+        .agent-card p { font-size: 13px; color: var(--text-secondary); line-height: 1.7; }
 
         /* CTA */
         .final-cta { text-align: center; padding: 160px 24px; }
@@ -187,10 +188,10 @@
     <h2 class="reveal">Your agents deserve a phone body.</h2>
     <p class="subtitle reveal">Stop texting sandboxed bots. Connect any MCP-compatible agent and give it first-class access to Android hardware, sensors, notifications, and screen control.</p>
     <div class="agents-grid reveal">
-        <div class="agent-card"><h4>Claude Code</h4><p>Full conversation + command execution. Pipe tasks through Claude's CLI directly from your phone.</p></div>
-        <div class="agent-card"><h4>OpenClaw</h4><p>Native MCP via MCPorter. Connects directly to LUI's bridge — zero adapter code.</p></div>
-        <div class="agent-card"><h4>Hermes</h4><p>Single-query agent execution. Optimized for fast one-off tasks via the -q flag.</p></div>
-        <div class="agent-card"><h4>Your Agent</h4><p>pip install lui-bridge. 10 lines of Python. Any framework, any model, full phone control.</p></div>
+        <div class="agent-card"><h4><img src="assets/claude-icon.png" alt="Claude">Claude Code</h4><p>Full conversation + command execution. Pipe tasks through Claude's CLI directly from your phone.</p></div>
+        <div class="agent-card"><h4><img src="assets/openclaw-icon.png" alt="OpenClaw">OpenClaw</h4><p>Native MCP via MCPorter. Connects directly to LUI's bridge — zero adapter code.</p></div>
+        <div class="agent-card"><h4><img src="assets/hermes-icon.png" alt="Hermes">Hermes</h4><p>Single-query agent execution. Optimized for fast one-off tasks via the -q flag.</p></div>
+        <div class="agent-card"><h4><img src="assets/code-icon.svg" alt="">Your Agent</h4><p>pip install lui-bridge. 10 lines of Python or Node.js. Any framework, any model, full phone control.</p></div>
     </div>
 </section>
 
