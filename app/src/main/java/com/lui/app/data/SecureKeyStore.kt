@@ -13,7 +13,7 @@ class SecureKeyStore(context: Context) {
     companion object {
         private const val TAG = "SecureKeyStore"
         private const val PREFS_NAME = "lui_secure_prefs"
-        const val DEFAULT_RELAY_URL = "wss://relay.lui.app"
+        const val DEFAULT_RELAY_URL = "wss://relay.luios.xyz"
     }
 
     private val prefs: SharedPreferences = try {

@@ -7,8 +7,8 @@ A lightweight WebSocket proxy that lets remote agents reach your LUI device from
 ```
 [Your Phone]                    [Relay Server]                  [Remote Agent]
      |                               |                              |
-     |── wss://relay.lui.app/device ─>|                              |
-     |                               |<── wss://relay.lui.app/agent ─|
+     |── wss://relay.luios.xyz/device ─>|                              |
+     |                               |<── wss://relay.luios.xyz/agent ─|
      |                               |                              |
      |<──── messages forwarded ──────>|<──── messages forwarded ────>|
 ```
@@ -17,7 +17,7 @@ LUI connects **outbound** to the relay (no inbound port needed on the phone). Ag
 
 ## Default Relay
 
-LUI ships with a default relay at `wss://relay.lui.app`. Just enable it in Connection Hub — no setup needed.
+LUI ships with a default relay at `wss://relay.luios.xyz`. Just enable it in Connection Hub — no setup needed.
 
 Users can override with their own relay URL for privacy or performance.
 
@@ -83,7 +83,7 @@ The `device_token` is the bridge auth token from LUI's notification. It identifi
 
 1. Open LUI → Connection Hub → BYOS Bridge
 2. Enable the bridge
-3. Under "Remote Relay" — the default `wss://relay.lui.app` is pre-filled
+3. Under "Remote Relay" — the default `wss://relay.luios.xyz` is pre-filled
 4. Toggle "Enable relay"
 5. Restart bridge (toggle off then on)
 
@@ -98,7 +98,7 @@ import websocket, json
 
 # Connect via relay
 ws = websocket.create_connection(
-    "wss://relay.lui.app/agent?device_token=YOUR_LUI_TOKEN",
+    "wss://relay.luios.xyz/agent?device_token=YOUR_LUI_TOKEN",
     timeout=30
 )
 
