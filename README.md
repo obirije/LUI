@@ -10,14 +10,11 @@
 </p>
 
 <p align="center">
+  <img src="https://9e6506kiss.ufs.sh/f/pxElMO0C7LRyJhYXB6OBhokPza1yg6Y2SqZE5iV3CQfltpWs" width="150" alt="Lock screen">
   <img src="https://9e6506kiss.ufs.sh/f/pxElMO0C7LRyOlzwCum1Ng1c3UWYwnT2QR6E9OXfaBD4A8Kx" width="150" alt="Home screen">
-  <img src="https://9e6506kiss.ufs.sh/f/pxElMO0C7LRyyDjQo1wpgJU8z0lH7um4DjGeILQWRkcBfx13" width="150" alt="Web search">
+  <img src="https://9e6506kiss.ufs.sh/f/pxElMO0C7LRy7FuizMlqoOaedHgJT5XSUxtA3rDVzGyQWm7C" width="150" alt="App drawer">
   <img src="https://9e6506kiss.ufs.sh/f/pxElMO0C7LRyNYyVY7i2PrZ76F2QuicAHsbYqe1G5dljJTyk" width="150" alt="Ambient context">
   <img src="https://9e6506kiss.ufs.sh/f/pxElMO0C7LRyJA1fFVOBhokPza1yg6Y2SqZE5iV3CQfltpWs" width="150" alt="Connection Hub">
-  <img src="https://9e6506kiss.ufs.sh/f/pxElMO0C7LRyBeyBsDE91FZMaJmAn4QOKVTW2sEixNuvIXeR" width="150" alt="Bridge">
-  <img src="https://9e6506kiss.ufs.sh/f/pxElMO0C7LRy7FuizMlqoOaedHgJT5XSUxtA3rDVzGyQWm7C" width="150" alt="App drawer">
-  <img src="https://9e6506kiss.ufs.sh/f/pxElMO0C7LRyJhYXB6OBhokPza1yg6Y2SqZE5iV3CQfltpWs" width="150" alt="Lock screen">
-  <img src="https://9e6506kiss.ufs.sh/f/pxElMO0C7LRy25VKStKIB84XotkrN3pW0sKfdLvwDCYGHAhQ" width="150" alt="Speech settings">
 </p>
 
 ---
