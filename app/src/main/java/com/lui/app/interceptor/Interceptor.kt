@@ -310,11 +310,12 @@ object Interceptor {
 
         // ── Notifications ──
 
+        // Clear must come BEFORE read — "clear notifications" contains "notifications" which read would catch
+        if (lower.matches(Regex(".*(?:clear|dismiss|remove)\\s*(?:all\\s+)?(?:my\\s+)?(?:notifications?|notifs?).*")))
+            return ToolCall("clear_notifications")
         if (lower.matches(Regex(".*(?:read|show|check|what are)\\s*(?:my\\s+)?(?:notifications?|notifs?).*")) ||
             lower.matches(Regex(".*(?:any\\s+)?(?:new\\s+)?notifications?\\??.*")))
             return ToolCall("read_notifications")
-        if (lower.matches(Regex(".*(?:clear|dismiss|remove)\\s*(?:all\\s+)?(?:notifications?|notifs?).*")))
-            return ToolCall("clear_notifications")
 
         // ── Bouncer: digest, 2FA ──
 

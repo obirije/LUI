@@ -116,6 +116,9 @@ dependencies {
     // WebSocket server (BYOS bridge)
     implementation 'org.java-websocket:Java-WebSocket:1.5.7'
 
+    // Testing
+    testImplementation 'junit:junit:4.13.2'
+
     // Google Play Services (geofencing) — only for full + playstore flavors
     fullImplementation 'com.google.android.gms:play-services-location:21.3.0'
     playstoreImplementation 'com.google.android.gms:play-services-location:21.3.0'
