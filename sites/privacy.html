@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LuiOS — Privacy Policy</title>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'DM Sans', sans-serif; background: #000; color: #f5f5f7; -webkit-font-smoothing: antialiased; }
+        .container { max-width: 720px; margin: 0 auto; padding: 80px 24px; }
+        h1 { font-size: 36px; font-weight: 600; margin-bottom: 8px; }
+        .updated { font-size: 14px; color: #86868b; margin-bottom: 48px; }
+        h2 { font-size: 20px; font-weight: 600; margin-top: 40px; margin-bottom: 12px; }
+        p, li { font-size: 15px; color: #b0b0b0; line-height: 1.7; margin-bottom: 12px; }
+        ul { padding-left: 20px; margin-bottom: 16px; }
+        table { width: 100%; border-collapse: collapse; margin: 16px 0; }
+        th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid #1a1a1a; font-size: 14px; }
+        th { color: #86868b; font-weight: 500; }
+        td { color: #b0b0b0; }
+        a { color: #4a9eff; text-decoration: none; }
+        a:hover { text-decoration: underline; }
+        .back { display: inline-block; margin-bottom: 32px; font-size: 14px; color: #86868b; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <a href="/" class="back">&larr; Back to LuiOS</a>
+    <h1>Privacy Policy</h1>
+    <p class="updated">Last updated: April 2026</p>
+
+    <h2>Summary</h2>
+    <ul>
+        <li>LUI stores API keys locally on your device in encrypted storage</li>
+        <li>LUI does NOT collect, transmit, or sell personal data</li>
+        <li>Voice/text queries may be sent to cloud providers you configure</li>
+        <li>LUI does NOT have servers that receive your data</li>
+        <li>All features work locally unless you explicitly enable cloud services</li>
+    </ul>
+
+    <h2>Data Stored on Device</h2>
+    <table>
+        <tr><th>Data</th><th>Purpose</th></tr>
+        <tr><td>Chat history</td><td>Persistent conversations (Room/SQLite)</td></tr>
+        <tr><td>API keys</td><td>Encrypted storage (AES256-GCM)</td></tr>
+        <tr><td>Notification digest</td><td>Batched non-urgent notifications</td></tr>
+        <tr><td>Trigger rules</td><td>Geofence and scheduled actions</td></tr>
+        <tr><td>Downloaded model</td><td>On-device LLM for offline use</td></tr>
+    </table>
+    <p>None of this data is transmitted to LUI developers or any third party.</p>
+
+    <h2>Cloud Services (When You Enable Them)</h2>
+    <p>When you configure a cloud LLM (Gemini, Claude, OpenAI, Ollama), your queries are sent to that provider's API. Each provider has its own privacy policy. LUI sanitizes API keys from all data sent to cloud providers.</p>
+    <p>When you enable cloud speech (Deepgram, ElevenLabs), audio/text is sent to the speech provider.</p>
+    <p>Web search uses DuckDuckGo. URL browsing uses Jina Reader API.</p>
+
+    <h2>Permissions</h2>
+    <table>
+        <tr><th>Permission</th><th>Why</th></tr>
+        <tr><td>Microphone</td><td>Voice input, wake word detection</td></tr>
+        <tr><td>Camera</td><td>Photo capture for AI image analysis</td></tr>
+        <tr><td>Phone</td><td>Make calls by voice command</td></tr>
+        <tr><td>SMS</td><td>Send/read texts by voice command</td></tr>
+        <tr><td>Contacts</td><td>Look up names for calls/texts</td></tr>
+        <tr><td>Calendar</td><td>Create/read events</td></tr>
+        <tr><td>Location</td><td>GPS, distance calculation, geofence triggers</td></tr>
+        <tr><td>Accessibility</td><td>Read and interact with other apps on screen</td></tr>
+    </table>
+
+    <h2>Accessibility Service</h2>
+    <p>LUI uses AccessibilityService to read screen content, tap buttons, and type text in other apps. This is only active when LUI is set as your default launcher. No data from the accessibility service is transmitted off-device.</p>
+
+    <h2>BYOS Bridge & Relay</h2>
+    <p>The WebSocket bridge runs locally on your phone. The relay server is a stateless pass-through proxy — no messages are stored. Auth tokens are sent via encrypted WebSocket messages, never in URLs.</p>
+
+    <h2>Data Deletion</h2>
+    <p>All data is stored locally. Uninstall the app or clear app data in Android Settings to delete everything.</p>
+
+    <h2>Children</h2>
+    <p>LUI is not directed at children under 13.</p>
+
+    <h2>Contact</h2>
+    <p>Questions: <a href="https://github.com/obirije/LUI/issues">github.com/obirije/LUI/issues</a></p>
+</div>
+</body>
+</html>
