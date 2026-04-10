@@ -20,12 +20,18 @@ LUI handles sensitive device access. Here's how it's designed:
 - Never logged (LuiLogger sanitizes keys, tokens, and bearer strings)
 - Never sent to cloud LLMs in tool results
 
-### Bridge (MCP WebSocket)
+### Bridge (MCP WebSocket — Local)
 - Auth token required for all connections
 - Three permission tiers: READ_ONLY, STANDARD, FULL
 - Restricted tools require on-device approval prompt
 - Rate limiting: 10 requests/second, max 3 concurrent connections
-- No messages stored on relay server
+
+### Relay Server (Remote Access)
+- Auth token sent as first WebSocket message — never in URLs or server logs
+- Rate limiting and connection limits enforced
+- No messages stored — pure pass-through proxy
+- Unauthenticated connections auto-closed
+- TLS required in production (`wss://`)
 
 ### Sensitive Tools
 - SMS, calls, screen control require runtime permission + confirmation

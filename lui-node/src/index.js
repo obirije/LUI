@@ -48,7 +48,18 @@ class LuiBridge {
 
       this.ws.on('open', async () => {
         try {
-          // Auth
+          const isRelay = this.url.includes('/agent') || this.url.includes('/device');
+
+          // Relay auth: send token as first message
+          if (isRelay) {
+            this._send({ type: 'auth', device_token: this.token });
+            const relayAuth = await this._readOne();
+            if (relayAuth?.type !== 'auth' || relayAuth?.status !== 'ok') {
+              throw new Error(`Relay auth failed: ${JSON.stringify(relayAuth)}`);
+            }
+          }
+
+          // Device auth (direct or through relay)
           this._send({ method: 'auth', params: { token: this.token } });
           const auth = await this._readOne();
           if (!auth?.result?.authenticated) {

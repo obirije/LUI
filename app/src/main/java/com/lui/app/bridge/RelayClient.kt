@@ -53,12 +53,9 @@ class RelayClient(
     private fun doConnect() {
         if (!isRunning) return
 
-        // Append /device path and token if not already in URL
-        val separator = if (relayUrl.contains("?")) "&" else "?"
-        val fullUrl = if (relayUrl.contains("device_token")) relayUrl
-                      else if (relayUrl.endsWith("/device") || relayUrl.endsWith("/device/"))
-                          "$relayUrl${separator}device_token=$deviceToken"
-                      else "$relayUrl/device?device_token=$deviceToken"
+        // Connect to /device path — no token in URL
+        val baseUrl = relayUrl.trimEnd('/')
+        val fullUrl = if (baseUrl.endsWith("/device")) baseUrl else "$baseUrl/device"
         val uri = URI(fullUrl)
         LuiLogger.i(TAG, "Connecting to relay: ${uri.host}")
         onStatusChange?.invoke("connecting")
@@ -66,19 +63,17 @@ class RelayClient(
         client = object : WebSocketClient(uri) {
             override fun onOpen(handshake: ServerHandshake?) {
                 reconnectAttempts = 0
-                LuiLogger.i(TAG, "Connected to relay")
-                onStatusChange?.invoke("connected")
+                LuiLogger.i(TAG, "Connected to relay, authenticating...")
 
-                // Announce capabilities
+                // Send auth as first message — token NOT in URL
                 send(org.json.JSONObject().apply {
-                    put("jsonrpc", "2.0")
-                    put("method", "relay/announce")
-                    put("params", org.json.JSONObject().apply {
-                        put("device", "lui-android")
-                        put("tools", com.lui.app.llm.ToolRegistry.tools.size)
-                        put("tier", BridgeProtocol.currentTier.name)
-                    })
+                    put("type", "auth")
+                    put("device_token", deviceToken)
                 }.toString())
+
+                // Expose the connection for agent registration via relay
+                BridgeProtocol.relayConnection = this.connection
+                onStatusChange?.invoke("connected")
             }
 
             override fun onMessage(message: String?) {

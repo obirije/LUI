@@ -371,7 +371,7 @@ LUI connects outbound to the relay. Agents connect to the relay targeting the de
 
 ```bash
 # Agent connects via relay
-lui bridge connect --url ws://RELAY_HOST:9000/agent?device_token=TOKEN --token TOKEN --agent my-bot
+lui bridge connect --url wss://RELAY_HOST/agent --token TOKEN --agent my-bot
 ```
 
 Configure relay URL in LUI Connection Hub → Remote Relay section.

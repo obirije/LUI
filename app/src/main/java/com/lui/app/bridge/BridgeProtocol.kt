@@ -21,6 +21,9 @@ import org.json.JSONObject
  */
 object BridgeProtocol {
 
+    // Set by RelayClient when connected — used for agent registration via relay
+    var relayConnection: org.java_websocket.WebSocket? = null
+
     private const val PROTOCOL_VERSION = "2025-03-26"
     private const val SERVER_NAME = "lui-android"
     private const val SERVER_VERSION = "0.1.0"
@@ -112,8 +115,14 @@ object BridgeProtocol {
 
                 // ── Agent Registry (bidirectional) ──
                 "lui/register" -> {
-                    // Need the WebSocket connection to register — handled by server
-                    rpcError(id, -32601, "Use the WebSocket-level register handler")
+                    // Register agent — use relayConn if available (relay-forwarded)
+                    val conn = relayConnection
+                    if (conn != null) {
+                        val result = AgentRegistry.registerAgent(conn, json.optJSONObject("params"))
+                        rpcResult(id, result)
+                    } else {
+                        rpcError(id, -32601, "Agent registration requires a WebSocket connection")
+                    }
                 }
                 "lui/agents" -> rpcResult(id, AgentRegistry.listAgents())
                 "lui/response" -> rpcResult(id, AgentRegistry.handleAgentResponse(json.optJSONObject("params")))
@@ -126,7 +135,17 @@ object BridgeProtocol {
                 "tool_call" -> handleLegacyToolCall(context, id, json.optJSONObject("params"))
                 "list_tools" -> handleToolsList(id)
                 "device_state" -> handleLegacyDeviceState(context, id)
-                "auth" -> null // Handled by the server, not protocol
+                "auth" -> {
+                    // Validate token even for relay-forwarded messages
+                    val token = json.optJSONObject("params")?.optString("token", "") ?: ""
+                    val expectedToken = com.lui.app.bridge.LuiBridgeService.getAuthToken(context)
+                    val toolCount = com.lui.app.llm.ToolRegistry.tools.size
+                    if (token == expectedToken) {
+                        """{"jsonrpc":"2.0","id":"auth","result":{"authenticated":true,"message":"Authenticated via relay. $toolCount tools available."}}"""
+                    } else {
+                        """{"jsonrpc":"2.0","id":"auth","error":{"code":-32000,"message":"Invalid token"}}"""
+                    }
+                }
 
                 else -> rpcError(id, -32601, "Method not found: $method")
             }

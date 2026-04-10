@@ -226,6 +226,19 @@ def main():
 
     args = parser.parse_args()
 
+    try:
+        _run(args)
+    except ConnectionError as e:
+        print(f"Connection error: {e}")
+        sys.exit(1)
+    except KeyboardInterrupt:
+        pass
+    except Exception as e:
+        print(f"Error: {e}")
+        sys.exit(1)
+
+
+def _run(args):
     if args.command == "bridge":
         if args.bridge_command == "connect":
             cmd_bridge_connect(args)
@@ -236,14 +249,14 @@ def main():
         elif args.bridge_command == "status":
             cmd_bridge_status(args)
         else:
-            bridge_parser.print_help()
+            print("Usage: lui bridge {connect|tools|call|status}")
     elif args.command == "relay":
         if args.relay_command == "start":
             cmd_relay_start(args)
         else:
-            relay_parser.print_help()
+            print("Usage: lui relay start [--port PORT]")
     else:
-        parser.print_help()
+        print("Usage: lui {bridge|relay} ...")
 
 
 if __name__ == "__main__":

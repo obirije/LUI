@@ -71,13 +71,13 @@ nohup python relay_server.py &
 
 ## URLs
 
-| Who | URL | Purpose |
-|:----|:----|:--------|
-| LUI device | `wss://HOST/device?device_token=TOKEN` | Device connects out |
-| Remote agent | `wss://HOST/agent?device_token=TOKEN` | Agent connects to device |
-| Admin | `wss://HOST/status` | Check connected devices/agents |
+| Who | URL | Auth |
+|:----|:----|:-----|
+| LUI device | `wss://HOST/device` | Token sent as first message (not in URL) |
+| Remote agent | `wss://HOST/agent` | Token sent as first message (not in URL) |
+| Admin | `wss://HOST/status?secret=XXX` | Requires `RELAY_SECRET` env var |
 
-The `device_token` is the bridge auth token from LUI's notification. It identifies the device and authenticates the agent.
+The `device_token` is the bridge auth token from LUI's notification. After connecting, send `{"device_token":"YOUR_TOKEN"}` as the first WebSocket message. The token is never exposed in URLs or server logs.
 
 ## Setup on LUI
 
@@ -96,13 +96,14 @@ From anywhere in the world:
 ```python
 import websocket, json
 
-# Connect via relay
-ws = websocket.create_connection(
-    "wss://relay.luios.xyz/agent?device_token=YOUR_LUI_TOKEN",
-    timeout=30
-)
+# Connect via relay (no token in URL)
+ws = websocket.create_connection("wss://relay.luios.xyz/agent", timeout=30)
 
-# Auth (same as local bridge)
+# Auth with relay — token in message, not URL
+ws.send(json.dumps({"type": "auth", "device_token": "YOUR_LUI_TOKEN"}))
+print(ws.recv())  # {"type":"auth","status":"ok","device":"online"}
+
+# Auth with device (forwarded through relay)
 ws.send(json.dumps({"method":"auth","params":{"token":"YOUR_LUI_TOKEN"}}))
 print(ws.recv())
 

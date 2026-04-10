@@ -127,7 +127,7 @@ lui relay start --port 9000
 
 # Phone connects to relay (configure in LUI Connection Hub)
 # Agent connects via relay
-lui bridge connect --url ws://RELAY_HOST:9000/agent?device_token=TOKEN --token TOKEN --agent my-bot
+lui bridge connect --url wss://RELAY_HOST/agent --token TOKEN --agent my-bot
 ```
 
 ## Requirements

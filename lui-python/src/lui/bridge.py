@@ -59,9 +59,30 @@ class LuiBridge:
         Returns:
             int: Number of available tools
         """
-        self.ws = websocket.create_connection(self.url, timeout=30)
+        is_relay = "/agent" in self.url or "/device" in self.url
 
-        # Auth
+        if is_relay:
+            # Relay mode: connect to /agent path, send token as first message
+            url = self.url
+            # Strip any device_token from URL if present (legacy)
+            if "device_token=" in url:
+                import re
+                url = re.sub(r'[?&]device_token=[^&]*', '', url)
+                if url.endswith('?'): url = url[:-1]
+            self.ws = websocket.create_connection(url, timeout=30)
+
+            # Auth via first message
+            self._send({"type": "auth", "device_token": self.token})
+            relay_auth = json.loads(self.ws.recv())
+            if relay_auth.get("type") == "auth" and relay_auth.get("status") == "ok":
+                pass  # Relay accepted, now auth with the device
+            else:
+                raise ConnectionError(f"Relay auth failed: {relay_auth}")
+        else:
+            # Direct mode: connect to phone bridge
+            self.ws = websocket.create_connection(self.url, timeout=30)
+
+        # Auth with the device (direct or through relay)
         self._send({"method": "auth", "params": {"token": self.token}})
         auth = json.loads(self.ws.recv())
         if not auth.get("result", {}).get("authenticated"):
