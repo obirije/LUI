@@ -20,6 +20,11 @@ jobs:
           distribution: temurin
           java-version: 17
 
+      - name: Download sherpa-onnx AAR
+        run: |
+          mkdir -p app/libs
+          curl -sL "https://github.com/obirije/LUI/releases/download/v0.2.0-alpha/sherpa-onnx.aar" -o app/libs/sherpa-onnx.aar
+
       - name: Run unit tests
         run: ./gradlew testFullDebugUnitTest
 
