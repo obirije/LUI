@@ -6,6 +6,7 @@ on:
 
 jobs:
   publish-pypi:
+    if: "!github.event.release.prerelease"
     name: Publish to PyPI
     runs-on: ubuntu-latest
     defaults:
@@ -31,6 +32,7 @@ jobs:
         run: twine upload dist/*
 
   publish-npm:
+    if: "!github.event.release.prerelease"
     name: Publish to npm
     runs-on: ubuntu-latest
     defaults:
