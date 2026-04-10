@@ -76,7 +76,21 @@ else
   # Release already exists — promote or add assets
   if [ "$MODE" = "--lib" ]; then
     echo "→ Promoting v$VERSION to full release (triggers PyPI + npm)..."
-    gh release edit "v$VERSION" --prerelease=false
+    # Delete prerelease and recreate as full release to trigger publish event
+    ASSETS=$(gh release view "v$VERSION" --json assets -q '.assets[].name' 2>/dev/null || true)
+    gh release delete "v$VERSION" --yes 2>/dev/null || true
+    if [ -n "$ASSETS" ]; then
+      # Re-download and re-attach assets
+      mkdir -p /tmp/lui-release-assets
+      for asset in $ASSETS; do
+        gh release download "v$VERSION" -p "$asset" -D /tmp/lui-release-assets 2>/dev/null || true
+      done
+      gh release create "v$VERSION" /tmp/lui-release-assets/* --title "v$VERSION" --generate-notes 2>/dev/null || \
+      gh release create "v$VERSION" --title "v$VERSION" --generate-notes
+      rm -rf /tmp/lui-release-assets
+    else
+      gh release create "v$VERSION" --title "v$VERSION" --generate-notes
+    fi
     echo "  PyPI + npm: publishing via GitHub Actions"
   elif [ "$MODE" = "--apk" ]; then
     echo "→ Building APK and uploading to existing release..."
