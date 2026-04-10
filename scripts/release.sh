@@ -22,54 +22,85 @@ fi
 
 echo "=== Releasing v$VERSION ($MODE) ==="
 
-# Bump versions
-echo "→ Bumping versions..."
-sed -i "s/^version = \".*\"/version = \"$VERSION\"/" "$ROOT/lui-python/pyproject.toml"
-sed -i "s/__version__ = \".*\"/__version__ = \"$VERSION\"/" "$ROOT/lui-python/src/lui/__init__.py"
-cd "$ROOT/lui-node" && npm version "$VERSION" --no-git-tag-version && cd "$ROOT"
-sed -i "s/versionName \".*\"/versionName \"$VERSION\"/" "$ROOT/app/build.gradle"
+# Check if this version already has a release (e.g. --apk already ran)
+EXISTING_RELEASE=$(gh release view "v$VERSION" --json tagName -q .tagName 2>/dev/null || true)
 
-# Build APK if needed
-APK=""
-if [ "$MODE" = "--apk" ] || [ "$MODE" = "--all" ]; then
-  echo "→ Building release APK..."
-  "$ROOT/gradlew" assembleFullRelease
-  APK=$(find "$ROOT/app/build/outputs/apk" -name "*.apk" -path "*/release/*" | head -1)
-  if [ -n "$APK" ]; then
-    echo "  APK: $(du -h "$APK" | cut -f1)"
-  else
-    echo "  Warning: APK build failed"
-  fi
-fi
+if [ -z "$EXISTING_RELEASE" ]; then
+  # Fresh release — bump, commit, tag, push
+  echo "→ Bumping versions..."
+  sed -i "s/^version = \".*\"/version = \"$VERSION\"/" "$ROOT/lui-python/pyproject.toml"
+  sed -i "s/__version__ = \".*\"/__version__ = \"$VERSION\"/" "$ROOT/lui-python/src/lui/__init__.py"
+  cd "$ROOT/lui-node" && npm version "$VERSION" --no-git-tag-version 2>/dev/null || true && cd "$ROOT"
+  sed -i "s/versionName \".*\"/versionName \"$VERSION\"/" "$ROOT/app/build.gradle"
 
-# Commit, tag, push
-echo "→ Committing and pushing..."
-git add -A
-git commit -m "Release v$VERSION"
-git tag "v$VERSION"
-git push origin main --tags
+  # Build APK if needed
+  APK=""
+  if [ "$MODE" = "--apk" ] || [ "$MODE" = "--all" ]; then
+    echo "→ Building release APK..."
+    "$ROOT/gradlew" assembleFullRelease
+    APK=$(find "$ROOT/app/build/outputs/apk" -name "*.apk" -path "*/release/*" | head -1)
+    if [ -n "$APK" ]; then
+      echo "  APK: $(du -h "$APK" | cut -f1)"
+    else
+      echo "  Warning: APK build failed"
+    fi
+  fi
 
-# Create GitHub Release
-# --lib and --all create a release which triggers publish.yml → PyPI + npm
-if [ "$MODE" = "--lib" ] || [ "$MODE" = "--all" ]; then
-  echo "→ Creating GitHub Release (triggers PyPI + npm publish)..."
-  if [ -n "$APK" ]; then
-    gh release create "v$VERSION" "$APK" --title "v$VERSION" --generate-notes
+  # Commit, tag, push
+  echo "→ Committing and pushing..."
+  git add -A
+  git diff --cached --quiet && echo "  No changes to commit" || git commit -m "Release v$VERSION"
+  git tag "v$VERSION" 2>/dev/null || true
+  git push origin main --tags
+
+  # Create GitHub Release
+  if [ "$MODE" = "--apk" ]; then
+    echo "→ Creating GitHub Release (APK only)..."
+    if [ -n "$APK" ]; then
+      gh release create "v$VERSION" "$APK" --title "v$VERSION" --generate-notes --prerelease
+    else
+      gh release create "v$VERSION" --title "v$VERSION" --generate-notes --prerelease
+    fi
+    echo "  (prerelease — run with --lib to publish to PyPI + npm)"
   else
-    gh release create "v$VERSION" --title "v$VERSION" --generate-notes
+    echo "→ Creating GitHub Release (triggers PyPI + npm publish)..."
+    if [ -n "$APK" ]; then
+      gh release create "v$VERSION" "$APK" --title "v$VERSION" --generate-notes
+    else
+      gh release create "v$VERSION" --title "v$VERSION" --generate-notes
+    fi
+    echo "  PyPI + npm: publishing via GitHub Actions"
   fi
-  echo "  Release: https://github.com/obirije/LUI/releases/tag/v$VERSION"
-  echo "  PyPI + npm: publishing via GitHub Actions (check Actions tab)"
-elif [ "$MODE" = "--apk" ]; then
-  echo "→ Creating GitHub Release (APK only, no lib publish)..."
-  if [ -n "$APK" ]; then
-    gh release create "v$VERSION" "$APK" --title "v$VERSION" --generate-notes --prerelease
-  else
-    gh release create "v$VERSION" --title "v$VERSION" --generate-notes --prerelease
+
+else
+  # Release already exists — promote or add assets
+  if [ "$MODE" = "--lib" ]; then
+    echo "→ Promoting v$VERSION to full release (triggers PyPI + npm)..."
+    gh release edit "v$VERSION" --prerelease=false
+    echo "  PyPI + npm: publishing via GitHub Actions"
+  elif [ "$MODE" = "--apk" ]; then
+    echo "→ Building APK and uploading to existing release..."
+    "$ROOT/gradlew" assembleFullRelease
+    APK=$(find "$ROOT/app/build/outputs/apk" -name "*.apk" -path "*/release/*" | head -1)
+    if [ -n "$APK" ]; then
+      gh release upload "v$VERSION" "$APK" --clobber
+      echo "  APK uploaded: $(du -h "$APK" | cut -f1)"
+    else
+      echo "  Warning: APK build failed"
+    fi
+  elif [ "$MODE" = "--all" ]; then
+    echo "→ Building APK, uploading, and promoting release..."
+    "$ROOT/gradlew" assembleFullRelease
+    APK=$(find "$ROOT/app/build/outputs/apk" -name "*.apk" -path "*/release/*" | head -1)
+    if [ -n "$APK" ]; then
+      gh release upload "v$VERSION" "$APK" --clobber
+      echo "  APK uploaded: $(du -h "$APK" | cut -f1)"
+    fi
+    gh release edit "v$VERSION" --prerelease=false
+    echo "  PyPI + npm: publishing via GitHub Actions"
   fi
-  echo "  Release: https://github.com/obirije/LUI/releases/tag/v$VERSION"
-  echo "  (marked as prerelease — publish.yml won't trigger)"
 fi
 
 echo ""
-echo "=== v$VERSION released ==="
+echo "=== v$VERSION done ==="
+echo "  https://github.com/obirije/LUI/releases/tag/v$VERSION"
