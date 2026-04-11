@@ -26,6 +26,7 @@ object Interceptor {
         "get_digest", "clear_digest", "get_2fa_code", "config_triage",
         "search_web", "browse_url", "ambient_context", "bluetooth_devices", "network_state",
         "create_geofence", "schedule_action", "list_triggers", "delete_trigger",
+        "get_heart_rate", "get_health_summary", "ring_battery", "ring_status", "ring_capabilities", "find_ring",
         "list_agents", "instruct_agent", "start_passthrough", "end_passthrough"
     )
 
@@ -400,6 +401,30 @@ object Interceptor {
         if (lower.matches(Regex(".*(?:network|internet|connection)\\s+(?:state|status|info|details|type|speed).*")) ||
             lower.matches(Regex(".*(?:am\\s+i\\s+on)\\s+(?:wifi|mobile|data|4g|5g|lte).*")))
             return ToolCall("network_state")
+
+        // ── Health ring ──
+
+        if (lower.matches(Regex(".*(?:health\\s+summary|health\\s+status|how(?:'s| is)\\s+my\\s+health|vitals|health\\s+check).*")))
+            return ToolCall("get_health_summary")
+
+        if (lower.matches(Regex(".*(?:what\\s+(?:vitals|health|data)\\s+can|ring\\s+capabilities|what\\s+can\\s+(?:the\\s+)?ring|available\\s+vitals|what\\s+does\\s+(?:the\\s+)?ring\\s+(?:track|measure|monitor)).*")))
+            return ToolCall("ring_capabilities")
+
+        if (lower.matches(Regex(".*(?:heart\\s*rate|pulse|bpm|heartbeat).*")) ||
+            lower.matches(Regex(".*(?:what(?:'s| is)\\s+my\\s+(?:heart|pulse|hr)).*")) ||
+            lower.matches(Regex(".*(?:check|measure|read)\\s+(?:my\\s+)?(?:heart|pulse|hr).*")))
+            return ToolCall("get_heart_rate")
+
+        if (lower.matches(Regex(".*(?:ring)\\s+(?:battery|charge|level).*")) ||
+            lower.matches(Regex(".*(?:how\\s+much)\\s+(?:ring|band)\\s+(?:battery|charge).*")))
+            return ToolCall("ring_battery")
+
+        if (lower.matches(Regex(".*(?:ring|band)\\s+(?:status|info|connected).*")))
+            return ToolCall("ring_status")
+
+        if (lower.matches(Regex(".*(?:find|locate|where).*(?:ring|band).*")) ||
+            lower.matches(Regex(".*(?:ring|band).*(?:vibrate|buzz|beep).*")))
+            return ToolCall("find_ring")
 
         // ── Lock / Screenshot / Split Screen ──
 

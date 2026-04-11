@@ -51,7 +51,7 @@ object PermissionHelper {
                     "I need activity recognition permission to read your step count."
                 )
             } else null
-            "bluetooth_devices" -> if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
+            "bluetooth_devices", "get_heart_rate", "ring_battery", "ring_status", "find_ring" -> if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
                 PermissionRequest(
                     Manifest.permission.BLUETOOTH_CONNECT,
                     "I need Bluetooth permission to see your connected devices."

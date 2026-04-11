@@ -211,6 +211,58 @@ class ConnectionHubFragment : Fragment() {
             override fun onNothingSelected(parent: AdapterView<*>?) {}
         }
 
+        // Health Ring
+        val ringService = com.lui.app.interceptor.actions.HealthActions.getRingService(requireContext())
+        updateRingStatus(ringService)
+
+        binding.btnScanRing.setOnClickListener {
+            // Check BLE permissions first
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
+                val scanGranted = ContextCompat.checkSelfPermission(requireContext(), android.Manifest.permission.BLUETOOTH_SCAN) == android.content.pm.PackageManager.PERMISSION_GRANTED
+                val connectGranted = ContextCompat.checkSelfPermission(requireContext(), android.Manifest.permission.BLUETOOTH_CONNECT) == android.content.pm.PackageManager.PERMISSION_GRANTED
+                if (!scanGranted || !connectGranted) {
+                    requestPermissions(arrayOf(
+                        android.Manifest.permission.BLUETOOTH_SCAN,
+                        android.Manifest.permission.BLUETOOTH_CONNECT
+                    ), 1001)
+                    return@setOnClickListener
+                }
+            }
+
+            binding.btnScanRing.isEnabled = false
+            binding.ringStatus.text = "Scanning..."
+            binding.ringStatus.setTextColor(ContextCompat.getColor(requireContext(), R.color.lui_amber))
+
+            ringService.scan { device, name ->
+                requireActivity().runOnUiThread {
+                    binding.ringStatus.text = "Found $name, connecting..."
+                    ringService.connect(device)
+                }
+            }
+
+            // Monitor connection state
+            viewLifecycleOwner.lifecycleScope.launch {
+                ringService.state.collect { state ->
+                    when (state) {
+                        com.lui.app.health.ColmiRingService.State.CONNECTED -> {
+                            binding.btnScanRing.isEnabled = true
+                            updateRingStatus(ringService)
+                        }
+                        com.lui.app.health.ColmiRingService.State.DISCONNECTED -> {
+                            binding.btnScanRing.isEnabled = true
+                            updateRingStatus(ringService)
+                        }
+                        else -> {}
+                    }
+                }
+            }
+        }
+
+        binding.btnDisconnectRing.setOnClickListener {
+            ringService.disconnect()
+            updateRingStatus(ringService)
+        }
+
         // PersonaPlex
         binding.personaPlexSwitch.isChecked = keyStore.personaPlexEnabled
         binding.personaPlexUrlField.setText(keyStore.personaPlexUrl ?: "")
@@ -620,6 +672,23 @@ class ConnectionHubFragment : Fragment() {
             }
             .setNegativeButton("Cancel", null)
             .show()
+    }
+
+    private fun updateRingStatus(ringService: com.lui.app.health.ColmiRingService) {
+        if (ringService.isConnected) {
+            val name = ringService.deviceName.value
+            val battery = ringService.batteryLevel.value
+            val status = if (battery >= 0) "$name — $battery% battery" else "$name — connected"
+            binding.ringStatus.text = status
+            binding.ringStatus.setTextColor(ContextCompat.getColor(requireContext(), R.color.lui_green))
+            binding.btnScanRing.visibility = View.GONE
+            binding.btnDisconnectRing.visibility = View.VISIBLE
+        } else {
+            binding.ringStatus.text = "No ring connected"
+            binding.ringStatus.setTextColor(ContextCompat.getColor(requireContext(), R.color.lui_gray_dark))
+            binding.btnScanRing.visibility = View.VISIBLE
+            binding.btnDisconnectRing.visibility = View.GONE
+        }
     }
 
     private fun updatePersonaPlexStatus() {

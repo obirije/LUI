@@ -220,6 +220,13 @@ object ActionExecutor {
             // web_open/read/click/type/scroll removed — replaced by Jina-powered browse_url
             // The LLM chains search_web + browse_url for multi-step web tasks
 
+            "get_heart_rate" -> HealthActions.getHeartRate(context)
+            "get_health_summary" -> HealthActions.getHealthSummary(context)
+            "ring_battery" -> HealthActions.getRingBattery(context)
+            "ring_status" -> HealthActions.getRingStatus(context)
+            "ring_capabilities" -> HealthActions.getRingCapabilities(context)
+            "find_ring" -> HealthActions.findRing(context)
+
             "ambient_context" -> AmbientActions.getAmbientContext(context)
             "bluetooth_devices" -> AmbientActions.getBluetoothDevices(context)
             "network_state" -> AmbientActions.getNetworkState(context)

@@ -214,6 +214,14 @@ object ToolRegistry {
         ToolDef("delete_trigger", "Delete a trigger by its ID number or name",
             listOf(ParamDef("target", description = "Trigger ID or name to delete", required = true))),
 
+        // Health ring
+        ToolDef("get_heart_rate", "Measure heart rate from the connected health ring. Takes a few seconds."),
+        ToolDef("get_health_summary", "Get a full health summary — heart rate, zone, ring battery. Takes a few seconds to measure."),
+        ToolDef("ring_battery", "Get the health ring's battery level."),
+        ToolDef("ring_status", "Get health ring connection status, battery, and last reading."),
+        ToolDef("ring_capabilities", "List all available health vitals and commands the ring can provide."),
+        ToolDef("find_ring", "Make the health ring vibrate to help find it."),
+
         // Meta
         ToolDef("undo", "Undo/reverse the last action where possible")
     )

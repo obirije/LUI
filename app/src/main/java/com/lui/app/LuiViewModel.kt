@@ -301,6 +301,10 @@ class LuiViewModel(application: Application) : AndroidViewModel(application) {
                 "read_screen" -> "Reading screen..."
                 "battery" -> "Checking battery..."
                 "ambient_context" -> "Checking device status..."
+                "get_heart_rate" -> "Measuring heart rate..."
+                "get_health_summary" -> "Checking vitals..."
+                "ring_battery" -> "Checking ring battery..."
+                "ring_status" -> "Checking ring status..."
                 else -> null
             }
             if (forceStatusHint != null) {
@@ -368,6 +372,7 @@ class LuiViewModel(application: Application) : AndroidViewModel(application) {
         }
 
         // Local/offline: interceptor handles what it can, local LLM gets the rest
+        LuiLogger.i("ROUTE", "Local path: cloudFirst=${keyStore.isCloudFirst}, cloudReady=${cloudModel.isReady}, localReady=${localModel.isReady}")
         val toolCall = Interceptor.parse(text)
         if (toolCall != null) {
             LuiLogger.interceptorMatch(toolCall.tool, toolCall.params)
@@ -377,6 +382,10 @@ class LuiViewModel(application: Application) : AndroidViewModel(application) {
         LuiLogger.interceptorMiss(text)
 
         if (localModel.isReady) {
+            generateWithLlm(text)
+        } else if (cloudModel.isReady) {
+            // Local model not ready but cloud is — use cloud
+            LuiLogger.i("ROUTE", "Local not ready, falling back to cloud")
             generateWithLlm(text)
         } else {
             val msg = "I heard you, but my brain isn't loaded yet. For now I can do: flashlight, alarms, timers, open apps, make calls, wifi/bluetooth settings."
@@ -440,26 +449,57 @@ class LuiViewModel(application: Application) : AndroidViewModel(application) {
 
         pendingConfirmation = null
         LuiLogger.toolExecute(toolCall.tool, toolCall.params)
-        val result = ActionExecutor.execute(getApplication(), toolCall)
-        val response = when (result) {
-            is ActionResult.Success -> {
-                lastExecutedTool = toolCall
-                LuiLogger.toolResult(toolCall.tool, true, result.message)
-                result.message
-            }
-            is ActionResult.Failure -> {
-                LuiLogger.toolResult(toolCall.tool, false, result.message)
-                result.message
-            }
+
+        // Show status hint for slow tools
+        val hint = when (toolCall.tool) {
+            "search_web" -> "Searching the web..."
+            "browse_url" -> "Reading page..."
+            "get_heart_rate" -> "Measuring heart rate..."
+            "get_health_summary" -> "Checking vitals..."
+            "get_location", "get_distance" -> "Getting location..."
+            "take_photo" -> "Capturing photo..."
+            "read_screen" -> "Reading screen..."
+            else -> null
         }
-        lastActionResult = response
+        if (hint != null) {
+            addMessage(ChatMessage(text = hint, sender = Sender.LUI, streaming = true))
+        }
 
-        // Try to render as a rich card, fall back to plain text
-        val cardMessage = buildCardMessage(toolCall.tool, result, response)
-        addMessage(cardMessage)
+        // Execute on IO thread to prevent ANR
+        generationJob = viewModelScope.launch {
+            val result = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                ActionExecutor.execute(getApplication(), toolCall)
+            }
+            val response = when (result) {
+                is ActionResult.Success -> {
+                    lastExecutedTool = toolCall
+                    LuiLogger.toolResult(toolCall.tool, true, result.message)
+                    result.message
+                }
+                is ActionResult.Failure -> {
+                    LuiLogger.toolResult(toolCall.tool, false, result.message)
+                    result.message
+                }
+            }
+            lastActionResult = response
 
-        LuiLogger.d("VOICE", "ToolExec: convMode=${voiceEngine.conversationMode} text=${response.take(50)}")
-        if (voiceEngine.conversationMode) voiceEngine.speak(response)
+            // Replace status hint with result (or add new message)
+            if (hint != null) {
+                val cardMessage = buildCardMessage(toolCall.tool, result, response)
+                replaceLastWithLui(cardMessage.text, streaming = false)
+                if (cardMessage.cardType != null) {
+                    val current = _messages.value.orEmpty().toMutableList()
+                    current[current.size - 1] = cardMessage
+                    _messages.value = current
+                }
+            } else {
+                val cardMessage = buildCardMessage(toolCall.tool, result, response)
+                addMessage(cardMessage)
+            }
+
+            LuiLogger.d("VOICE", "ToolExec: convMode=${voiceEngine.conversationMode} text=${response.take(50)}")
+            if (voiceEngine.conversationMode) voiceEngine.speak(response)
+        }
     }
 
     private fun handleUndo() {
@@ -508,7 +548,8 @@ class LuiViewModel(application: Application) : AndroidViewModel(application) {
             "read_screen",
             "get_steps", "get_proximity", "get_light",
             "storage_info", "wifi_info", "query_media",
-            "ambient_context", "bluetooth_devices", "network_state"
+            "ambient_context", "bluetooth_devices", "network_state",
+            "get_heart_rate", "get_health_summary", "ring_battery", "ring_status"
         )
         return if (toolCall.tool in liveStateTools) toolCall else null
     }
@@ -754,6 +795,8 @@ class LuiViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     private fun generateWithLlm(userText: String) {
+        // Cancel any previous generation/tool coroutine to prevent overlap
+        generationJob?.cancel()
         addMessage(ChatMessage(text = "", sender = Sender.THINKING))
 
         generationJob = viewModelScope.launch {
@@ -761,8 +804,8 @@ class LuiViewModel(application: Application) : AndroidViewModel(application) {
                 it.sender == Sender.USER || it.sender == Sender.LUI
             }.takeLast(10)
 
-            // Use native tool use if cloud is the active model
-            if (router.isUsingCloud) {
+            // Use native tool use if cloud is available, local LLM as fallback
+            if (router.isUsingCloud || (!localModel.isReady && cloudModel.isReady)) {
                 generateWithNativeTools(userText, history)
             } else {
                 generateWithLocalLlm(userText)
@@ -882,6 +925,9 @@ class LuiViewModel(application: Application) : AndroidViewModel(application) {
                 "get_location", "get_distance" -> "Getting location..."
                 "take_photo" -> "Capturing photo..."
                 "read_screen" -> "Reading screen..."
+                "get_heart_rate" -> "Measuring heart rate..."
+                "get_health_summary" -> "Checking vitals..."
+                "ring_battery" -> "Checking ring battery..."
                 else -> null
             }
 
@@ -1046,6 +1092,24 @@ class LuiViewModel(application: Application) : AndroidViewModel(application) {
 
         val fullResponse = SystemPrompt.cleanResponse(responseBuilder.toString())
         LuiLogger.llmResponse(fullResponse)
+
+        // Fallback: if local model produced only <think> content, try cloud or show fallback
+        if (fullResponse.isBlank() && responseBuilder.isNotEmpty()) {
+            LuiLogger.w("LLM", "Local model returned empty after cleaning (${responseBuilder.length} raw chars)")
+            if (cloudModel.isReady) {
+                LuiLogger.i("LLM", "Falling back to cloud model")
+                val history = _messages.value.orEmpty().filter {
+                    it.sender == Sender.USER || it.sender == Sender.LUI
+                }.takeLast(10)
+                generateWithNativeTools(userText, history)
+                return
+            }
+            val fallback = "I'm here but couldn't form a response. Try asking something specific, or switch to a cloud model in settings."
+            replaceLastWithLui(fallback, streaming = false)
+            if (voiceEngine.conversationMode) voiceEngine.speak(fallback)
+            return
+        }
+
         replaceLastWithLui(fullResponse, streaming = false)
         if (voiceEngine.conversationMode) {
             val remaining = fullResponse.substring(lastSpokenIndex).trim()
@@ -1101,6 +1165,41 @@ class LuiViewModel(application: Application) : AndroidViewModel(application) {
                     ChatMessage(text = text, sender = Sender.LUI)
                 }
             }
+            "get_health_summary", "ring_status", "ring_capabilities" -> {
+                val cardData = parseHealthToCards(text)
+                if (cardData.isNotEmpty()) {
+                    ChatMessage(text = text, sender = Sender.LUI, cardType = ChatMessage.CardType.DEVICE_STATUS, cardData = cardData)
+                } else {
+                    ChatMessage(text = text, sender = Sender.LUI)
+                }
+            }
+            "get_heart_rate" -> {
+                val bpm = Regex("(\\d+)\\s*BPM").find(text)?.groupValues?.get(1)?.toIntOrNull()
+                val color = when {
+                    bpm == null -> "#9E9E9E"
+                    bpm < 60 -> "#42A5F5"
+                    bpm < 100 -> "#4CAF50"
+                    bpm < 140 -> "#FFC107"
+                    else -> "#F44336"
+                }
+                ChatMessage(text = text, sender = Sender.LUI, cardType = ChatMessage.CardType.DEVICE_STATUS,
+                    cardData = listOf(mapOf("label" to "Heart Rate", "value" to "${bpm ?: "?"} BPM", "color" to color)))
+            }
+            "ring_battery" -> {
+                val pct = Regex("(\\d+)%").find(text)?.groupValues?.get(1)?.toIntOrNull()
+                val color = when {
+                    pct == null -> "#9E9E9E"
+                    pct > 60 -> "#4CAF50"
+                    pct > 20 -> "#FFC107"
+                    else -> "#F44336"
+                }
+                ChatMessage(text = text, sender = Sender.LUI, cardType = ChatMessage.CardType.DEVICE_STATUS,
+                    cardData = listOf(mapOf("label" to "Ring Battery", "value" to text, "color" to color)))
+            }
+            "find_ring" -> {
+                ChatMessage(text = text, sender = Sender.LUI, cardType = ChatMessage.CardType.DEVICE_STATUS,
+                    cardData = listOf(mapOf("label" to "Find Ring", "value" to text, "color" to "#42A5F5")))
+            }
             "ambient_context", "device_info" -> {
                 val cardData = parseStatusToCards(text)
                 if (cardData.isNotEmpty()) {
@@ -1136,6 +1235,63 @@ class LuiViewModel(application: Application) : AndroidViewModel(application) {
             ))
         }
         return results
+    }
+
+    private fun parseHealthToCards(text: String): List<Map<String, String>> {
+        val rows = mutableListOf<Map<String, String>>()
+        for (line in text.lines()) {
+            if (line.isBlank()) continue
+            // Skip list items like "- Heart rate (real-time + history)" — show as plain label
+            if (line.trimStart().startsWith("-")) {
+                val item = line.trimStart().removePrefix("-").trim()
+                if (item.isNotBlank()) rows.add(mutableMapOf("label" to item, "value" to "", "color" to "#9E9E9E"))
+                continue
+            }
+            val parts = line.split(":", limit = 2)
+            if (parts.size == 2 && parts[0].trim().isNotBlank()) {
+                val label = parts[0].trim()
+                val value = parts[1].trim()
+                val color = when {
+                    // Heart rate color coding
+                    label.contains("Heart Rate", true) -> {
+                        val bpm = Regex("(\\d+)").find(value)?.groupValues?.get(1)?.toIntOrNull()
+                        when {
+                            bpm == null -> "#9E9E9E"
+                            bpm < 60 -> "#42A5F5"
+                            bpm < 100 -> "#4CAF50"
+                            bpm < 140 -> "#FFC107"
+                            else -> "#F44336"
+                        }
+                    }
+                    // Zone color
+                    label.contains("Zone", true) -> when {
+                        value.contains("resting") -> "#42A5F5"
+                        value.contains("normal") -> "#4CAF50"
+                        value.contains("elevated") -> "#FFC107"
+                        value.contains("high") -> "#F44336"
+                        else -> null
+                    }
+                    // Battery color
+                    label.contains("Battery", true) -> {
+                        val pct = Regex("(\\d+)").find(value)?.groupValues?.get(1)?.toIntOrNull()
+                        when {
+                            pct == null -> "#9E9E9E"
+                            pct > 60 -> "#4CAF50"
+                            pct > 20 -> "#FFC107"
+                            else -> "#F44336"
+                        }
+                    }
+                    // Ring/device status
+                    value.contains("connected", true) && !value.contains("not connected", true) -> "#4CAF50"
+                    value.contains("not connected", true) -> "#F44336"
+                    else -> null
+                }
+                val map = mutableMapOf("label" to label, "value" to value)
+                if (color != null) map["color"] = color
+                rows.add(map)
+            }
+        }
+        return rows
     }
 
     private fun parseStatusToCards(text: String): List<Map<String, String>> {
