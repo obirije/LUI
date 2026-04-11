@@ -1,0 +1,24 @@
+LUI replaces your Android home screen with a conversational AI assistant that actually controls your phone. No icons, no widgets — just speak or type what you want and it happens.
+
+87 native device tools work instantly through voice or text. Say "turn on the flashlight" and it turns on. Say "text mum I'm on my way" and the text sends. Say "navigate to the nearest pharmacy" and Maps opens with directions.
+
+Features:
+
+- Voice-first with wake word ("Hey LUI"), conversation mode, natural TTS
+- On-device LLM (Qwen 3.5 0.8B) — no cloud, no API keys, fully private
+- Cloud LLM: Gemini, Claude, OpenAI, or Ollama with native function calling
+- Web search and browse any URL — results shown as clickable cards
+- Camera and gallery with AI image analysis
+- Geofence and scheduled triggers
+- Notification triage with 2FA code extraction
+- Screen pilot — read and interact with any app
+- 28 app deep links: Spotify, YouTube, Netflix, and more
+
+Connect your AI agents:
+
+LUI exposes all 87 tools over an MCP-compatible WebSocket bridge. Connect Claude Code, OpenClaw, Hermes, or any agent framework. Your agents get a physical phone body.
+
+pip install lui-bridge
+npm install -g lui-bridge
+
+Open source. GPLv3.

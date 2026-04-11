@@ -1,0 +1,1 @@
+87 device tools, web search and browse, rich message cards, geofence and scheduled triggers, MCP bridge with relay, voice-first with wake word, on-device LLM auto-download, camera and gallery vision, PersonaPlex real-time voice (experimental).
