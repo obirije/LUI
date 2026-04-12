@@ -221,11 +221,20 @@ object ActionExecutor {
             // The LLM chains search_web + browse_url for multi-step web tasks
 
             "get_heart_rate" -> HealthActions.getHeartRate(context)
+            "get_spo2" -> HealthActions.getSpO2(context)
+            "get_sleep" -> HealthActions.getSleep(context)
+            "get_activity" -> HealthActions.getActivity(context)
+            "get_stress" -> HealthActions.getStress(context)
+            "get_hrv" -> HealthActions.getHrv(context)
+            "get_temperature" -> HealthActions.getTemperature(context)
             "get_health_summary" -> HealthActions.getHealthSummary(context)
             "ring_battery" -> HealthActions.getRingBattery(context)
             "ring_status" -> HealthActions.getRingStatus(context)
             "ring_capabilities" -> HealthActions.getRingCapabilities(context)
             "find_ring" -> HealthActions.findRing(context)
+            "get_health_trend" -> HealthActions.getHealthTrend(context,
+                metric = toolCall.params["metric"] ?: "heart_rate",
+                hours = toolCall.params["hours"]?.toIntOrNull() ?: 24)
 
             "ambient_context" -> AmbientActions.getAmbientContext(context)
             "bluetooth_devices" -> AmbientActions.getBluetoothDevices(context)

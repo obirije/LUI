@@ -216,11 +216,20 @@ object ToolRegistry {
 
         // Health ring
         ToolDef("get_heart_rate", "Measure heart rate from the connected health ring. Takes a few seconds."),
-        ToolDef("get_health_summary", "Get a full health summary — heart rate, zone, ring battery. Takes a few seconds to measure."),
+        ToolDef("get_spo2", "Get blood oxygen (SpO2) level from the health ring."),
+        ToolDef("get_sleep", "Get last night's sleep data — duration and stages (deep, light, REM, awake)."),
+        ToolDef("get_activity", "Get step count and calories from the health ring."),
+        ToolDef("get_stress", "Get stress level from the health ring (0-100 scale)."),
+        ToolDef("get_hrv", "Get heart rate variability (HRV) from the health ring in milliseconds."),
+        ToolDef("get_temperature", "Get body temperature from the health ring (R09+ models only)."),
+        ToolDef("get_health_summary", "Get a full health summary — heart rate, SpO2, stress, HRV, temperature, steps, ring battery. Takes a few seconds."),
         ToolDef("ring_battery", "Get the health ring's battery level."),
         ToolDef("ring_status", "Get health ring connection status, battery, and last reading."),
         ToolDef("ring_capabilities", "List all available health vitals and commands the ring can provide."),
         ToolDef("find_ring", "Make the health ring vibrate to help find it."),
+        ToolDef("get_health_trend", "Get historical trend for a health metric over a time period. Shows average, range, and latest reading.",
+            listOf(ParamDef("metric", description = "Metric to check: heart_rate, spo2, stress, hrv, temperature, steps", required = true),
+                   ParamDef("hours", description = "How many hours back to look (default 24)", required = false))),
 
         // Meta
         ToolDef("undo", "Undo/reverse the last action where possible")

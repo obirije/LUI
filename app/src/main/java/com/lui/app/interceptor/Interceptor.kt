@@ -26,7 +26,8 @@ object Interceptor {
         "get_digest", "clear_digest", "get_2fa_code", "config_triage",
         "search_web", "browse_url", "ambient_context", "bluetooth_devices", "network_state",
         "create_geofence", "schedule_action", "list_triggers", "delete_trigger",
-        "get_heart_rate", "get_health_summary", "ring_battery", "ring_status", "ring_capabilities", "find_ring",
+        "get_heart_rate", "get_spo2", "get_sleep", "get_activity", "get_stress", "get_hrv", "get_temperature",
+        "get_health_summary", "get_health_trend", "ring_battery", "ring_status", "ring_capabilities", "find_ring",
         "list_agents", "instruct_agent", "start_passthrough", "end_passthrough"
     )
 
@@ -425,6 +426,24 @@ object Interceptor {
         if (lower.matches(Regex(".*(?:find|locate|where).*(?:ring|band).*")) ||
             lower.matches(Regex(".*(?:ring|band).*(?:vibrate|buzz|beep).*")))
             return ToolCall("find_ring")
+
+        if (lower.matches(Regex(".*(?:blood\\s*oxygen|spo2|sp\\s*o\\s*2|oxygen\\s*(?:level|saturation)).*")))
+            return ToolCall("get_spo2")
+
+        if (lower.matches(Regex(".*(?:how\\s+(?:did|was)\\s+(?:my\\s+)?sleep|sleep\\s+(?:data|stages?|quality|summary|report|tracking)|last\\s+night(?:'s)?\\s+sleep).*")))
+            return ToolCall("get_sleep")
+
+        if (lower.matches(Regex(".*(?:(?:steps|activity|calories)\\s+(?:from|on|ring)|ring\\s+(?:steps|activity)|step\\s+count\\s+(?:from|on)\\s+(?:the\\s+)?ring).*")))
+            return ToolCall("get_activity")
+
+        if (lower.matches(Regex(".*(?:stress\\s+(?:level|score|reading)|(?:how|what)(?:'s| is)\\s+my\\s+stress|am\\s+i\\s+stressed).*")))
+            return ToolCall("get_stress")
+
+        if (lower.matches(Regex(".*(?:hrv|heart\\s*rate\\s*variability|h\\.?r\\.?v\\.?).*")))
+            return ToolCall("get_hrv")
+
+        if (lower.matches(Regex(".*(?:(?:body\\s+)?temp(?:erature)?\\s+(?:from|on|ring)|ring\\s+temp|my\\s+(?:body\\s+)?temp(?:erature)?).*")))
+            return ToolCall("get_temperature")
 
         // ── Lock / Screenshot / Split Screen ──
 

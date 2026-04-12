@@ -44,11 +44,15 @@ object BridgeProtocol {
         "get_location", "get_distance", "get_steps", "get_proximity", "get_light",
         "now_playing", "read_clipboard", "screen_time", "bridge_status",
         "read_screen",
+        // Health ring reads (no side effects)
+        "get_heart_rate", "get_spo2", "get_sleep", "get_activity", "get_stress",
+        "get_hrv", "get_temperature", "get_health_summary", "get_health_trend", "ring_battery",
+        "ring_status", "ring_capabilities",
     )
 
     private val STANDARD_TOOLS = READ_ONLY_TOOLS + setOf(
         // Reversible device controls
-        "toggle_flashlight", "set_volume", "set_brightness", "toggle_dnd",
+        "toggle_flashlight", "set_volume", "set_brightness", "toggle_dnd", "find_ring",
         "toggle_rotation", "set_ringer", "set_screen_timeout", "keep_screen_on",
         "play_pause", "next_track", "previous_track", "route_audio",
         // Navigation

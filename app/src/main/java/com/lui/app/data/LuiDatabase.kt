@@ -7,11 +7,12 @@ import androidx.room.RoomDatabase
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 
-@Database(entities = [ChatMessageEntity::class, DigestEntity::class, TriggerEntity::class], version = 4, exportSchema = false)
+@Database(entities = [ChatMessageEntity::class, DigestEntity::class, TriggerEntity::class, HealthReadingEntity::class], version = 5, exportSchema = false)
 abstract class LuiDatabase : RoomDatabase() {
     abstract fun chatMessageDao(): ChatMessageDao
     abstract fun digestDao(): DigestDao
     abstract fun triggerDao(): TriggerDao
+    abstract fun healthReadingDao(): HealthReadingDao
 
     companion object {
         @Volatile private var INSTANCE: LuiDatabase? = null
@@ -62,10 +63,24 @@ abstract class LuiDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_4_5 = object : Migration(4, 5) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS health_readings (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        metric TEXT NOT NULL,
+                        value REAL NOT NULL,
+                        timestamp INTEGER NOT NULL
+                    )
+                """.trimIndent())
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_health_readings_metric_timestamp ON health_readings (metric, timestamp)")
+            }
+        }
+
         fun getInstance(context: Context): LuiDatabase {
             return INSTANCE ?: synchronized(this) {
                 Room.databaseBuilder(context.applicationContext, LuiDatabase::class.java, "lui_db")
-                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
+                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
                     .build()
                     .also { INSTANCE = it }
             }

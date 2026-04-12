@@ -7,6 +7,7 @@ import android.net.NetworkCapabilities
 import android.os.BatteryManager
 import android.os.Build
 import android.provider.Settings
+import com.lui.app.interceptor.actions.HealthActions
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -69,6 +70,29 @@ object DeviceContext {
 
         // Device
         sb.appendLine("Device: ${Build.MANUFACTURER} ${Build.MODEL}, Android ${Build.VERSION.RELEASE}")
+
+        // Health ring vitals (if connected)
+        try {
+            val ring = HealthActions.getRingService(context)
+            if (ring.isConnected) {
+                sb.appendLine("")
+                sb.appendLine("HEALTH RING (${ring.deviceName.value}):")
+                val hr = ring.heartRate.value
+                if (hr > 0) sb.appendLine("  Heart rate: $hr BPM")
+                val spo2 = ring.spO2.value
+                if (spo2 > 0) sb.appendLine("  SpO2: $spo2%")
+                val stress = ring.stress.value
+                if (stress > 0) sb.appendLine("  Stress: $stress")
+                val hrv = ring.hrv.value
+                if (hrv > 0) sb.appendLine("  HRV: $hrv ms")
+                val temp = ring.temperature.value
+                if (temp > 0f) sb.appendLine("  Temperature: ${"%.1f".format(temp)}°C")
+                val steps = ring.steps.value
+                if (steps >= 0) sb.appendLine("  Steps: $steps")
+                val batt = ring.batteryLevel.value
+                if (batt >= 0) sb.appendLine("  Ring battery: $batt%")
+            }
+        } catch (_: Exception) {}
 
         return sb.toString().trim()
     }

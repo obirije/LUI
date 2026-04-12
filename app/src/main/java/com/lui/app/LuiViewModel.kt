@@ -93,6 +93,16 @@ class LuiViewModel(application: Application) : AndroidViewModel(application) {
     init {
         LuiLogger.init(application)
 
+        // Auto-connect to paired health ring in background
+        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            try {
+                val ring = com.lui.app.interceptor.actions.HealthActions.getRingService(application)
+                ring.autoConnect()
+            } catch (e: Exception) {
+                LuiLogger.e("Health", "Auto-connect failed: ${e.message}")
+            }
+        }
+
         // Set up bridge approval callback
         com.lui.app.bridge.BridgeProtocol.approvalCallback = { tool, description ->
             // This runs on the bridge thread — post to main thread and wait
@@ -302,7 +312,14 @@ class LuiViewModel(application: Application) : AndroidViewModel(application) {
                 "battery" -> "Checking battery..."
                 "ambient_context" -> "Checking device status..."
                 "get_heart_rate" -> "Measuring heart rate..."
+                "get_spo2" -> "Reading blood oxygen..."
+                "get_sleep" -> "Syncing sleep data..."
+                "get_activity" -> "Syncing activity..."
+                "get_stress" -> "Reading stress level..."
+                "get_hrv" -> "Reading HRV..."
+                "get_temperature" -> "Reading temperature..."
                 "get_health_summary" -> "Checking vitals..."
+                "get_health_trend" -> "Checking health history..."
                 "ring_battery" -> "Checking ring battery..."
                 "ring_status" -> "Checking ring status..."
                 else -> null
@@ -549,7 +566,8 @@ class LuiViewModel(application: Application) : AndroidViewModel(application) {
             "get_steps", "get_proximity", "get_light",
             "storage_info", "wifi_info", "query_media",
             "ambient_context", "bluetooth_devices", "network_state",
-            "get_heart_rate", "get_health_summary", "ring_battery", "ring_status"
+            "get_heart_rate", "get_spo2", "get_sleep", "get_activity", "get_stress", "get_hrv", "get_temperature",
+            "get_health_summary", "get_health_trend", "ring_battery", "ring_status"
         )
         return if (toolCall.tool in liveStateTools) toolCall else null
     }
@@ -926,7 +944,14 @@ class LuiViewModel(application: Application) : AndroidViewModel(application) {
                 "take_photo" -> "Capturing photo..."
                 "read_screen" -> "Reading screen..."
                 "get_heart_rate" -> "Measuring heart rate..."
+                "get_spo2" -> "Reading blood oxygen..."
+                "get_sleep" -> "Syncing sleep data..."
+                "get_activity" -> "Syncing activity..."
+                "get_stress" -> "Reading stress level..."
+                "get_hrv" -> "Reading HRV..."
+                "get_temperature" -> "Reading temperature..."
                 "get_health_summary" -> "Checking vitals..."
+                "get_health_trend" -> "Checking health history..."
                 "ring_battery" -> "Checking ring battery..."
                 else -> null
             }
@@ -1165,7 +1190,7 @@ class LuiViewModel(application: Application) : AndroidViewModel(application) {
                     ChatMessage(text = text, sender = Sender.LUI)
                 }
             }
-            "get_health_summary", "ring_status", "ring_capabilities" -> {
+            "get_health_summary", "get_health_trend", "ring_status", "ring_capabilities" -> {
                 val cardData = parseHealthToCards(text)
                 if (cardData.isNotEmpty()) {
                     ChatMessage(text = text, sender = Sender.LUI, cardType = ChatMessage.CardType.DEVICE_STATUS, cardData = cardData)
@@ -1185,6 +1210,80 @@ class LuiViewModel(application: Application) : AndroidViewModel(application) {
                 ChatMessage(text = text, sender = Sender.LUI, cardType = ChatMessage.CardType.DEVICE_STATUS,
                     cardData = listOf(mapOf("label" to "Heart Rate", "value" to "${bpm ?: "?"} BPM", "color" to color)))
             }
+            "get_spo2" -> {
+                val pct = Regex("(\\d+)%").find(text)?.groupValues?.get(1)?.toIntOrNull()
+                val color = when {
+                    pct == null -> "#9E9E9E"
+                    pct >= 95 -> "#4CAF50"
+                    pct >= 90 -> "#FFC107"
+                    else -> "#F44336"
+                }
+                ChatMessage(text = text, sender = Sender.LUI, cardType = ChatMessage.CardType.DEVICE_STATUS,
+                    cardData = listOf(mapOf("label" to "SpO2", "value" to "${pct ?: "?"}%", "color" to color)))
+            }
+            "get_sleep" -> {
+                val cardData = parseHealthToCards(text)
+                if (cardData.isNotEmpty()) {
+                    ChatMessage(text = text, sender = Sender.LUI, cardType = ChatMessage.CardType.DEVICE_STATUS, cardData = cardData)
+                } else {
+                    ChatMessage(text = text, sender = Sender.LUI)
+                }
+            }
+            "get_activity" -> {
+                val steps = Regex("Steps:\\s*(\\d+)").find(text)?.groupValues?.get(1)?.toIntOrNull()
+                val cals = Regex("Calories:\\s*(\\d+)").find(text)?.groupValues?.get(1)?.toIntOrNull()
+                val color = when {
+                    steps == null -> "#9E9E9E"
+                    steps >= 10000 -> "#4CAF50"
+                    steps >= 5000 -> "#FFC107"
+                    else -> "#42A5F5"
+                }
+                val cards = mutableListOf(mapOf("label" to "Steps", "value" to "${steps ?: 0}", "color" to color))
+                if (cals != null && cals > 0) cards.add(mapOf("label" to "Calories", "value" to "$cals kcal", "color" to color))
+                ChatMessage(text = text, sender = Sender.LUI, cardType = ChatMessage.CardType.DEVICE_STATUS, cardData = cards)
+            }
+            "get_stress" -> {
+                val level = Regex("(\\d+)").find(text)?.groupValues?.get(1)?.toIntOrNull()
+                val label = when {
+                    level == null -> "?"
+                    level < 30 -> "relaxed"
+                    level < 60 -> "normal"
+                    level < 80 -> "moderate"
+                    else -> "high"
+                }
+                val color = when {
+                    level == null -> "#9E9E9E"
+                    level < 30 -> "#4CAF50"
+                    level < 60 -> "#FFC107"
+                    level < 80 -> "#FF9800"
+                    else -> "#F44336"
+                }
+                ChatMessage(text = text, sender = Sender.LUI, cardType = ChatMessage.CardType.DEVICE_STATUS,
+                    cardData = listOf(mapOf("label" to "Stress", "value" to "${level ?: "?"} ($label)", "color" to color)))
+            }
+            "get_hrv" -> {
+                val ms = Regex("(\\d+)\\s*ms").find(text)?.groupValues?.get(1)?.toIntOrNull()
+                val color = when {
+                    ms == null -> "#9E9E9E"
+                    ms >= 50 -> "#4CAF50"
+                    ms >= 20 -> "#FFC107"
+                    else -> "#F44336"
+                }
+                ChatMessage(text = text, sender = Sender.LUI, cardType = ChatMessage.CardType.DEVICE_STATUS,
+                    cardData = listOf(mapOf("label" to "HRV", "value" to "${ms ?: "?"} ms", "color" to color)))
+            }
+            "get_temperature" -> {
+                val temp = Regex("(\\d+\\.\\d+)").find(text)?.groupValues?.get(1)?.toFloatOrNull()
+                val color = when {
+                    temp == null -> "#9E9E9E"
+                    temp in 36.1f..37.2f -> "#4CAF50"
+                    temp in 37.2f..38.0f -> "#FFC107"
+                    else -> "#F44336"
+                }
+                val display = if (temp != null) "${"%.1f".format(temp)}°C" else "?"
+                ChatMessage(text = text, sender = Sender.LUI, cardType = ChatMessage.CardType.DEVICE_STATUS,
+                    cardData = listOf(mapOf("label" to "Temperature", "value" to display, "color" to color)))
+            }
             "ring_battery" -> {
                 val pct = Regex("(\\d+)%").find(text)?.groupValues?.get(1)?.toIntOrNull()
                 val color = when {
@@ -1194,11 +1293,11 @@ class LuiViewModel(application: Application) : AndroidViewModel(application) {
                     else -> "#F44336"
                 }
                 ChatMessage(text = text, sender = Sender.LUI, cardType = ChatMessage.CardType.DEVICE_STATUS,
-                    cardData = listOf(mapOf("label" to "Ring Battery", "value" to text, "color" to color)))
+                    cardData = listOf(mapOf("label" to "Ring Battery", "value" to "${pct ?: "?"}%", "color" to color)))
             }
             "find_ring" -> {
                 ChatMessage(text = text, sender = Sender.LUI, cardType = ChatMessage.CardType.DEVICE_STATUS,
-                    cardData = listOf(mapOf("label" to "Find Ring", "value" to text, "color" to "#42A5F5")))
+                    cardData = listOf(mapOf("label" to "Find Ring", "value" to "Vibrating", "color" to "#42A5F5")))
             }
             "ambient_context", "device_info" -> {
                 val cardData = parseStatusToCards(text)
@@ -1210,14 +1309,16 @@ class LuiViewModel(application: Application) : AndroidViewModel(application) {
             }
             "battery" -> {
                 val pct = Regex("(\\d+)%").find(text)?.groupValues?.get(1)?.toIntOrNull()
+                val charging = text.contains("charging", true) && !text.contains("not charging", true)
                 val color = when {
                     pct == null -> "#9E9E9E"
                     pct > 60 -> "#4CAF50"
                     pct > 20 -> "#FFC107"
                     else -> "#F44336"
                 }
+                val display = "${pct ?: "?"}%" + if (charging) " ⚡" else ""
                 ChatMessage(text = text, sender = Sender.LUI, cardType = ChatMessage.CardType.DEVICE_STATUS,
-                    cardData = listOf(mapOf("label" to "Battery", "value" to text, "color" to color)))
+                    cardData = listOf(mapOf("label" to "Battery", "value" to display, "color" to color)))
             }
             else -> ChatMessage(text = text, sender = Sender.LUI)
         }
@@ -1279,6 +1380,57 @@ class LuiViewModel(application: Application) : AndroidViewModel(application) {
                             pct > 60 -> "#4CAF50"
                             pct > 20 -> "#FFC107"
                             else -> "#F44336"
+                        }
+                    }
+                    // SpO2 color
+                    label.contains("SpO2", true) -> {
+                        val pct = Regex("(\\d+)").find(value)?.groupValues?.get(1)?.toIntOrNull()
+                        when {
+                            pct == null -> "#9E9E9E"
+                            pct >= 95 -> "#4CAF50"
+                            pct >= 90 -> "#FFC107"
+                            else -> "#F44336"
+                        }
+                    }
+                    // Stress color
+                    label.contains("Stress", true) -> {
+                        val lvl = Regex("(\\d+)").find(value)?.groupValues?.get(1)?.toIntOrNull()
+                        when {
+                            lvl == null -> "#9E9E9E"
+                            lvl < 30 -> "#4CAF50"
+                            lvl < 60 -> "#FFC107"
+                            lvl < 80 -> "#FF9800"
+                            else -> "#F44336"
+                        }
+                    }
+                    // HRV color
+                    label.contains("HRV", true) -> {
+                        val ms = Regex("(\\d+)").find(value)?.groupValues?.get(1)?.toIntOrNull()
+                        when {
+                            ms == null -> "#9E9E9E"
+                            ms >= 50 -> "#4CAF50"
+                            ms >= 20 -> "#FFC107"
+                            else -> "#F44336"
+                        }
+                    }
+                    // Temperature color
+                    label.contains("Temp", true) -> {
+                        val temp = Regex("(\\d+\\.?\\d*)").find(value)?.groupValues?.get(1)?.toFloatOrNull()
+                        when {
+                            temp == null -> "#9E9E9E"
+                            temp in 36.1f..37.2f -> "#4CAF50"
+                            temp in 37.2f..38.0f -> "#FFC107"
+                            else -> "#F44336"
+                        }
+                    }
+                    // Steps color
+                    label.contains("Steps", true) -> {
+                        val s = Regex("(\\d+)").find(value)?.groupValues?.get(1)?.toIntOrNull()
+                        when {
+                            s == null -> "#9E9E9E"
+                            s >= 10000 -> "#4CAF50"
+                            s >= 5000 -> "#FFC107"
+                            else -> "#42A5F5"
                         }
                     }
                     // Ring/device status
