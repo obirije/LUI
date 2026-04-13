@@ -35,7 +35,7 @@ Used for local/offline mode and for forcing live-state queries in cloud mode. Pa
 
 ---
 
-## All Tools (67)
+## All Tools (106)
 
 ### Hardware Controls
 
@@ -137,6 +137,7 @@ Supported deep link apps: Spotify, YouTube, YouTube Music, Netflix, TikTok, Twit
 | `clear_notifications` | — | "clear all notifications" |
 | `get_digest` | — | "show my digest", "what did I miss" |
 | `clear_digest` | — | "clear digest" |
+| `get_notification_history` | `hours`, `app` | "notifications from WhatsApp yesterday", "what did I get in the last 6 hours" |
 | `get_2fa_code` | — | "what's my verification code" |
 | `config_triage` | `app`, `bucket` | LLM-driven: mark app as urgent or noise |
 
@@ -175,6 +176,83 @@ Supported deep link apps: Spotify, YouTube, YouTube Music, Netflix, TikTok, Twit
 | `set_wallpaper` | — | "set wallpaper" |
 | `undo` | — | "undo that" |
 | `screen_time` | `app` (optional) | "screen time", "time on Instagram" |
+| `bedtime_mode` | `enable` | "bedtime mode on" |
+| `lock_screen` | — | "lock my phone" |
+| `take_screenshot` | — | "screenshot" |
+| `split_screen` | — | "split screen" |
+| `set_screen_timeout` | `duration` | "screen timeout 1 minute" |
+| `keep_screen_on` | `enable` | "keep screen on" |
+
+### Health Ring (Colmi R09)
+
+| Tool | Params | Example phrases |
+|:-----|:-------|:----------------|
+| `get_heart_rate` | — | "what's my heart rate", "HR" |
+| `get_spo2` | — | "blood oxygen", "SpO2" |
+| `get_stress` | — | "stress level", "am I stressed" |
+| `get_hrv` | — | "HRV", "heart rate variability" |
+| `get_sleep` | — | "how did I sleep", "sleep data" |
+| `get_activity` | — | "steps from ring" (also reachable via `get_steps` when ring is connected) |
+| `get_temperature` | — | "body temperature" |
+| `ring_battery` | — | "ring battery" |
+| `ring_status` | — | "ring status", "is my ring connected" |
+| `ring_capabilities` | — | "what can the ring do" |
+| `find_ring` | — | "find my ring" |
+| `get_health_summary` | — | "check my vitals", "how's my health" |
+| `get_health_trend` | `metric`, `hours` | "stress trend last 24 hours", "deep sleep this week" |
+
+All readings persist to a local Room `health_readings` table with timestamps. Background sync refreshes every 15 minutes when the ring is connected. Sleep metrics are split into `sleep_total`, `sleep_deep`, `sleep_light`, `sleep_rem`, `sleep_awake` so trend queries can target specific phases.
+
+### Wellness
+
+| Tool | Params | Example phrases |
+|:-----|:-------|:----------------|
+| `play_relaxing_sound` | `type` | "play rain", "play Clair de Lune", "I need some brown noise" |
+| `stop_relaxing_sound` | — | "stop sound", "stop the rain" |
+| `list_relaxing_sounds` | — | "what relaxing sounds are there" |
+| `start_wellness_mode` | `sound` (optional) | "help me calm down", "start wellness mode" |
+| `stop_wellness_mode` | — | "stop wellness mode", "exit wellness mode" |
+
+11 bundled tracks (9 ambient + 2 music). If `start_wellness_mode` is called without a sound, LUI auto-picks based on time of day and current ring stress level. See [docs/ambient-sounds.md](docs/ambient-sounds.md) for the full lineup and licensing.
+
+### Web
+
+| Tool | Params | Example phrases |
+|:-----|:-------|:----------------|
+| `search_web` | `query` | "search the web for gemma 4", "google cats" |
+| `browse_url` | `url` | "browse https://example.com", "read this page" |
+| `ambient_context` | — | "what's the device status", "quick check" |
+| `bluetooth_devices` | — | "bluetooth devices" |
+| `network_state` | — | "network state", "am I online" |
+
+### Vision
+
+| Tool | Params | Example phrases |
+|:-----|:-------|:----------------|
+| `take_photo` | — | "take a photo and describe it" |
+| `pick_image` | — | "analyze this photo", "pick from gallery" |
+| `analyze_image` | — | LLM-driven: analyze the last captured image |
+
+### Triggers
+
+| Tool | Params | Example phrases |
+|:-----|:-------|:----------------|
+| `create_geofence` | `name`, `latitude`, `longitude`, `radius`, `action` | "when I arrive at work, turn on DND" |
+| `schedule_action` | `when`, `action` | "in 5 minutes, lock my phone" |
+| `list_triggers` | — | "what triggers do I have" |
+| `delete_trigger` | `id` | "delete trigger 2" |
+
+### Bridge
+
+| Tool | Params | Example phrases |
+|:-----|:-------|:----------------|
+| `start_bridge` | — | "start the bridge" |
+| `stop_bridge` | — | "stop bridge" |
+| `bridge_status` | — | "bridge status" |
+| `list_agents` | — | "list agents", "who's connected" |
+| `instruct_agent` | `agent`, `message` | "@claude-code deploy staging" |
+| `start_passthrough` | `agent` | "patch me to hermes" |
+| `end_passthrough` | — | "LUI come back" |
 
 ---
 

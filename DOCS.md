@@ -26,7 +26,7 @@ Open LUI → Connection Hub → toggle **BYOS Bridge** on. Note the URL and toke
 # Check device status
 lui bridge status --url ws://PHONE_IP:8765 --token YOUR_TOKEN
 
-# List all 72 tools
+# List all 106 tools
 lui bridge tools --url ws://PHONE_IP:8765 --token YOUR_TOKEN
 
 # Call a tool
@@ -43,7 +43,7 @@ Both Python and Node.js packages share the same CLI interface.
 ┌──────────┐         ┌───────────────┐         ┌──────────────────┐
 │ Your     │  voice  │  LUI on       │ WebSocket│  Agent machine   │
 │ voice/   │ ──────> │  your phone   │ ────────>│  (lui-bridge)    │
-│ text     │         │  (72 tools)   │          │                  │
+│ text     │         │  (106 tools)  │          │                  │
 │          │ <────── │               │ <────────│  Claude Code /   │
 │          │  result │               │  response│  Hermes / custom │
 └──────────┘         └───────────────┘          └──────────────────┘
@@ -341,9 +341,9 @@ Agents register themselves so LUI can send instructions to them:
 
 | Tier | Tools | What's included |
 |:-----|:------|:----------------|
-| **READ_ONLY** | 17 | Device state, sensors, battery, time, location, screen reading |
-| **STANDARD** | 44 | + controls, navigation, apps, read personal data (default) |
-| **FULL** | 72 | + SMS, calls, screen control, downloads — trusted agents only |
+| **READ_ONLY** | ~25 | Device state, sensors, battery, time, location, health ring readings, notification history, screen reading |
+| **STANDARD** | ~55 | + reversible controls, navigation, apps, wellness mode, ambient sounds, read personal data (default) |
+| **FULL** | 106 | + SMS, calls, screen control, downloads — trusted agents only |
 
 Tools outside the current tier trigger an **on-device approval prompt** (30s timeout).
 
@@ -444,7 +444,7 @@ Then use `https://ollama.yourdomain.com` as the endpoint in LUI.
 
 - Ollama uses the OpenAI-compatible `/v1/chat/completions` endpoint — LUI handles the URL automatically
 - No API key needed — the API key field is hidden when Ollama is selected
-- Models with tool/function calling support (Qwen 3.5, Llama 3.1, Mistral Nemo) work with all 72 LUI tools
+- Models with tool/function calling support (Qwen 3.5, Llama 3.1, Mistral Nemo) work with all 106 LUI tools
 - Large models (35B+) may have slow first-token time — the thinking dots animate while waiting
 - Streaming is supported — responses appear token by token
 
