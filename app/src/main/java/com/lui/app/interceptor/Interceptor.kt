@@ -23,11 +23,12 @@ object Interceptor {
         "start_bridge", "stop_bridge", "bridge_status",
         "get_steps", "get_proximity", "get_light",
         "storage_info", "wifi_info", "download_file", "query_media", "route_audio",
-        "get_digest", "clear_digest", "get_2fa_code", "config_triage",
+        "get_digest", "clear_digest", "get_notification_history", "get_2fa_code", "config_triage",
         "search_web", "browse_url", "ambient_context", "bluetooth_devices", "network_state",
         "create_geofence", "schedule_action", "list_triggers", "delete_trigger",
         "get_heart_rate", "get_spo2", "get_sleep", "get_activity", "get_stress", "get_hrv", "get_temperature",
         "get_health_summary", "get_health_trend", "ring_battery", "ring_status", "ring_capabilities", "find_ring",
+        "play_relaxing_sound", "stop_relaxing_sound", "list_relaxing_sounds", "start_wellness_mode", "stop_wellness_mode",
         "list_agents", "instruct_agent", "start_passthrough", "end_passthrough"
     )
 
@@ -326,6 +327,10 @@ object Interceptor {
             return ToolCall("get_digest")
         if (lower.matches(Regex(".*(?:clear|delete)\\s+(?:the\\s+)?digest.*")))
             return ToolCall("clear_digest")
+        // Notification history — phrases like "notifications from yesterday", "what did I get from WhatsApp", etc.
+        if (lower.matches(Regex(".*(?:history|yesterday|earlier|past|last\\s+\\d+\\s+hours?|all).*notifications?.*")) ||
+            lower.matches(Regex(".*notifications?\\s+from\\s+.+")))
+            return ToolCall("get_notification_history")
         if (lower.matches(Regex(".*(?:2fa|otp|verification|verify)\\s*(?:code)?.*")) ||
             lower.matches(Regex(".*(?:what(?:'s| is)\\s+(?:the|my)\\s+(?:code|otp|2fa)).*")))
             return ToolCall("get_2fa_code")
@@ -471,6 +476,29 @@ object Interceptor {
             return ToolCall("bedtime_mode", mapOf("enable" to "true"))
         if (lower.matches(Regex(".*(?:disable|turn off|deactivate)\\s+(?:bedtime|sleep|night).*")))
             return ToolCall("bedtime_mode", mapOf("enable" to "false"))
+
+        // ── Wellness / ambient sounds ──
+
+        // Stop has to come before play so "stop rain" doesn't match play
+        if (lower.matches(Regex(".*(?:stop|turn off|end|disable)\\s+(?:the\\s+)?(?:ambient|relaxing|soothing|calming)?\\s*(?:sound|music|rain|thunder|ocean|wind|forest|crickets|(?:white|brown|pink)\\s*noise|fire|piano|meditation|bell).*")))
+            return ToolCall("stop_relaxing_sound")
+        if (lower.matches(Regex(".*(?:stop|exit|end|disable|deactivate)\\s+wellness(?:\\s+mode)?.*")))
+            return ToolCall("stop_wellness_mode")
+        if (lower.matches(Regex(".*(?:start|begin|enable|activate|enter)\\s+wellness(?:\\s+mode)?.*")) ||
+            lower.matches(Regex(".*wellness\\s+mode.*")) ||
+            lower.matches(Regex(".*help\\s+me\\s+(?:calm|relax|unwind|de-?stress).*")))
+            return ToolCall("start_wellness_mode")
+        // "play rain", "play ocean sounds", "I need some rain"
+        val soundTypes = listOf("rain", "thunder", "thunderstorm", "ocean", "fire", "wind", "forest", "crickets", "white noise", "white_noise", "brown noise", "brown_noise", "piano", "clair de lune", "meditation", "meditation bell", "bell")
+        for (s in soundTypes) {
+            val re = ".*(?:play|start|put on|i\\s+(?:want|need)|can you)\\s+(?:some\\s+|the\\s+)?${Regex.escape(s)}(?:\\s+sounds?|\\s+noise)?.*"
+            if (lower.matches(Regex(re))) {
+                val normalized = s.replace(" ", "_")
+                return ToolCall("play_relaxing_sound", mapOf("type" to normalized))
+            }
+        }
+        if (lower.matches(Regex(".*(?:what|which|list).*(?:ambient|relaxing|soothing|calming)\\s+sounds?.*")))
+            return ToolCall("list_relaxing_sounds")
 
         // ── Sensors ──
 

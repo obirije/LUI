@@ -250,15 +250,25 @@ object HealthActions {
             return ActionResult.Failure("Health ring not connected. Connect it in Connection Hub.")
         }
 
+        // requestActivity() resets the accumulator to 0, so polling for >= 0 would
+        // return the reset value before the ring responds. Wait for steps > 0 (real
+        // data), or for a minimum settle time before accepting 0 as the real answer.
         ring.requestActivity()
         val startTime = System.currentTimeMillis()
-        while (System.currentTimeMillis() - startTime < 8000) {
+        val minWaitMs = 3000L
+        val maxWaitMs = 10000L
+        while (System.currentTimeMillis() - startTime < maxWaitMs) {
             val s = ring.steps.value
-            if (s >= 0) {
+            val elapsed = System.currentTimeMillis() - startTime
+            if (s > 0) {
                 val sb = StringBuilder("Steps: $s")
                 val c = ring.calories.value
                 if (c > 0) sb.append(" | Calories: $c kcal")
                 return ActionResult.Success(sb.toString())
+            }
+            // After settle time with still-zero steps, accept it as genuine
+            if (elapsed >= minWaitMs && s == 0) {
+                return ActionResult.Success("Steps: 0 (no activity recorded today yet)")
             }
             Thread.sleep(300)
         }

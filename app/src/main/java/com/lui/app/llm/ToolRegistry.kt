@@ -128,6 +128,9 @@ object ToolRegistry {
         // The Bouncer (Notification Triage)
         ToolDef("get_digest", "Get the Evening Digest — batched noise notifications that were silently collected"),
         ToolDef("clear_digest", "Clear the notification digest"),
+        ToolDef("get_notification_history", "Query historic notifications from the last N hours, optionally filtered by app name or package",
+            listOf(ParamDef("hours", description = "How many hours back to search (default 24)"),
+                   ParamDef("app", description = "Optional app name or package substring to filter by"))),
         ToolDef("get_2fa_code", "Get the most recently captured 2FA/verification code from notifications"),
         ToolDef("config_triage", "Configure which apps are urgent (pass through) or noise (batched to digest)",
             listOf(ParamDef("app", description = "App package name or common name", required = true),
@@ -145,6 +148,29 @@ object ToolRegistry {
             listOf(ParamDef("enable", description = "true to keep on, false to release", required = true))),
         ToolDef("bedtime_mode", "Enable bedtime mode: DND on, brightness low, short screen timeout. Or disable to restore.",
             listOf(ParamDef("enable", description = "true to enable, false to disable", required = true))),
+
+        // Wellness (stress relief)
+        ToolDef("play_relaxing_sound", """Play a looping ambient sound or calming music to help the user relax.
+
+Available sounds:
+- Ambient nature: rain, thunder, ocean, fire, wind, forest, crickets
+- Noise: white_noise (crisp, focus), brown_noise (deep, sleep)
+- Music: piano (Clair de Lune by Debussy — emotional calm), meditation (singing bowl bell — mindfulness)
+
+Guidance for picking:
+- Night / sleep: crickets, brown_noise, rain, thunder
+- Morning / waking up: forest, piano
+- Afternoon work / focus: white_noise, brown_noise, ocean
+- Evening wind-down: fire, rain, piano
+- Acute stress / anxiety: piano, meditation, rain (soft rhythm is grounding)
+- Just feeling overstimulated: ocean or brown_noise (masks noise)
+If unsure, rain is the safe universal pick.""",
+            listOf(ParamDef("type", description = "one of: rain, thunder, ocean, fire, wind, forest, white_noise, brown_noise, crickets, piano, meditation", required = true))),
+        ToolDef("stop_relaxing_sound", "Stop any ambient sound that is currently playing"),
+        ToolDef("list_relaxing_sounds", "List which ambient sounds are bundled and available on this device"),
+        ToolDef("start_wellness_mode", "Enter wellness mode: plays a calming sound, enables Do Not Disturb, dims the screen. Use when the user is stressed or needs to wind down. If you don't specify a sound, LUI auto-picks based on time of day and current stress level.",
+            listOf(ParamDef("sound", description = "optional sound type (same list as play_relaxing_sound). Omit to let LUI auto-pick based on time and stress."))),
+        ToolDef("stop_wellness_mode", "Exit wellness mode: stops ambient sound, restores normal notifications and brightness"),
 
         // Sensors
         ToolDef("get_steps", "Get step count from the pedometer sensor"),

@@ -69,6 +69,10 @@ object ActionExecutor {
             "clear_notifications" -> NotificationActions.clearNotifications(context)
             "get_digest" -> NotificationActions.getDigest(context)
             "clear_digest" -> NotificationActions.clearDigest(context)
+            "get_notification_history" -> NotificationActions.getNotificationHistory(
+                context,
+                hours = toolCall.params["hours"]?.toIntOrNull() ?: 24,
+                appFilter = toolCall.params["app"]?.takeIf { it.isNotBlank() })
             "get_2fa_code" -> NotificationActions.get2faCode(context)
             "config_triage" -> NotificationActions.configTriage(
                 app = toolCall.params["app"] ?: "",
@@ -111,6 +115,13 @@ object ActionExecutor {
                     ActionResult.Success("Bedtime mode off: DND disabled, brightness restored, timeout 2 minutes.")
                 }
             }
+
+            // Wellness (stress relief)
+            "play_relaxing_sound" -> WellnessActions.playRelaxingSound(context, toolCall.params["type"] ?: "rain")
+            "stop_relaxing_sound" -> WellnessActions.stopRelaxingSound(context)
+            "list_relaxing_sounds" -> WellnessActions.listRelaxingSounds(context)
+            "start_wellness_mode" -> WellnessActions.startWellnessMode(context, toolCall.params["sound"] ?: "")
+            "stop_wellness_mode" -> WellnessActions.stopWellnessMode(context)
 
             "get_steps" -> SensorActions.getSteps(context)
             "get_proximity" -> SensorActions.getProximity(context)

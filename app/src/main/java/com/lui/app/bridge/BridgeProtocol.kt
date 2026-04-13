@@ -55,6 +55,8 @@ object BridgeProtocol {
         "toggle_flashlight", "set_volume", "set_brightness", "toggle_dnd", "find_ring",
         "toggle_rotation", "set_ringer", "set_screen_timeout", "keep_screen_on",
         "play_pause", "next_track", "previous_track", "route_audio",
+        // Wellness
+        "play_relaxing_sound", "stop_relaxing_sound", "list_relaxing_sounds", "start_wellness_mode", "stop_wellness_mode",
         // Navigation
         "navigate", "search_map",
         // Apps (non-destructive)
@@ -62,7 +64,7 @@ object BridgeProtocol {
         "open_settings_bluetooth", "open_lui",
         // Read personal data
         "read_notifications", "read_calendar", "read_sms",
-        "search_contact", "get_digest", "get_2fa_code", "query_media",
+        "search_contact", "get_digest", "get_notification_history", "get_2fa_code", "query_media",
         // Meta
         "undo",
     )
