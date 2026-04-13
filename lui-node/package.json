@@ -1,6 +1,6 @@
 {
   "name": "lui-bridge",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "description": "Connect AI agents to LUI Android devices — 78 tools, MCP protocol, bidirectional communication",
   "main": "src/index.js",
   "bin": {

@@ -172,7 +172,7 @@
     <p class="subtitle reveal">LUI replaces your Android home screen with a single conversational interface. Voice or text — 87 tools execute your intent instantly.</p>
     <div class="features reveal">
         <div class="feature"><span class="icon">🎙</span><h3>Voice-First</h3><p>Wake word ("Hey LUI"), conversation mode, streaming TTS. Works hands-free, even when the phone is locked.</p></div>
-        <div class="feature"><span class="icon">🧠</span><h3>On-Device LLM</h3><p>Qwen 3.5 0.8B runs locally. No cloud, no API keys, fully private. Auto-downloads from the Connection Hub.</p></div>
+        <div class="feature"><span class="icon">🧠</span><h3>On-Device LLM</h3><p>Qwen 2.5 1.5B Instruct runs locally via llama.cpp. No cloud, no API keys, fully private. Auto-downloads from the Connection Hub.</p></div>
         <div class="feature"><span class="icon">☁️</span><h3>Cloud LLM</h3><p>Gemini, Claude, OpenAI, or Ollama with native structured function calling. 5-round tool chaining.</p></div>
         <div class="feature"><span class="icon">🔍</span><h3>Web Search & Browse</h3><p>Search DuckDuckGo, browse any URL. Results shown as clickable rich cards. No API key needed.</p></div>
         <div class="feature"><span class="icon">📸</span><h3>Vision</h3><p>Camera capture and gallery picker with AI image analysis. "Take a photo and tell me what you see."</p></div>
@@ -198,14 +198,23 @@
 <section id="install">
     <div class="section-label reveal">Get Started</div>
     <h2 class="reveal">Up and running in 2 minutes.</h2>
-    <p class="subtitle reveal">Clone, build, install. Or connect your agent to an existing LUI device.</p>
+    <p class="subtitle reveal">Grab the APK directly, build from source, or connect your agent to an existing LUI device.</p>
+
+    <div class="cta-group reveal" style="margin-bottom: 32px;">
+        <a href="https://github.com/obirije/LUI/releases/latest/download/app-full-release.apk" class="btn-primary">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M5 20h14v-2H5v2zm14-9h-4V3H9v8H5l7 7 7-7z"/></svg>
+            Download APK
+        </a>
+        <a href="https://github.com/obirije/LUI/releases" class="btn-secondary">All releases</a>
+    </div>
+
     <div class="code-section reveal">
         <div class="code-header">
             <div class="code-dot red"></div><div class="code-dot yellow"></div><div class="code-dot green"></div>
             <span>terminal</span>
         </div>
         <div class="code-body">
-            <span class="comment"># Build the Android app</span><br>
+            <span class="comment"># Or build from source</span><br>
             <span class="cmd">git clone</span> <span class="flag">--recurse-submodules</span> <span class="str">https://github.com/obirije/LUI.git</span><br>
             <span class="cmd">cd</span> LUI && <span class="cmd">./gradlew</span> assembleDebug<br>
             <span class="cmd">adb install</span> app/build/outputs/apk/debug/app-debug.apk<br><br>
