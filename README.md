@@ -39,17 +39,17 @@ LUI gives your swarms a physical body. Connect Claude Code, OpenClaw, Hermes, or
   </a>
 </p>
 
-*Voice command on the phone → Claude Code runs on the laptop over the WebSocket bridge → results stream back into the chat. Every one of LUI's tools becomes a Claude Code tool. **[▶ Watch the demo](https://9e6506kiss.ufs.sh/f/pxElMO0C7LRyRi0seqxAVWPmBhkMpjTO5uULaFy4Y6w7tgDK)***
+*Type a command on the phone → Claude Code runs on the laptop over the WebSocket bridge → results stream back into the chat. Every one of LUI's tools becomes a Claude Code tool. **[▶ Watch the demo](https://9e6506kiss.ufs.sh/f/pxElMO0C7LRyRi0seqxAVWPmBhkMpjTO5uULaFy4Y6w7tgDK)***
 
 ### Offline mode — fully on-device · 1:05 · 1.5×
 
 <p align="center">
   <a href="https://9e6506kiss.ufs.sh/f/pxElMO0C7LRyXiVGfgNWRlwmxySLGVtFPuoCqiOUMds2zh73">
-    <img src="sites/assets/demo-offline-poster.jpg" width="380" alt="Offline mode — click to play">
+    <img src="sites/assets/demo-offline-poster.jpg" width="228" alt="Offline mode — click to play">
   </a>
 </p>
 
-*No internet, no cloud, no API keys — Qwen2.5 1.5B Instruct runs locally via llama.cpp, the keyword interceptor handles device actions, and on-device TTS speaks the responses. Everything happens on the phone. **[▶ Watch the demo](https://9e6506kiss.ufs.sh/f/pxElMO0C7LRyXiVGfgNWRlwmxySLGVtFPuoCqiOUMds2zh73)***
+*No internet, no cloud, no API keys — Qwen2.5 1.5B Instruct runs locally via llama.cpp and the keyword interceptor handles device actions. Everything happens on the phone. **[▶ Watch the demo](https://9e6506kiss.ufs.sh/f/pxElMO0C7LRyXiVGfgNWRlwmxySLGVtFPuoCqiOUMds2zh73)***
 
 ---
 
