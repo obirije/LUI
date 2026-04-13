@@ -29,6 +29,18 @@ LUI gives your swarms a physical body. Connect Claude Code, OpenClaw, Hermes, or
 
 ---
 
+## Demo 🎬
+
+<p align="center">
+  <video src="https://9e6506kiss.ufs.sh/f/pxElMO0C7LRyRi0seqxAVWPmBhkMpjTO5uULaFy4Y6w7tgDK" controls muted playsinline width="720">
+    <a href="https://9e6506kiss.ufs.sh/f/pxElMO0C7LRyRi0seqxAVWPmBhkMpjTO5uULaFy4Y6w7tgDK">Watch the demo</a> — patching LUI through to Claude Code.
+  </video>
+</p>
+
+*Patching through to Claude Code (1:55). Voice command on the phone → Claude Code runs on the laptop over the WebSocket bridge → results stream back into the chat. Every one of LUI's tools becomes a Claude Code tool.*
+
+---
+
 ## What Can It Do? 💬
 
 > *"Turn the flashlight on"*
