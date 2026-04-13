@@ -78,7 +78,7 @@ class ConnectionHubFragment : Fragment() {
     private fun loadConfig() {
         // LLM
         when (keyStore.selectedProvider) {
-            CloudProvider.GEMINI -> binding.rbGemini.isChecked = true
+            CloudProvider.GEMMA4 -> binding.rbGemma4.isChecked = true
             CloudProvider.CLAUDE -> binding.rbClaude.isChecked = true
             CloudProvider.OPENAI -> binding.rbOpenAI.isChecked = true
             CloudProvider.OLLAMA -> binding.rbOllama.isChecked = true
@@ -154,7 +154,7 @@ class ConnectionHubFragment : Fragment() {
         // LLM
         binding.providerGroup.setOnCheckedChangeListener { _, id ->
             val p = when (id) {
-                R.id.rbGemini -> CloudProvider.GEMINI
+                R.id.rbGemma4 -> CloudProvider.GEMMA4
                 R.id.rbClaude -> CloudProvider.CLAUDE
                 R.id.rbOpenAI -> CloudProvider.OPENAI
                 R.id.rbOllama -> CloudProvider.OLLAMA
@@ -744,7 +744,7 @@ class ConnectionHubFragment : Fragment() {
     private fun testLlm(provider: CloudProvider, key: String): Boolean {
         return try {
             val conn = when (provider) {
-                CloudProvider.GEMINI -> (URL("${CloudProvider.GEMINI.endpoint}/${provider.defaultModel}:generateContent?key=$key").openConnection() as HttpURLConnection).apply {
+                CloudProvider.GEMMA4 -> (URL("${provider.endpoint}/${provider.defaultModel}:generateContent?key=$key").openConnection() as HttpURLConnection).apply {
                     requestMethod = "POST"; setRequestProperty("Content-Type", "application/json"); doOutput = true; connectTimeout = 10000
                     outputStream.write("""{"contents":[{"parts":[{"text":"hi"}]}]}""".toByteArray())
                 }

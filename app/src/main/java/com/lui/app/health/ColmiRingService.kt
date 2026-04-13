@@ -560,6 +560,12 @@ class ColmiRingService(private val context: Context) {
             val total = deep + light + rem + awake
             _sleepData.value = SleepData(total, deep, light, rem, awake)
             LuiLogger.i(TAG, "Sleep: ${total}min total (deep=$deep, light=$light, rem=$rem, awake=$awake)")
+            // Persist each metric so get_health_trend can query
+            onReading?.invoke("sleep_total", total.toFloat())
+            onReading?.invoke("sleep_deep", deep.toFloat())
+            onReading?.invoke("sleep_light", light.toFloat())
+            onReading?.invoke("sleep_rem", rem.toFloat())
+            onReading?.invoke("sleep_awake", awake.toFloat())
         } else {
             LuiLogger.w(TAG, "No valid sleep stages in ${data.size} bytes")
         }
@@ -628,10 +634,18 @@ class ColmiRingService(private val context: Context) {
             if (isConnected) requestActivity()
         }, 140000)
 
-        // Temperature via big data (R09+ only)
+        // Temperature via big data — retry once if first attempt yields nothing
         handler.postDelayed({
             if (isConnected) requestTemperature()
         }, 150000)
+        handler.postDelayed({
+            if (isConnected && _temperature.value <= 0f) requestTemperature()
+        }, 180000)
+
+        // Sleep via big data (last night's data)
+        handler.postDelayed({
+            if (isConnected) requestSleep()
+        }, 210000)
     }
 
     // ── Helpers ──

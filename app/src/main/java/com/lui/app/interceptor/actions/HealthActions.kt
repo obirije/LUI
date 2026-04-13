@@ -318,11 +318,13 @@ object HealthActions {
             return ActionResult.Failure("Health ring not connected. Connect it in Connection Hub.")
         }
 
+        val previous = ring.temperature.value
         ring.requestTemperature()
         val startTime = System.currentTimeMillis()
-        while (System.currentTimeMillis() - startTime < 10000) {
+        var retried = false
+        while (System.currentTimeMillis() - startTime < 25000) {
             val v = ring.temperature.value
-            if (v > 0f) {
+            if (v > 0f && v != previous) {
                 val status = when {
                     v < 36.1f -> "below normal"
                     v <= 37.2f -> "normal"
@@ -331,16 +333,32 @@ object HealthActions {
                 }
                 return ActionResult.Success("Body temperature: ${"%.1f".format(v)}°C — $status")
             }
+            // Retry once at the halfway point if nothing has come in
+            if (!retried && System.currentTimeMillis() - startTime > 12000) {
+                retried = true
+                LuiLogger.d("Health", "Temperature timed out, retrying...")
+                ring.requestTemperature()
+            }
             Thread.sleep(300)
         }
-        return ActionResult.Failure("No temperature data available. Temperature requires R09+ ring and periodic monitoring enabled.")
+
+        // Fall back to most recent cached value if any
+        val cached = ring.temperature.value
+        return if (cached > 0f) {
+            ActionResult.Success("Body temperature: ${"%.1f".format(cached)}°C (last reading)")
+        } else {
+            ActionResult.Failure("Couldn't read temperature. Make sure the ring is worn snugly and try again.")
+        }
     }
 
     fun getHealthTrend(context: Context, metric: String, hours: Int): ActionResult {
         val dao = LuiDatabase.getInstance(context.applicationContext).healthReadingDao()
         val since = System.currentTimeMillis() - (hours * 3600 * 1000L)
 
-        val validMetrics = setOf("heart_rate", "spo2", "stress", "hrv", "temperature", "steps")
+        val validMetrics = setOf(
+            "heart_rate", "spo2", "stress", "hrv", "temperature", "steps",
+            "sleep_total", "sleep_deep", "sleep_light", "sleep_rem", "sleep_awake"
+        )
         val resolvedMetric = when {
             metric.contains("heart", true) || metric.contains("hr", true) || metric.contains("pulse", true) -> "heart_rate"
             metric.contains("spo2", true) || metric.contains("oxygen", true) -> "spo2"
@@ -348,8 +366,13 @@ object HealthActions {
             metric.contains("hrv", true) || metric.contains("variab", true) -> "hrv"
             metric.contains("temp", true) -> "temperature"
             metric.contains("step", true) || metric.contains("activ", true) -> "steps"
+            metric.contains("deep", true) -> "sleep_deep"
+            metric.contains("light", true) && metric.contains("sleep", true) -> "sleep_light"
+            metric.contains("rem", true) -> "sleep_rem"
+            metric.contains("awake", true) -> "sleep_awake"
+            metric.contains("sleep", true) -> "sleep_total"
             metric in validMetrics -> metric
-            else -> return ActionResult.Failure("Unknown metric: $metric. Available: heart_rate, spo2, stress, hrv, temperature, steps.")
+            else -> return ActionResult.Failure("Unknown metric: $metric. Available: heart_rate, spo2, stress, hrv, temperature, steps, sleep_total/deep/light/rem/awake.")
         }
 
         val count = dao.getCount(resolvedMetric, since)

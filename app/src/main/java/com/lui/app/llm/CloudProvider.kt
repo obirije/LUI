@@ -5,10 +5,10 @@ enum class CloudProvider(
     val endpoint: String,
     val defaultModel: String
 ) {
-    GEMINI(
-        "Gemini",
+    GEMMA4(
+        "Gemma 4",
         "https://generativelanguage.googleapis.com/v1beta/models",
-        "gemini-2.0-flash"
+        "gemma-4-26b-a4b-it"
     ),
     CLAUDE(
         "Claude",
