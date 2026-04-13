@@ -113,6 +113,18 @@
                 android:textSize="11sp"
                 android:visibility="gone" />
 
+            <!-- App drawer button -->
+            <ImageButton
+                android:id="@+id/appsButton"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:layout_gravity="center_vertical"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="Open app drawer"
+                android:padding="8dp"
+                android:src="@drawable/ic_apps_grid"
+                android:tint="@color/lui_gray" />
+
             <!-- Mic button with pulse ring -->
             <FrameLayout
                 android:layout_width="60dp"

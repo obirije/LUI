@@ -62,17 +62,6 @@
             android:textSize="14sp"
             android:textAllCaps="false" />
 
-        <Button
-            android:id="@+id/btnPhonePermission"
-            android:layout_width="match_parent"
-            android:layout_height="48dp"
-            android:layout_marginTop="8dp"
-            android:background="@drawable/btn_outlined"
-            android:text="Enable phone calls"
-            android:textColor="@color/lui_white"
-            android:textSize="14sp"
-            android:textAllCaps="false" />
-
     </LinearLayout>
 
     <Button

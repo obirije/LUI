@@ -11,7 +11,7 @@ A working Android launcher you can set as your default home screen that accepts 
 
 The original bet: can a quantized small model running on a phone reliably handle intents?
 
-**Answer: Hybrid approach wins.** Qwen3 1.7B was too slow on a mid-range phone (Dimensity 7030, 8GB RAM). Qwen3.5 0.8B is fast and conversational. The keyword interceptor handles device actions instantly and reliably — the LLM handles freeform conversation. Each does what it's best at.
+**Answer: Hybrid approach wins.** Qwen3 1.7B was too slow on a mid-range phone (Dimensity 7030, 8GB RAM). Qwen3.5 0.8B was fast but its built-in thinking mode produced empty/canned responses for chat. We landed on **Qwen2.5 1.5B Instruct (~940MB Q4_K_M)** — no thinking mode, strong tool-calling, fits comfortably in RAM. The keyword interceptor handles device actions instantly and reliably — the LLM handles freeform conversation. Each does what it's best at.
 
 ## Voice Pipeline — RESOLVED
 

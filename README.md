@@ -29,7 +29,9 @@ LUI gives your swarms a physical body. Connect Claude Code, OpenClaw, Hermes, or
 
 ---
 
-## Demo 🎬
+## Demos 🎬
+
+### Patching through to Claude Code
 
 <p align="center">
   <video src="https://9e6506kiss.ufs.sh/f/pxElMO0C7LRyRi0seqxAVWPmBhkMpjTO5uULaFy4Y6w7tgDK" controls muted playsinline width="720">
@@ -38,6 +40,16 @@ LUI gives your swarms a physical body. Connect Claude Code, OpenClaw, Hermes, or
 </p>
 
 *Patching through to Claude Code (1:55). Voice command on the phone → Claude Code runs on the laptop over the WebSocket bridge → results stream back into the chat. Every one of LUI's tools becomes a Claude Code tool.*
+
+### Offline mode — fully on-device
+
+<p align="center">
+  <video src="https://9e6506kiss.ufs.sh/f/pxElMO0C7LRyK4k2qxrGilv687fX0SYQE5zyADkuVjdhpUIo" controls playsinline width="380">
+    <a href="https://9e6506kiss.ufs.sh/f/pxElMO0C7LRyK4k2qxrGilv687fX0SYQE5zyADkuVjdhpUIo">Watch the demo</a> — LUI running fully offline on the phone.
+  </video>
+</p>
+
+*Offline mode (1:38). No internet, no cloud, no API keys — Qwen2.5 1.5B Instruct runs locally via llama.cpp, the keyword interceptor handles device actions, and on-device TTS speaks the responses. Everything happens on the phone.*
 
 ---
 
@@ -61,7 +73,7 @@ All by voice. Say **"Hey LUI"** even when the phone is locked — it wakes up, g
 - 🏠 **Replaces your home screen** — no icons, no widgets, no noise. Just a clean chat interface.
 - 🛠 **87 native device tools** — hardware, calls, SMS, calendar, navigation, media, camera, notifications, screen control, sensors, web search, triggers, files, and more.
 - 🎙 **Voice-first** — streaming voice pipeline with wake word ("Hey LUI"), conversation mode, and natural TTS. Hands-free. Experimental: full-duplex real-time audio conversation via GPU server.
-- 🧠 **On-device LLM** — Qwen3.5 0.8B runs locally via llama.cpp. No cloud, no API keys, fully private. Auto-downloads from Connection Hub.
+- 🧠 **On-device LLM** — Qwen2.5 1.5B Instruct runs locally via llama.cpp. No cloud, no API keys, fully private. Auto-downloads from Connection Hub.
 - ☁️ **Cloud LLM** — Gemini, Claude, OpenAI, or Ollama with native function calling.
 - 📸 **Vision** — camera capture and gallery picker with AI image analysis.
 - 🔍 **Web search & browse** — search DuckDuckGo and browse any URL, all by voice. No API key needed.
@@ -123,8 +135,8 @@ Requires JDK 17, Android SDK 35, NDK 28, CMake 3.31+.
 
 3. **Get an LLM running** (pick one):
    - **Easiest:** Tap the status dot → Connection Hub → select **Gemini** → paste a free API key from [aistudio.google.com](https://aistudio.google.com/apikey) → toggle Cloud-first on. Done — you get 15 free requests/minute with all 78 tools.
-   - **Self-hosted:** Select **Ollama** → enter your machine's IP and model name. Any model with tool support works (Qwen 3.5, Llama 3.1, Mistral).
-   - **Fully offline:** The on-device model auto-downloads (~533MB) from the Connection Hub. No API key needed.
+   - **Self-hosted:** Select **Ollama** → enter your machine's IP and model name. Any model with tool support works (Qwen 2.5, Llama 3.1, Mistral).
+   - **Fully offline:** The on-device model auto-downloads (~940MB) from the Connection Hub. No API key needed.
 
 4. Start talking. Type or tap the mic.
 
@@ -210,7 +222,7 @@ You (voice / text)
 │  Cloud LLM available?            │
 │  YES → Native function calling   │──▶ Gemini / Claude / OpenAI / Ollama
 │        (78 tools, multi-turn)    │    Up to 5 rounds per request
-│  NO  → On-device LLM + keywords │──▶ Qwen3.5 0.8B (llama.cpp)
+│  NO  → On-device LLM + keywords │──▶ Qwen2.5 1.5B Instruct (llama.cpp)
 └──────────┬───────────────────────┘
            │
            ▼
@@ -238,7 +250,7 @@ You (voice / text)
 | Component | Technology |
 |:----------|:-----------|
 | App | Kotlin, Android XML, Navigation Component |
-| Local LLM | llama.cpp (C++ via JNI), Qwen3.5 0.8B Q4_K_M |
+| Local LLM | llama.cpp (C++ via JNI), Qwen2.5 1.5B Instruct Q4_K_M (~940MB) |
 | Cloud LLM | Gemini, Claude, OpenAI, Ollama — native function calling |
 | Voice | Android STT, Pocket TTS (local), Deepgram/ElevenLabs (cloud) |
 | Wake word | sherpa-onnx keyword spotter, "Hey LUI" |
