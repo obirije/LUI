@@ -31,25 +31,25 @@ LUI gives your swarms a physical body. Connect Claude Code, OpenClaw, Hermes, or
 
 ## Demos 🎬
 
-### Patching through to Claude Code
+### Patching through to Claude Code · 1:55
 
 <p align="center">
-  <video src="https://9e6506kiss.ufs.sh/f/pxElMO0C7LRyRi0seqxAVWPmBhkMpjTO5uULaFy4Y6w7tgDK" controls muted playsinline width="720">
-    <a href="https://9e6506kiss.ufs.sh/f/pxElMO0C7LRyRi0seqxAVWPmBhkMpjTO5uULaFy4Y6w7tgDK">Watch the demo</a> — patching LUI through to Claude Code.
-  </video>
+  <a href="https://9e6506kiss.ufs.sh/f/pxElMO0C7LRyRi0seqxAVWPmBhkMpjTO5uULaFy4Y6w7tgDK">
+    <img src="sites/assets/demo-claude-code-poster.jpg" width="720" alt="Patching through to Claude Code — click to play">
+  </a>
 </p>
 
-*Patching through to Claude Code (1:55). Voice command on the phone → Claude Code runs on the laptop over the WebSocket bridge → results stream back into the chat. Every one of LUI's tools becomes a Claude Code tool.*
+*Voice command on the phone → Claude Code runs on the laptop over the WebSocket bridge → results stream back into the chat. Every one of LUI's tools becomes a Claude Code tool. **[▶ Watch the demo](https://9e6506kiss.ufs.sh/f/pxElMO0C7LRyRi0seqxAVWPmBhkMpjTO5uULaFy4Y6w7tgDK)***
 
-### Offline mode — fully on-device
+### Offline mode — fully on-device · 1:05 · 1.5×
 
 <p align="center">
-  <video src="https://9e6506kiss.ufs.sh/f/pxElMO0C7LRyXiVGfgNWRlwmxySLGVtFPuoCqiOUMds2zh73" controls playsinline width="380">
-    <a href="https://9e6506kiss.ufs.sh/f/pxElMO0C7LRyXiVGfgNWRlwmxySLGVtFPuoCqiOUMds2zh73">Watch the demo</a> — LUI running fully offline on the phone.
-  </video>
+  <a href="https://9e6506kiss.ufs.sh/f/pxElMO0C7LRyXiVGfgNWRlwmxySLGVtFPuoCqiOUMds2zh73">
+    <img src="sites/assets/demo-offline-poster.jpg" width="380" alt="Offline mode — click to play">
+  </a>
 </p>
 
-*Offline mode (1:05, 1.5×). No internet, no cloud, no API keys — Qwen2.5 1.5B Instruct runs locally via llama.cpp, the keyword interceptor handles device actions, and on-device TTS speaks the responses. Everything happens on the phone.*
+*No internet, no cloud, no API keys — Qwen2.5 1.5B Instruct runs locally via llama.cpp, the keyword interceptor handles device actions, and on-device TTS speaks the responses. Everything happens on the phone. **[▶ Watch the demo](https://9e6506kiss.ufs.sh/f/pxElMO0C7LRyXiVGfgNWRlwmxySLGVtFPuoCqiOUMds2zh73)***
 
 ---
 
