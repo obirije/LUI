@@ -43,13 +43,9 @@ LUI gives your swarms a physical body. Connect Claude Code, OpenClaw, Hermes, or
 
 ### Offline mode — fully on-device · 1:05 · 1.5×
 
-<p align="center">
-  <a href="https://9e6506kiss.ufs.sh/f/pxElMO0C7LRyXiVGfgNWRlwmxySLGVtFPuoCqiOUMds2zh73">
-    <img src="sites/assets/demo-offline-poster.jpg" width="228" alt="Offline mode — click to play">
-  </a>
-</p>
+https://github.com/user-attachments/assets/c58da7db-bb30-4569-b7c6-78ba14144430
 
-*No internet, no cloud, no API keys — Qwen2.5 1.5B Instruct runs locally via llama.cpp and the keyword interceptor handles device actions. Everything happens on the phone. **[▶ Watch the demo](https://9e6506kiss.ufs.sh/f/pxElMO0C7LRyXiVGfgNWRlwmxySLGVtFPuoCqiOUMds2zh73)***
+*No internet, no cloud, no API keys — Qwen2.5 1.5B Instruct runs locally via llama.cpp and the keyword interceptor handles device actions. Everything happens on the phone.*
 
 ---
 
