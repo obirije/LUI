@@ -5,19 +5,19 @@
     android:viewportWidth="108"
     android:viewportHeight="108">
 
-    <!-- "L" — hairline mono -->
+    <!-- "L" — thin mono, wide spacing (3dp stroke, 9dp gap to next letter) -->
     <path
         android:fillColor="#FAFAFA"
-        android:pathData="M32,43 L35,43 L35,63 L44,63 L44,66 L32,66 Z" />
+        android:pathData="M30,42 L33,42 L33,63 L43,63 L43,66 L30,66 Z" />
 
-    <!-- "U" — hairline mono -->
+    <!-- "U" — thin mono, wide smooth curve (centered at x=59) -->
     <path
         android:fillColor="#FAFAFA"
-        android:pathData="M48,43 L51,43 L51,61 C51,64 53,65 57.5,65 C62,65 64,64 64,61 L64,43 L67,43 L67,61 C67,66 63,68 57.5,68 C52,68 48,66 48,61 Z" />
+        android:pathData="M50,42 L53,42 L53,57 C53,60 55,63 59,63 C63,63 65,60 65,57 L65,42 L68,42 L68,57 C68,63 64,66 59,66 C54,66 50,63 50,57 Z" />
 
-    <!-- "I" — hairline mono -->
+    <!-- "I" — thin mono (12dp gap from U) -->
     <path
         android:fillColor="#FAFAFA"
-        android:pathData="M72,43 L75,43 L75,66 L72,66 Z" />
+        android:pathData="M80,42 L83,42 L83,66 L80,66 Z" />
 
 </vector>
