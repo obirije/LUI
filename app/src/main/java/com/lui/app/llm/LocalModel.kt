@@ -51,8 +51,7 @@ class LocalModel(private val context: Context) : LlmProvider {
 
     override fun generateStreaming(userMessage: String): Flow<String> {
         if (!isReady) return emptyFlow()
-        // Qwen 3.5 uses <think>...</think> blocks before the actual answer.
-        // Budget enough tokens for thinking + answer so we don't cut off mid-thought.
+        // Budget enough tokens for the model to produce a full answer without truncation.
         return engine.sendUserPrompt(userMessage, 1024)
     }
 
