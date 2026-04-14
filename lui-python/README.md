@@ -1,6 +1,6 @@
 # lui-bridge
 
-Connect AI agents to LUI Android devices. 78 phone tools, MCP protocol, bidirectional communication.
+Connect AI agents to LUI Android devices. 106 phone tools (including health ring + wellness mode), MCP protocol, bidirectional communication.
 
 ## Install
 
@@ -62,6 +62,18 @@ bridge.call_tool("open_app_search", {"app": "Spotify", "query": "Despacito"})
 bridge.call_tool("take_photo")                # captures photo via Camera2 API
 bridge.call_tool("pick_image")                # opens gallery picker on phone
 bridge.call_tool("analyze_image")             # describe what's in the last captured/selected image
+
+# Health ring (Colmi R09) — requires ring connected via Connection Hub
+bridge.call_tool("get_heart_rate")            # live heart rate from ring
+bridge.call_tool("get_spo2")                  # blood oxygen level
+bridge.call_tool("get_stress")                # stress level (0-100)
+bridge.call_tool("get_health_summary")        # all vitals in one call
+bridge.call_tool("get_health_trend", {"metric": "stress", "hours": "24"})  # 24h trend
+
+# Wellness — ambient sounds + wellness mode
+bridge.call_tool("play_relaxing_sound", {"type": "rain"})   # rain, ocean, forest, piano, etc.
+bridge.call_tool("start_wellness_mode")       # sound + DND + dim (auto-picks by time/stress)
+bridge.call_tool("stop_wellness_mode")        # restores prior state
 
 # Get device state
 print(bridge.get_device_state())
