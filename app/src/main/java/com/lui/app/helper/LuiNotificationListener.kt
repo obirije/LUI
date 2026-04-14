@@ -124,6 +124,13 @@ class LuiNotificationListener : NotificationListenerService() {
                     recentNotifications.add(0, info)
                     while (recentNotifications.size > MAX_MEMORY) recentNotifications.removeAt(recentNotifications.size - 1)
                 }
+                // Persist for historical queries (keeps same DB schema, bucket="URGENT")
+                scope.launch {
+                    digestDao.insert(DigestEntity(
+                        app = app, title = title, text = text,
+                        bucket = "URGENT", timestamp = sbn.postTime
+                    ))
+                }
             }
             Bucket.NOISE -> {
                 try { cancelNotification(sbn.key) } catch (_: Exception) {}

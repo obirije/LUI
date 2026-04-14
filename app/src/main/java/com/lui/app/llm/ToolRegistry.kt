@@ -128,6 +128,9 @@ object ToolRegistry {
         // The Bouncer (Notification Triage)
         ToolDef("get_digest", "Get the Evening Digest — batched noise notifications that were silently collected"),
         ToolDef("clear_digest", "Clear the notification digest"),
+        ToolDef("get_notification_history", "Query historic notifications from the last N hours, optionally filtered by app name or package",
+            listOf(ParamDef("hours", description = "How many hours back to search (default 24)"),
+                   ParamDef("app", description = "Optional app name or package substring to filter by"))),
         ToolDef("get_2fa_code", "Get the most recently captured 2FA/verification code from notifications"),
         ToolDef("config_triage", "Configure which apps are urgent (pass through) or noise (batched to digest)",
             listOf(ParamDef("app", description = "App package name or common name", required = true),
@@ -145,6 +148,29 @@ object ToolRegistry {
             listOf(ParamDef("enable", description = "true to keep on, false to release", required = true))),
         ToolDef("bedtime_mode", "Enable bedtime mode: DND on, brightness low, short screen timeout. Or disable to restore.",
             listOf(ParamDef("enable", description = "true to enable, false to disable", required = true))),
+
+        // Wellness (stress relief)
+        ToolDef("play_relaxing_sound", """Play a looping ambient sound or calming music to help the user relax.
+
+Available sounds:
+- Ambient nature: rain, thunder, ocean, fire, wind, forest, crickets
+- Noise: white_noise (crisp, focus), brown_noise (deep, sleep)
+- Music: piano (Clair de Lune by Debussy — emotional calm), meditation (singing bowl bell — mindfulness)
+
+Guidance for picking:
+- Night / sleep: crickets, brown_noise, rain, thunder
+- Morning / waking up: forest, piano
+- Afternoon work / focus: white_noise, brown_noise, ocean
+- Evening wind-down: fire, rain, piano
+- Acute stress / anxiety: piano, meditation, rain (soft rhythm is grounding)
+- Just feeling overstimulated: ocean or brown_noise (masks noise)
+If unsure, rain is the safe universal pick.""",
+            listOf(ParamDef("type", description = "one of: rain, thunder, ocean, fire, wind, forest, white_noise, brown_noise, crickets, piano, meditation", required = true))),
+        ToolDef("stop_relaxing_sound", "Stop any ambient sound that is currently playing"),
+        ToolDef("list_relaxing_sounds", "List which ambient sounds are bundled and available on this device"),
+        ToolDef("start_wellness_mode", "Enter wellness mode: plays a calming sound, enables Do Not Disturb, dims the screen. Use when the user is stressed or needs to wind down. If you don't specify a sound, LUI auto-picks based on time of day and current stress level.",
+            listOf(ParamDef("sound", description = "optional sound type (same list as play_relaxing_sound). Omit to let LUI auto-pick based on time and stress."))),
+        ToolDef("stop_wellness_mode", "Exit wellness mode: stops ambient sound, restores normal notifications and brightness"),
 
         // Sensors
         ToolDef("get_steps", "Get step count from the pedometer sensor"),
@@ -213,6 +239,23 @@ object ToolRegistry {
         ToolDef("list_triggers", "List all active geofence and scheduled triggers"),
         ToolDef("delete_trigger", "Delete a trigger by its ID number or name",
             listOf(ParamDef("target", description = "Trigger ID or name to delete", required = true))),
+
+        // Health ring
+        ToolDef("get_heart_rate", "Measure heart rate from the connected health ring. Takes a few seconds."),
+        ToolDef("get_spo2", "Get blood oxygen (SpO2) level from the health ring."),
+        ToolDef("get_sleep", "Get last night's sleep data — duration and stages (deep, light, REM, awake)."),
+        ToolDef("get_activity", "Get step count and calories from the health ring."),
+        ToolDef("get_stress", "Get stress level from the health ring (0-100 scale)."),
+        ToolDef("get_hrv", "Get heart rate variability (HRV) from the health ring in milliseconds."),
+        ToolDef("get_temperature", "Get body temperature from the health ring (R09+ models only)."),
+        ToolDef("get_health_summary", "Get a full health summary — heart rate, SpO2, stress, HRV, temperature, steps, ring battery. Takes a few seconds."),
+        ToolDef("ring_battery", "Get the health ring's battery level."),
+        ToolDef("ring_status", "Get health ring connection status, battery, and last reading."),
+        ToolDef("ring_capabilities", "List all available health vitals and commands the ring can provide."),
+        ToolDef("find_ring", "Make the health ring vibrate to help find it."),
+        ToolDef("get_health_trend", "Get historical trend for a health metric over a time period. Shows average, range, and latest reading.",
+            listOf(ParamDef("metric", description = "Metric to check: heart_rate, spo2, stress, hrv, temperature, steps", required = true),
+                   ParamDef("hours", description = "How many hours back to look (default 24)", required = false))),
 
         // Meta
         ToolDef("undo", "Undo/reverse the last action where possible")

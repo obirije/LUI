@@ -42,7 +42,14 @@ object SensorActions {
     }
 
     fun getSteps(context: Context): ActionResult {
-        // Try step counter first (cumulative), then check if sensor exists at all
+        // Prefer the health ring when it's connected — it's worn 24/7 and more accurate
+        // than the phone pedometer (which misses steps while the phone sits on a desk).
+        val ring = try { HealthActions.getRingService(context) } catch (_: Exception) { null }
+        if (ring != null && ring.isConnected) {
+            return HealthActions.getActivity(context)
+        }
+
+        // Fall back to the phone pedometer sensor
         val sm = context.getSystemService(Context.SENSOR_SERVICE) as SensorManager
         val hasCounter = sm.getDefaultSensor(Sensor.TYPE_STEP_COUNTER) != null
         val hasDetector = sm.getDefaultSensor(Sensor.TYPE_STEP_DETECTOR) != null

@@ -80,7 +80,7 @@ class CloudModel(private val keyStore: SecureKeyStore, private val appContext: a
             else -> {
                 val apiKey = keyStore.getApiKey(provider) ?: throw Exception("No API key")
                 when (provider) {
-                    CloudProvider.GEMINI -> emitAll(generateGemini(apiKey, provider.defaultModel, userMessage, history, toolResults))
+                    CloudProvider.GEMMA4 -> emitAll(generateGemini(apiKey, provider.defaultModel, userMessage, history, toolResults))
                     CloudProvider.CLAUDE -> emitAll(generateClaude(apiKey, provider.defaultModel, userMessage, history, toolResults))
                     CloudProvider.OPENAI -> emitAll(generateOpenAI(apiKey, provider.defaultModel, userMessage, history, toolResults))
                     else -> {}
@@ -102,7 +102,8 @@ class CloudModel(private val keyStore: SecureKeyStore, private val appContext: a
         history: List<ChatMessage>,
         toolResults: List<Pair<LlmToolCall, String>>?
     ): Flow<GenerationResult> = flow {
-        val url = URL("${CloudProvider.GEMINI.endpoint}/$model:streamGenerateContent?alt=sse&key=$key")
+        val provider = keyStore.selectedProvider ?: CloudProvider.GEMMA4
+        val url = URL("${provider.endpoint}/$model:streamGenerateContent?alt=sse&key=$key")
         val conn = (url.openConnection() as HttpURLConnection).apply {
             requestMethod = "POST"
             setRequestProperty("Content-Type", "application/json")
@@ -212,6 +213,8 @@ class CloudModel(private val keyStore: SecureKeyStore, private val appContext: a
                             pendingToolCall = LlmToolCall(name, args)
                             LuiLogger.i("GEMINI", "Function call: $name $args")
                         } else if (part.has("text")) {
+                            // Skip reasoning/thinking parts (Gemma 4 marks these with "thought": true)
+                            if (part.optBoolean("thought", false)) continue
                             val token = part.getString("text")
                             if (token.isNotEmpty()) {
                                 fullText.append(token)

@@ -177,6 +177,51 @@ object NotificationActions {
     }
 
     /**
+     * Historical notifications over the last N hours, optionally filtered by app.
+     * Returns all buckets (URGENT + NOISE + AUTO_ACTION) persisted to Room.
+     */
+    fun getNotificationHistory(context: Context, hours: Int = 24, appFilter: String? = null): ActionResult {
+        return try {
+            val dao = LuiDatabase.getInstance(context).digestDao()
+            val since = System.currentTimeMillis() - (hours.coerceAtLeast(1) * 3600L * 1000L)
+
+            val entries = runBlocking {
+                if (appFilter.isNullOrBlank()) {
+                    dao.getSince(since, 200)
+                } else {
+                    dao.getSinceForApp(since, "%${appFilter}%", 200)
+                }
+            }
+
+            if (entries.isEmpty()) {
+                val scope = if (appFilter.isNullOrBlank()) "the last $hours hours" else "$appFilter in the last $hours hours"
+                return ActionResult.Success("No notification history for $scope.")
+            }
+
+            val timeFormat = SimpleDateFormat("MMM d h:mm a", Locale.getDefault())
+            val sb = StringBuilder("Notifications (${entries.size} in last ${hours}h")
+            if (!appFilter.isNullOrBlank()) sb.append(", filtered by '$appFilter'")
+            sb.appendLine("):")
+
+            val grouped = entries.groupBy { it.app }
+            for ((app, notifs) in grouped) {
+                val appName = getAppName(context, app)
+                sb.appendLine("\n$appName (${notifs.size}):")
+                for (n in notifs.take(8)) {
+                    val time = timeFormat.format(Date(n.timestamp))
+                    val tag = if (n.bucket == "URGENT") "" else " [${n.bucket.lowercase()}]"
+                    sb.appendLine("  $time$tag: ${n.title}${if (n.text.isNotBlank()) " — ${n.text.take(80)}" else ""}")
+                }
+                if (notifs.size > 8) sb.appendLine("  ...and ${notifs.size - 8} more")
+            }
+
+            ActionResult.Success(sb.toString().trim())
+        } catch (e: Exception) {
+            ActionResult.Failure("Couldn't read notification history: ${e.message}")
+        }
+    }
+
+    /**
      * Configure triage rules.
      */
     fun configTriage(app: String, bucket: String): ActionResult {

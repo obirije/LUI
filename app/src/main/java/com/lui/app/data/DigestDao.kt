@@ -19,6 +19,9 @@ interface DigestDao {
     @Query("SELECT * FROM digest WHERE timestamp > :since ORDER BY timestamp DESC LIMIT :limit")
     suspend fun getSince(since: Long, limit: Int = 100): List<DigestEntity>
 
+    @Query("SELECT * FROM digest WHERE timestamp > :since AND app LIKE :appPattern ORDER BY timestamp DESC LIMIT :limit")
+    suspend fun getSinceForApp(since: Long, appPattern: String, limit: Int = 100): List<DigestEntity>
+
     @Query("DELETE FROM digest WHERE bucket = 'NOISE'")
     suspend fun clearDigest()
 

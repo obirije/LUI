@@ -50,7 +50,7 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="10dp"
             android:orientation="horizontal">
-            <RadioButton android:id="@+id/rbGemini" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:buttonTint="@color/lui_gray" android:text="Gemini" android:textColor="@color/lui_white" android:textSize="12sp" />
+            <RadioButton android:id="@+id/rbGemma4" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:buttonTint="@color/lui_gray" android:text="Gemma 4" android:textColor="@color/lui_white" android:textSize="12sp" />
             <RadioButton android:id="@+id/rbClaude" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:buttonTint="@color/lui_gray" android:text="Claude" android:textColor="@color/lui_white" android:textSize="12sp" />
             <RadioButton android:id="@+id/rbOpenAI" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:buttonTint="@color/lui_gray" android:text="OpenAI" android:textColor="@color/lui_white" android:textSize="12sp" />
             <RadioButton android:id="@+id/rbOllama" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:buttonTint="@color/lui_gray" android:text="Ollama" android:textColor="@color/lui_white" android:textSize="12sp" />
@@ -231,6 +231,68 @@
             android:textColor="@color/lui_gray_dark"
             android:textSize="10sp"
             android:text="Always listens for Hey LUI to activate conversation mode. Uses ~2-3%% battery/hour." />
+
+        <!-- Divider -->
+        <View android:layout_width="match_parent" android:layout_height="1dp" android:layout_marginTop="14dp" android:background="@color/lui_divider" />
+
+        <!-- ==================== Health Ring ==================== -->
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="20dp"
+            android:text="Health Ring"
+            android:textColor="@color/lui_white"
+            android:textSize="16sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:text="Connect a Colmi smart ring for heart rate, SpO2, sleep tracking."
+            android:textColor="@color/lui_gray_dark"
+            android:textSize="11sp" />
+
+        <TextView
+            android:id="@+id/ringStatus"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:textColor="@color/lui_gray"
+            android:textSize="12sp" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:orientation="horizontal">
+
+            <Button
+                android:id="@+id/btnScanRing"
+                android:layout_width="0dp"
+                android:layout_height="40dp"
+                android:layout_weight="1"
+                android:background="@drawable/btn_outlined"
+                android:text="Scan"
+                android:textAllCaps="false"
+                android:textColor="@color/lui_white"
+                android:textSize="13sp" />
+
+            <Button
+                android:id="@+id/btnDisconnectRing"
+                android:layout_width="0dp"
+                android:layout_height="40dp"
+                android:layout_weight="1"
+                android:layout_marginStart="8dp"
+                android:background="@drawable/btn_outlined"
+                android:text="Disconnect"
+                android:textAllCaps="false"
+                android:textColor="@color/lui_amber"
+                android:textSize="13sp"
+                android:visibility="gone" />
+
+        </LinearLayout>
 
         <!-- Divider -->
         <View android:layout_width="match_parent" android:layout_height="1dp" android:layout_marginTop="14dp" android:background="@color/lui_divider" />

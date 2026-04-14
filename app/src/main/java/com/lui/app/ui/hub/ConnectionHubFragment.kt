@@ -78,7 +78,7 @@ class ConnectionHubFragment : Fragment() {
     private fun loadConfig() {
         // LLM
         when (keyStore.selectedProvider) {
-            CloudProvider.GEMINI -> binding.rbGemini.isChecked = true
+            CloudProvider.GEMMA4 -> binding.rbGemma4.isChecked = true
             CloudProvider.CLAUDE -> binding.rbClaude.isChecked = true
             CloudProvider.OPENAI -> binding.rbOpenAI.isChecked = true
             CloudProvider.OLLAMA -> binding.rbOllama.isChecked = true
@@ -154,7 +154,7 @@ class ConnectionHubFragment : Fragment() {
         // LLM
         binding.providerGroup.setOnCheckedChangeListener { _, id ->
             val p = when (id) {
-                R.id.rbGemini -> CloudProvider.GEMINI
+                R.id.rbGemma4 -> CloudProvider.GEMMA4
                 R.id.rbClaude -> CloudProvider.CLAUDE
                 R.id.rbOpenAI -> CloudProvider.OPENAI
                 R.id.rbOllama -> CloudProvider.OLLAMA
@@ -209,6 +209,58 @@ class ConnectionHubFragment : Fragment() {
                 }
             }
             override fun onNothingSelected(parent: AdapterView<*>?) {}
+        }
+
+        // Health Ring
+        val ringService = com.lui.app.interceptor.actions.HealthActions.getRingService(requireContext())
+        updateRingStatus(ringService)
+
+        binding.btnScanRing.setOnClickListener {
+            // Check BLE permissions first
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
+                val scanGranted = ContextCompat.checkSelfPermission(requireContext(), android.Manifest.permission.BLUETOOTH_SCAN) == android.content.pm.PackageManager.PERMISSION_GRANTED
+                val connectGranted = ContextCompat.checkSelfPermission(requireContext(), android.Manifest.permission.BLUETOOTH_CONNECT) == android.content.pm.PackageManager.PERMISSION_GRANTED
+                if (!scanGranted || !connectGranted) {
+                    requestPermissions(arrayOf(
+                        android.Manifest.permission.BLUETOOTH_SCAN,
+                        android.Manifest.permission.BLUETOOTH_CONNECT
+                    ), 1001)
+                    return@setOnClickListener
+                }
+            }
+
+            binding.btnScanRing.isEnabled = false
+            binding.ringStatus.text = "Scanning..."
+            binding.ringStatus.setTextColor(ContextCompat.getColor(requireContext(), R.color.lui_amber))
+
+            ringService.scan { device, name ->
+                requireActivity().runOnUiThread {
+                    binding.ringStatus.text = "Found $name, connecting..."
+                    ringService.connect(device)
+                }
+            }
+
+            // Monitor connection state
+            viewLifecycleOwner.lifecycleScope.launch {
+                ringService.state.collect { state ->
+                    when (state) {
+                        com.lui.app.health.ColmiRingService.State.CONNECTED -> {
+                            binding.btnScanRing.isEnabled = true
+                            updateRingStatus(ringService)
+                        }
+                        com.lui.app.health.ColmiRingService.State.DISCONNECTED -> {
+                            binding.btnScanRing.isEnabled = true
+                            updateRingStatus(ringService)
+                        }
+                        else -> {}
+                    }
+                }
+            }
+        }
+
+        binding.btnDisconnectRing.setOnClickListener {
+            ringService.disconnect()
+            updateRingStatus(ringService)
         }
 
         // PersonaPlex
@@ -622,6 +674,23 @@ class ConnectionHubFragment : Fragment() {
             .show()
     }
 
+    private fun updateRingStatus(ringService: com.lui.app.health.ColmiRingService) {
+        if (ringService.isConnected) {
+            val name = ringService.deviceName.value
+            val battery = ringService.batteryLevel.value
+            val status = if (battery >= 0) "$name — $battery% battery" else "$name — connected"
+            binding.ringStatus.text = status
+            binding.ringStatus.setTextColor(ContextCompat.getColor(requireContext(), R.color.lui_green))
+            binding.btnScanRing.visibility = View.GONE
+            binding.btnDisconnectRing.visibility = View.VISIBLE
+        } else {
+            binding.ringStatus.text = "No ring connected"
+            binding.ringStatus.setTextColor(ContextCompat.getColor(requireContext(), R.color.lui_gray_dark))
+            binding.btnScanRing.visibility = View.VISIBLE
+            binding.btnDisconnectRing.visibility = View.GONE
+        }
+    }
+
     private fun updatePersonaPlexStatus() {
         val enabled = keyStore.personaPlexEnabled
         val url = keyStore.personaPlexUrl
@@ -675,7 +744,7 @@ class ConnectionHubFragment : Fragment() {
     private fun testLlm(provider: CloudProvider, key: String): Boolean {
         return try {
             val conn = when (provider) {
-                CloudProvider.GEMINI -> (URL("${CloudProvider.GEMINI.endpoint}/${provider.defaultModel}:generateContent?key=$key").openConnection() as HttpURLConnection).apply {
+                CloudProvider.GEMMA4 -> (URL("${provider.endpoint}/${provider.defaultModel}:generateContent?key=$key").openConnection() as HttpURLConnection).apply {
                     requestMethod = "POST"; setRequestProperty("Content-Type", "application/json"); doOutput = true; connectTimeout = 10000
                     outputStream.write("""{"contents":[{"parts":[{"text":"hi"}]}]}""".toByteArray())
                 }

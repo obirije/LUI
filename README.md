@@ -21,7 +21,7 @@
 
 Voice assistants like Siri and Google Assistant can answer questions, but they can't actually *use* your phone. AI chatbots sit in an app waiting for you to copy and paste. 
 
-LUI replaces your Android home screen with a conversational interface backed by real agency — 78 native tools, a full voice pipeline, and an on-device LLM. You speak, it acts.
+LUI replaces your Android home screen with a conversational interface backed by real agency — 106 native tools, a full voice pipeline, an on-device LLM, and optional Colmi smart-ring integration for continuous health awareness. You speak, it acts.
 
 For developers — your AI agents deserve better than a Telegram bot. 
 
@@ -63,6 +63,9 @@ LUI gives your swarms a physical body. Connect Claude Code, OpenClaw, Hermes, or
 > *"Read my notifications"*
 > *"Take a photo and tell me what you see"*
 > *"Set an alarm for 7am"*
+> *"What's my heart rate?"* (with a Colmi R09 ring)
+> *"Help me calm down"* (starts wellness mode — ambient sound + DND + dim)
+> *"Play some rain"* / *"Play Clair de Lune"*
 
 All by voice. Say **"Hey LUI"** even when the phone is locked — it wakes up, greets you, and listens. Say "goodbye" when you're done.
 
@@ -71,16 +74,18 @@ All by voice. Say **"Hey LUI"** even when the phone is locked — it wakes up, g
 ## Features ⚡
 
 - 🏠 **Replaces your home screen** — no icons, no widgets, no noise. Just a clean chat interface.
-- 🛠 **87 native device tools** — hardware, calls, SMS, calendar, navigation, media, camera, notifications, screen control, sensors, web search, triggers, files, and more.
+- 🛠 **106 native device tools** — hardware, calls, SMS, calendar, navigation, media, camera, notifications, screen control, sensors, web search, triggers, files, health ring, wellness, and more.
 - 🎙 **Voice-first** — streaming voice pipeline with wake word ("Hey LUI"), conversation mode, and natural TTS. Hands-free. Experimental: full-duplex real-time audio conversation via GPU server.
 - 🧠 **On-device LLM** — Qwen2.5 1.5B Instruct runs locally via llama.cpp. No cloud, no API keys, fully private. Auto-downloads from Connection Hub.
-- ☁️ **Cloud LLM** — Gemini, Claude, OpenAI, or Ollama with native function calling.
+- ☁️ **Cloud LLM** — Gemma 4, Claude, OpenAI, or Ollama with native function calling.
+- 💍 **Health ring (Colmi R09)** — continuous BLE monitoring of heart rate, SpO2, stress, HRV, sleep, steps, temperature, with 24-hour trend history stored locally.
+- 🧘 **Wellness mode** — stress-aware intervention. 11 bundled ambient sounds and calming music (rain, ocean, forest, thunder, Debussy's Clair de Lune, meditation bell…) + DND + screen dim. Time and stress-aware sound picking, time-aware volume, proactive alerts when stress runs high.
 - 📸 **Vision** — camera capture and gallery picker with AI image analysis.
 - 🔍 **Web search & browse** — search DuckDuckGo and browse any URL, all by voice. No API key needed.
 - 🃏 **Rich cards** — search results show as clickable link cards, device status as color-coded panels. Not just text.
 - 📊 **Ambient context** — battery, charging, network, Bluetooth, audio state, screen brightness in one query.
 - 📍 **Triggers** — geofencing ("when I arrive at work, enable DND") and scheduled actions ("in 5 minutes, lock my phone"). Any tool can be triggered by location or time.
-- 🔔 **The Bouncer** — notification triage. Urgent apps pass through, noise batched into an Evening Digest, 2FA codes auto-extracted.
+- 🔔 **The Bouncer** — notification triage. Urgent apps pass through, noise batched into an Evening Digest, 2FA codes auto-extracted. Full history persisted for queries like *"what notifications did I get from WhatsApp yesterday?"*.
 - 👆 **Screen pilot** — read any app's screen, tap buttons, type text, scroll. The LLM can drive any app.
 - 🌐 **Agent bridge** — MCP WebSocket server. `pip install lui-bridge` or `npm install -g lui-bridge`. Event streaming, bidirectional, permission tiers, relay.
 - 🔀 **Agent passthrough** — "Patch me to Hermes" for direct chat. "@claude-code deploy" for one-off instructions.
@@ -134,9 +139,9 @@ Requires JDK 17, Android SDK 35, NDK 28, CMake 3.31+.
 2. Open LUI on your phone. Complete the onboarding.
 
 3. **Get an LLM running** (pick one):
-   - **Easiest:** Tap the status dot → Connection Hub → select **Gemini** → paste a free API key from [aistudio.google.com](https://aistudio.google.com/apikey) → toggle Cloud-first on. Done — you get 15 free requests/minute with all 78 tools.
-   - **Self-hosted:** Select **Ollama** → enter your machine's IP and model name. Any model with tool support works (Qwen 2.5, Llama 3.1, Mistral).
-   - **Fully offline:** The on-device model auto-downloads (~940MB) from the Connection Hub. No API key needed.
+   - **Easiest:** Tap the status dot → Connection Hub → select **Gemma 4** → paste a free API key from [aistudio.google.com](https://aistudio.google.com/apikey) → toggle Cloud-first on. Done — free tier with all 106 tools.
+   - **Self-hosted:** Select **Ollama** → enter your machine's IP and model name. Any model with tool support works (Qwen 3.5, Llama 3.1, Mistral).
+   - **Fully offline:** The on-device model auto-downloads from the Connection Hub. No API key needed.
 
 4. Start talking. Type or tap the mic.
 
@@ -155,7 +160,7 @@ Without cloud speech, LUI uses on-device TTS (Pocket TTS).
 
 ## Connect Your AI Agents 🤖
 
-LUI exposes all 87 phone tools over an MCP-compatible WebSocket bridge. Any agent framework can connect.
+LUI exposes all 106 phone tools over an MCP-compatible WebSocket bridge. Any agent framework can connect.
 
 ```bash
 pip install lui-bridge
@@ -187,7 +192,7 @@ Also available: `npm install -g lui-bridge` for Node.js.
 
 ---
 
-## Tools 🔧 (87)
+## Tools 🔧 (106)
 
 | Category | Count | Examples |
 |:---------|:------|:--------|
@@ -200,11 +205,13 @@ Also available: `npm install -g lui-bridge` for Node.js.
 | Device & Sensors | 11 | Time, date, battery, device info, Wi-Fi, step counter, proximity, light, ambient context, Bluetooth devices, network state |
 | Web | 2 | Search the web (DuckDuckGo), browse any URL (Jina Reader) |
 | Triggers | 4 | Create geofence, schedule action, list triggers, delete trigger |
-| Notifications | 5 | Read, clear, digest, 2FA code, triage config |
+| Notifications | 6 | Read, clear, digest, history by app/hours, 2FA code, triage config |
 | Screen Control | 6 | Read screen, find & tap, type text, scroll, back, home |
 | Storage & Files | 4 | Storage info, download file, query media, audio routing |
 | Clipboard & System | 8 | Copy, read, share, settings, Wi-Fi/BT settings, wallpaper, bedtime mode |
 | Vision | 3 | Take photo, pick image from gallery, analyze image |
+| **Health Ring** (Colmi R09) | **13** | Heart rate, SpO2, stress, HRV, sleep, activity/steps, temperature, battery, find ring, status, capabilities, health summary, trend history |
+| **Wellness** | **5** | Play/stop relaxing sound, list sounds, start/stop wellness mode (sound + DND + dim) |
 | Bridge | 7 | Start/stop bridge, status, list agents, instruct agent, passthrough start/end |
 | Meta | 4 | Undo, open LUI, keep screen on, screen timeout |
 
@@ -220,8 +227,8 @@ You (voice / text)
   ▼
 ┌──────────────────────────────────┐
 │  Cloud LLM available?            │
-│  YES → Native function calling   │──▶ Gemini / Claude / OpenAI / Ollama
-│        (78 tools, multi-turn)    │    Up to 5 rounds per request
+│  YES → Native function calling   │──▶ Gemma 4 / Claude / OpenAI / Ollama
+│        (106 tools, multi-turn)   │    Up to 5 rounds per request
 │  NO  → On-device LLM + keywords │──▶ Qwen2.5 1.5B Instruct (llama.cpp)
 └──────────┬───────────────────────┘
            │
@@ -250,23 +257,25 @@ You (voice / text)
 | Component | Technology |
 |:----------|:-----------|
 | App | Kotlin, Android XML, Navigation Component |
+| Cloud LLM | Gemma 4, Claude, OpenAI, Ollama — native function calling |
 | Local LLM | llama.cpp (C++ via JNI), Qwen2.5 1.5B Instruct Q4_K_M (~940MB) |
-| Cloud LLM | Gemini, Claude, OpenAI, Ollama — native function calling |
 | Voice | Android STT, Pocket TTS (local), Deepgram/ElevenLabs (cloud) |
 | Wake word | sherpa-onnx keyword spotter, "Hey LUI" |
 | Vision | Camera2 API, Gemini multimodal analysis |
-| Storage | Room (SQLite) — chat history, notification digest |
+| Health ring | Colmi R09 via BLE (Nordic UART Service), 16-byte packet protocol |
+| Ambient audio | Android MediaPlayer, 11 bundled OGG tracks (public domain / algorithmically generated) |
+| Storage | Room (SQLite) — chat history, notification digest, health readings |
 | Bridge | MCP over WebSocket, Python + Node.js SDKs |
 
 ---
 
 ## Roadmap 🗺️
 
-**Shipped:** On-device launcher + LLM, voice conversation, 87 device tools with native function calling, BYOS WebSocket bridge (MCP, event streaming, bidirectional, permission tiers, relay), agent passthrough, notification triage, accessibility screen control, 28 app deep links, cloud TTS, camera/gallery vision, wake word, model auto-download, web search & browse (Jina Reader), ambient context, rich message cards, geofencing & scheduled triggers, Connection Hub. Published to PyPI + npm as `lui-bridge` v0.2.0.
+**Shipped:** On-device launcher + LLM, voice conversation, 106 device tools with native function calling, BYOS WebSocket bridge (MCP, event streaming, bidirectional, permission tiers, relay), agent passthrough, notification triage with full history, accessibility screen control, 28 app deep links, cloud TTS, camera/gallery vision, wake word, model auto-download, web search & browse (Jina Reader), ambient context, rich message cards, geofencing & scheduled triggers, Connection Hub, Colmi R09 health ring integration (13 health tools, 24h trend history, proactive stress alerts), wellness mode with 11 bundled ambient/music tracks, Gemma 4 cloud integration. Published to PyPI + npm as `lui-bridge` v0.2.1.
 
-**Next:** Health ring integration (Colmi R09). Biometric overwatch.
+**Next:** Demo video + Kaggle submission for Gemma 4 Good Hackathon (May 18, 2026).
 
-**Later:** Real-time voice conversation (full-duplex, GPU server). Cloud browser API. Generative UI. MCP server registry.
+**Later:** Biometric overwatch. Richer accessibility-based screen control (bounds, wait-for-element, vision fallback). Real-time voice conversation (full-duplex, GPU server). Cloud browser API. Generative UI. MCP server registry. Caregiver MCP dashboard for the health ring.
 
 ---
 
