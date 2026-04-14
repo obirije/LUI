@@ -105,6 +105,14 @@
 
         /* Animations */
         @keyframes fadeUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes ringFloat { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
+        @keyframes ringGlow { 0%, 100% { filter: drop-shadow(0 4px 20px rgba(74,158,255,0.1)); } 50% { filter: drop-shadow(0 8px 30px rgba(74,158,255,0.25)); } }
+        .health-showcase { display: flex; align-items: center; justify-content: center; gap: 40px; flex-wrap: wrap; margin-top: 32px; }
+        .health-phone { width: 260px; }
+        .health-showcase > div:last-child { max-width: 340px; }
+        .ring-visual { flex-shrink: 0; text-align: center; }
+        .ring-visual img { width: 160px; animation: ringFloat 4s ease-in-out infinite, ringGlow 3s ease-in-out infinite; mix-blend-mode: lighten; }
+        .ring-label { font-size: 11px; color: var(--text-tertiary); font-family: 'JetBrains Mono', monospace; letter-spacing: 0.05em; margin-top: 8px; }
         .reveal { opacity: 0; transform: translateY(30px); transition: opacity 0.6s ease, transform 0.6s ease; }
         .reveal.visible { opacity: 1; transform: translateY(0); }
 
@@ -120,6 +128,30 @@
             nav .links { gap: 16px; } nav .links a:not(.btn-nav) { display: none; }
             .stats { grid-template-columns: repeat(2, 1fr); gap: 32px; }
             .features { grid-template-columns: 1fr; }
+            .agents-grid { grid-template-columns: 1fr; }
+            .health-showcase { flex-direction: column; gap: 32px; text-align: center; }
+            .health-phone { width: 220px; }
+            .health-showcase > div:last-child { max-width: 100%; }
+            .ring-visual img { width: 120px; }
+            .code-section { margin: 0 -12px; }
+            .code-body { font-size: 12px; }
+            section { padding: 80px 16px; }
+            section h2 { font-size: clamp(24px, 6vw, 40px); }
+            section .subtitle { font-size: 15px; }
+            .btn-primary, .btn-secondary { font-size: 14px; padding: 12px 20px; }
+            .final-cta h2 { font-size: clamp(24px, 6vw, 36px); }
+        }
+        @media (max-width: 480px) {
+            .hero-phones { width: 240px; height: 280px; }
+            .hero-phones .phone { max-width: 110px; }
+            .hero-phones .phone-left { top: 25px; left: 0; }
+            .hero-phones .phone-center { top: 0; left: 65px; }
+            .hero-phones .phone-right { top: 25px; right: 0; }
+            .stats { grid-template-columns: 1fr 1fr; gap: 24px; }
+            .stat-number { font-size: 32px; }
+            .health-phone { width: 180px; }
+            .ring-visual img { width: 80px; }
+            nav .inner { padding: 12px 16px; }
         }
     </style>
 </head>
@@ -129,6 +161,7 @@
     <div class="logo">LuiOS</div>
     <div class="links">
         <a href="#features">Features</a>
+        <a href="#health">Health</a>
         <a href="#agents">Agents</a>
         <a href="#install">Install</a>
         <a href="https://github.com/obirije/LUI" class="btn-nav">GitHub</a>
@@ -174,12 +207,41 @@
         <div class="feature"><span class="icon">🎙</span><h3>Voice-First</h3><p>Wake word ("Hey LUI"), conversation mode, streaming TTS. Works hands-free, even when the phone is locked.</p></div>
         <div class="feature"><span class="icon">🧠</span><h3>On-Device LLM</h3><p>Qwen 2.5 1.5B Instruct runs locally via llama.cpp. No cloud, no API keys, fully private. Auto-downloads from the Connection Hub.</p></div>
         <div class="feature"><span class="icon">☁️</span><h3>Cloud LLM</h3><p>Gemma 4, Claude, OpenAI, or Ollama with native structured function calling. 5-round tool chaining.</p></div>
+        <div class="feature"><span class="icon">💍</span><h3>Health Ring</h3><p>Colmi R09 smart ring via BLE. Heart rate, SpO2, stress, HRV, sleep, steps, temperature. 24-hour trend history. Proactive stress alerts. ~£13, no subscription.</p></div>
+        <div class="feature"><span class="icon">🧘</span><h3>Wellness Mode</h3><p>11 bundled ambient sounds and calming music. Auto-picks by time of day and stress level. DND + screen dim. "Help me calm down" and LUI handles the rest.</p></div>
         <div class="feature"><span class="icon">🔍</span><h3>Web Search & Browse</h3><p>Search DuckDuckGo, browse any URL. Results shown as clickable rich cards. No API key needed.</p></div>
         <div class="feature"><span class="icon">📸</span><h3>Vision</h3><p>Camera capture and gallery picker with AI image analysis. "Take a photo and tell me what you see."</p></div>
         <div class="feature"><span class="icon">📍</span><h3>Triggers</h3><p>Geofencing and scheduled actions. "When I leave home, enable DND." "In 5 minutes, lock my phone."</p></div>
         <div class="feature"><span class="icon">🔔</span><h3>The Bouncer</h3><p>Notification triage. Urgent apps pass through, noise batched into an Evening Digest. 2FA codes auto-extracted.</p></div>
         <div class="feature"><span class="icon">👆</span><h3>Screen Pilot</h3><p>Read any app's screen, tap buttons, type text, scroll. The LLM can drive any app on your phone.</p></div>
         <div class="feature"><span class="icon">🌐</span><h3>MCP Bridge</h3><p>WebSocket server for remote AI agents. pip install lui-bridge. Event streaming, bidirectional, permission tiers.</p></div>
+    </div>
+</section>
+
+<section id="health">
+    <div class="section-label reveal">Health</div>
+    <h2 class="reveal">Your stress level, not your screen time.</h2>
+    <p class="subtitle reveal">A smart ring streams your vitals to LUI. When stress runs high, LUI intervenes — calming sounds, muted notifications, dimmed screen. No cloud. Everything on-device.</p>
+    <div class="health-showcase reveal">
+        <img src="https://9e6506kiss.ufs.sh/f/pxElMO0C7LRyYlKcpc5XNRyvQGBnwI82mSxotWir60MdZcKa" alt="LUI health ring conversation" class="health-phone">
+        <div class="ring-visual">
+            <img src="https://9e6506kiss.ufs.sh/f/pxElMO0C7LRyKZ8J8UTrGilv687fX0SYQE5zyADkuVjdhpUI" alt="Colmi R09 smart ring">
+            <div class="ring-label">Colmi R09</div>
+        </div>
+        <div>
+            <p style="color: var(--text-secondary); font-size: 0.95rem; line-height: 1.7; margin-bottom: 16px;">
+                <strong style="color: var(--text);">Detect.</strong> Heart rate, SpO2, stress, HRV, sleep, steps, temperature — all via BLE from a £13 ring.
+            </p>
+            <p style="color: var(--text-secondary); font-size: 0.95rem; line-height: 1.7; margin-bottom: 16px;">
+                <strong style="color: var(--text);">Understand.</strong> 24-hour trend history. "Your stress has been climbing since 3pm."
+            </p>
+            <p style="color: var(--text-secondary); font-size: 0.95rem; line-height: 1.7; margin-bottom: 16px;">
+                <strong style="color: var(--text);">Intervene.</strong> 11 ambient sounds + Debussy's Clair de Lune. Wellness mode: sound + DND + dim. Auto-picks by time and stress level.
+            </p>
+            <p style="color: var(--text-secondary); font-size: 0.95rem; line-height: 1.7;">
+                <strong style="color: var(--text);">Prevent.</strong> Voice-first, minimal UI. Less screen time by design.
+            </p>
+        </div>
     </div>
 </section>
 
