@@ -45,7 +45,7 @@ LUI gives your swarms a physical body. Connect Claude Code, OpenClaw, Hermes, or
 
 <p align="center">
   <a href="https://9e6506kiss.ufs.sh/f/pxElMO0C7LRyXiVGfgNWRlwmxySLGVtFPuoCqiOUMds2zh73">
-    <img src="sites/assets/demo-offline-poster.jpg" width="228" alt="Offline mode — click to play">
+    <img src="sites/assets/demo-offline.gif" width="228" alt="Offline mode — click to play">
   </a>
 </p>
 
