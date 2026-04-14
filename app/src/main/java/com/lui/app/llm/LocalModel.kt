@@ -15,7 +15,7 @@ class LocalModel(private val context: Context) : LlmProvider {
 
     companion object {
         private const val TAG = "LuiLLM"
-        const val MODEL_FILENAME = "Qwen3.5-0.8B-Q4_K_M.gguf"
+        const val MODEL_FILENAME = "Qwen2.5-1.5B-Instruct-Q4_K_M.gguf"
     }
 
     private val engine: InferenceEngine = AiChat.getInferenceEngine(context)
@@ -51,7 +51,9 @@ class LocalModel(private val context: Context) : LlmProvider {
 
     override fun generateStreaming(userMessage: String): Flow<String> {
         if (!isReady) return emptyFlow()
-        return engine.sendUserPrompt(userMessage, 256)
+        // Qwen 3.5 uses <think>...</think> blocks before the actual answer.
+        // Budget enough tokens for thinking + answer so we don't cut off mid-thought.
+        return engine.sendUserPrompt(userMessage, 1024)
     }
 
     fun close() {

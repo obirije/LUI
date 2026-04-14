@@ -29,6 +29,30 @@ LUI gives your swarms a physical body. Connect Claude Code, OpenClaw, Hermes, or
 
 ---
 
+## Demos 🎬
+
+### Patching through to Claude Code · 1:55
+
+<p align="center">
+  <a href="https://9e6506kiss.ufs.sh/f/pxElMO0C7LRyRi0seqxAVWPmBhkMpjTO5uULaFy4Y6w7tgDK">
+    <img src="sites/assets/demo-claude-code-poster.jpg" width="720" alt="Patching through to Claude Code — click to play">
+  </a>
+</p>
+
+*Type a command on the phone → Claude Code runs on the laptop over the WebSocket bridge → results stream back into the chat. Every one of LUI's tools becomes a Claude Code tool. **[▶ Watch the demo](https://9e6506kiss.ufs.sh/f/pxElMO0C7LRyRi0seqxAVWPmBhkMpjTO5uULaFy4Y6w7tgDK)***
+
+### Offline mode — fully on-device · 1:05 · 1.5×
+
+<p align="center">
+  <a href="https://9e6506kiss.ufs.sh/f/pxElMO0C7LRyXiVGfgNWRlwmxySLGVtFPuoCqiOUMds2zh73">
+    <img src="sites/assets/demo-offline.gif" width="228" alt="Offline mode — click to play">
+  </a>
+</p>
+
+*No internet, no cloud, no API keys — Qwen2.5 1.5B Instruct runs locally via llama.cpp and the keyword interceptor handles device actions. Everything happens on the phone. **[▶ Watch the demo](https://9e6506kiss.ufs.sh/f/pxElMO0C7LRyXiVGfgNWRlwmxySLGVtFPuoCqiOUMds2zh73)***
+
+---
+
 ## What Can It Do? 💬
 
 > *"Turn the flashlight on"*
@@ -52,7 +76,7 @@ All by voice. Say **"Hey LUI"** even when the phone is locked — it wakes up, g
 - 🏠 **Replaces your home screen** — no icons, no widgets, no noise. Just a clean chat interface.
 - 🛠 **106 native device tools** — hardware, calls, SMS, calendar, navigation, media, camera, notifications, screen control, sensors, web search, triggers, files, health ring, wellness, and more.
 - 🎙 **Voice-first** — streaming voice pipeline with wake word ("Hey LUI"), conversation mode, and natural TTS. Hands-free. Experimental: full-duplex real-time audio conversation via GPU server.
-- 🧠 **On-device LLM** — Qwen3.5 0.8B runs locally via llama.cpp. No cloud, no API keys, fully private. Auto-downloads from Connection Hub.
+- 🧠 **On-device LLM** — Qwen2.5 1.5B Instruct runs locally via llama.cpp. No cloud, no API keys, fully private. Auto-downloads from Connection Hub.
 - ☁️ **Cloud LLM** — Gemma 4, Claude, OpenAI, or Ollama with native function calling.
 - 💍 **Health ring (Colmi R09)** — continuous BLE monitoring of heart rate, SpO2, stress, HRV, sleep, steps, temperature, with 24-hour trend history stored locally.
 - 🧘 **Wellness mode** — stress-aware intervention. 11 bundled ambient sounds and calming music (rain, ocean, forest, thunder, Debussy's Clair de Lune, meditation bell…) + DND + screen dim. Time and stress-aware sound picking, time-aware volume, proactive alerts when stress runs high.
@@ -117,7 +141,7 @@ Requires JDK 17, Android SDK 35, NDK 28, CMake 3.31+.
 3. **Get an LLM running** (pick one):
    - **Easiest:** Tap the status dot → Connection Hub → select **Gemma 4** → paste a free API key from [aistudio.google.com](https://aistudio.google.com/apikey) → toggle Cloud-first on. Done — free tier with all 106 tools.
    - **Self-hosted:** Select **Ollama** → enter your machine's IP and model name. Any model with tool support works (Qwen 3.5, Llama 3.1, Mistral).
-   - **Fully offline:** The on-device model auto-downloads (~533MB) from the Connection Hub. No API key needed.
+   - **Fully offline:** The on-device model auto-downloads from the Connection Hub. No API key needed.
 
 4. Start talking. Type or tap the mic.
 
@@ -205,7 +229,7 @@ You (voice / text)
 │  Cloud LLM available?            │
 │  YES → Native function calling   │──▶ Gemma 4 / Claude / OpenAI / Ollama
 │        (106 tools, multi-turn)   │    Up to 5 rounds per request
-│  NO  → On-device LLM + keywords │──▶ Qwen3.5 0.8B (llama.cpp)
+│  NO  → On-device LLM + keywords │──▶ Qwen2.5 1.5B Instruct (llama.cpp)
 └──────────┬───────────────────────┘
            │
            ▼
@@ -233,8 +257,8 @@ You (voice / text)
 | Component | Technology |
 |:----------|:-----------|
 | App | Kotlin, Android XML, Navigation Component |
-| Local LLM | llama.cpp (C++ via JNI), Qwen3.5 0.8B Q4_K_M |
 | Cloud LLM | Gemma 4, Claude, OpenAI, Ollama — native function calling |
+| Local LLM | llama.cpp (C++ via JNI), Qwen2.5 1.5B Instruct Q4_K_M (~940MB) |
 | Voice | Android STT, Pocket TTS (local), Deepgram/ElevenLabs (cloud) |
 | Wake word | sherpa-onnx keyword spotter, "Hey LUI" |
 | Vision | Camera2 API, Gemini multimodal analysis |

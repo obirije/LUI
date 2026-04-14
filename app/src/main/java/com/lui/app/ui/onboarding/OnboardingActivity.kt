@@ -24,13 +24,6 @@ class OnboardingActivity : AppCompatActivity() {
         binding.btnMicPermission.isEnabled = !granted
     }
 
-    private val phonePermissionLauncher = registerForActivityResult(
-        ActivityResultContracts.RequestPermission()
-    ) { granted ->
-        binding.btnPhonePermission.text = if (granted) "Phone calls enabled" else "Enable phone calls"
-        binding.btnPhonePermission.isEnabled = !granted
-    }
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
@@ -49,21 +42,12 @@ class OnboardingActivity : AppCompatActivity() {
             binding.btnMicPermission.text = "Microphone enabled"
             binding.btnMicPermission.isEnabled = false
         }
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CALL_PHONE) == PackageManager.PERMISSION_GRANTED) {
-            binding.btnPhonePermission.text = "Phone calls enabled"
-            binding.btnPhonePermission.isEnabled = false
-        }
-
         binding.btnDefaultLauncher.setOnClickListener {
             startActivity(Intent(Settings.ACTION_HOME_SETTINGS))
         }
 
         binding.btnMicPermission.setOnClickListener {
             micPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
-        }
-
-        binding.btnPhonePermission.setOnClickListener {
-            phonePermissionLauncher.launch(Manifest.permission.CALL_PHONE)
         }
 
         binding.btnGetStarted.setOnClickListener {

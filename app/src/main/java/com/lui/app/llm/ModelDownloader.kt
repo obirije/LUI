@@ -19,10 +19,12 @@ object ModelDownloader {
 
     private const val TAG = "ModelDownloader"
 
-    // Default model — Qwen3.5 0.8B Q4_K_M (~533MB, unsloth)
+    // Default model — Qwen2.5 1.5B Instruct Q4_K_M (~940MB, bartowski)
+    // Switched from Qwen3.5 0.8B (2026-04-13) — that model has a thinking mode that
+    // produced empty/canned chat responses on this size class.
     const val DEFAULT_MODEL_URL =
-        "https://huggingface.co/unsloth/Qwen3.5-0.8B-GGUF/resolve/main/Qwen3.5-0.8B-Q4_K_M.gguf"
-    const val DEFAULT_MODEL_FILENAME = "Qwen3.5-0.8B-Q4_K_M.gguf"
+        "https://huggingface.co/bartowski/Qwen2.5-1.5B-Instruct-GGUF/resolve/main/Qwen2.5-1.5B-Instruct-Q4_K_M.gguf"
+    const val DEFAULT_MODEL_FILENAME = "Qwen2.5-1.5B-Instruct-Q4_K_M.gguf"
 
     data class Progress(
         val bytesDownloaded: Long,

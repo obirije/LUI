@@ -232,6 +232,12 @@ class CanvasFragment : Fragment() {
                 findNavController().navigate(R.id.action_canvas_to_hub)
             } catch (e: Exception) { e.printStackTrace() }
         }
+
+        binding.appsButton.setOnClickListener {
+            try {
+                findNavController().navigate(R.id.action_canvas_to_drawer)
+            } catch (e: Exception) { e.printStackTrace() }
+        }
     }
 
     // S-gesture tracking
@@ -380,7 +386,7 @@ class CanvasFragment : Fragment() {
         binding.micPulseRing.visibility = View.VISIBLE
         startPulseAnimation()
 
-        val modeText = if (viewModel.voiceEngine.conversationMode) "conv  tap to exit" else "listening"
+        val modeText = if (viewModel.voiceEngine.conversationMode) "tap to exit" else "listening"
         binding.voiceStatusText.text = modeText
         binding.voiceStatusText.setTextColor(ContextCompat.getColor(requireContext(), R.color.lui_green))
         binding.voiceStatusText.visibility = View.VISIBLE

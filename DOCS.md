@@ -444,7 +444,7 @@ Then use `https://ollama.yourdomain.com` as the endpoint in LUI.
 
 - Ollama uses the OpenAI-compatible `/v1/chat/completions` endpoint — LUI handles the URL automatically
 - No API key needed — the API key field is hidden when Ollama is selected
-- Models with tool/function calling support (Qwen 3.5, Llama 3.1, Mistral Nemo) work with all 106 LUI tools
+- Models with tool/function calling support (Qwen 2.5, Llama 3.1, Mistral Nemo) work with all 106 LUI tools
 - Large models (35B+) may have slow first-token time — the thinking dots animate while waiting
 - Streaming is supported — responses appear token by token
 
