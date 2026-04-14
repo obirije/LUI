@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>LuiOS — The Siri Alternative That Speaks MCP</title>
-    <meta name="description" content="The AI assistant that actually assists. 87 device tools, voice-first, open source Android launcher.">
+    <meta name="description" content="The AI assistant that actually assists. 106 device tools, voice-first, works fully offline, open source Android launcher.">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
     <style>
@@ -150,7 +150,7 @@
     <div class="hero-right">
         <div class="hero-phones">
             <img src="assets/screenshot-6.png" alt="Lock screen" class="phone phone-left">
-            <img src="assets/home.png" alt="Home screen" class="phone phone-center">
+            <img src="assets/demo-offline.gif" alt="Offline mode demo" class="phone phone-center">
             <img src="assets/screenshot-4.png" alt="Ambient context" class="phone phone-right">
         </div>
     </div>
@@ -158,7 +158,7 @@
 
 <section>
     <div class="stats reveal">
-        <div><div class="stat-number">87</div><div class="stat-label">Device tools</div></div>
+        <div><div class="stat-number">106</div><div class="stat-label">Device tools</div></div>
         <div><div class="stat-number">28</div><div class="stat-label">App deep links</div></div>
         <div><div class="stat-number">4</div><div class="stat-label">LLM providers</div></div>
         <div><div class="stat-number">0</div><div class="stat-label">Icons on your home screen</div></div>
@@ -169,11 +169,11 @@
 <section id="features">
     <div class="section-label reveal">Features</div>
     <h2 class="reveal">Your phone, but it listens.</h2>
-    <p class="subtitle reveal">LUI replaces your Android home screen with a single conversational interface. Voice or text — 87 tools execute your intent instantly.</p>
+    <p class="subtitle reveal">LUI replaces your Android home screen with a single conversational interface. Voice or text — 106 tools execute your intent instantly. Works fully offline.</p>
     <div class="features reveal">
         <div class="feature"><span class="icon">🎙</span><h3>Voice-First</h3><p>Wake word ("Hey LUI"), conversation mode, streaming TTS. Works hands-free, even when the phone is locked.</p></div>
         <div class="feature"><span class="icon">🧠</span><h3>On-Device LLM</h3><p>Qwen 2.5 1.5B Instruct runs locally via llama.cpp. No cloud, no API keys, fully private. Auto-downloads from the Connection Hub.</p></div>
-        <div class="feature"><span class="icon">☁️</span><h3>Cloud LLM</h3><p>Gemini, Claude, OpenAI, or Ollama with native structured function calling. 5-round tool chaining.</p></div>
+        <div class="feature"><span class="icon">☁️</span><h3>Cloud LLM</h3><p>Gemma 4, Claude, OpenAI, or Ollama with native structured function calling. 5-round tool chaining.</p></div>
         <div class="feature"><span class="icon">🔍</span><h3>Web Search & Browse</h3><p>Search DuckDuckGo, browse any URL. Results shown as clickable rich cards. No API key needed.</p></div>
         <div class="feature"><span class="icon">📸</span><h3>Vision</h3><p>Camera capture and gallery picker with AI image analysis. "Take a photo and tell me what you see."</p></div>
         <div class="feature"><span class="icon">📍</span><h3>Triggers</h3><p>Geofencing and scheduled actions. "When I leave home, enable DND." "In 5 minutes, lock my phone."</p></div>
@@ -259,9 +259,10 @@
         "actually assists.", "connects Claude Code.", "controls your phone.",
         "searches the web.", "reads your screen.", "connects OpenClaw.",
         "speaks MCP.", "sets your alarms.", "navigates for you.",
-        "runs 87 tools.", "calls your mum.", "connects Hermes.",
-        "reads your notifications.", "works offline.", "takes photos.",
-        "triggers on location.",
+        "runs 106 tools.", "calls your mum.", "connects Hermes.",
+        "reads your notifications.", "works fully offline.", "takes photos.",
+        "triggers on location.", "monitors your stress.", "plays calming sounds.",
+        "runs on-device.", "needs no cloud.",
     ];
     let phraseIndex = 0;
     const el = document.getElementById('rotating-text');
