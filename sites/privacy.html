@@ -27,7 +27,7 @@
 <div class="container">
     <a href="/" class="back">&larr; Back to LuiOS</a>
     <h1>Privacy Policy</h1>
-    <p class="updated">Last updated: April 2026</p>
+    <p class="updated">Last updated: April 16, 2026</p>
 
     <h2>Summary</h2>
     <ul>
@@ -46,6 +46,7 @@
         <tr><td>Notification digest</td><td>Batched non-urgent notifications</td></tr>
         <tr><td>Trigger rules</td><td>Geofence and scheduled actions</td></tr>
         <tr><td>Downloaded model</td><td>On-device LLM for offline use</td></tr>
+        <tr><td>Health metrics</td><td>Heart rate, SpO2, HRV, stress, steps, sleep, temperature from an optional Colmi R09 health ring (if paired). Stored locally only.</td></tr>
     </table>
     <p>None of this data is transmitted to LUI developers or any third party.</p>
 
@@ -63,12 +64,19 @@
         <tr><td>SMS</td><td>Send/read texts by voice command</td></tr>
         <tr><td>Contacts</td><td>Look up names for calls/texts</td></tr>
         <tr><td>Calendar</td><td>Create/read events</td></tr>
-        <tr><td>Location</td><td>GPS, distance calculation, geofence triggers</td></tr>
-        <tr><td>Accessibility</td><td>Read and interact with other apps on screen</td></tr>
+        <tr><td>Location (foreground)</td><td>Current location for weather, distance, and "where am I" queries</td></tr>
+        <tr><td>Background location</td><td>Geofence triggers ("remind me when I arrive at work"). Used only when the user creates a location trigger. Can be denied — LUI remains fully functional without it.</td></tr>
+        <tr><td>Notification access</td><td>The "Bouncer" feature triages incoming notifications into urgent / digest / blocked buckets. Notification contents stay on device. Can be disabled.</td></tr>
+        <tr><td>Usage access (PACKAGE_USAGE_STATS)</td><td>App usage insights for productivity tools ("how long did I spend on X"). Read-only, stays on device.</td></tr>
+        <tr><td>Accessibility</td><td>Read and interact with other apps on screen — required for LUI to act as a voice agent that can operate apps on your behalf (e.g. "add milk to my shopping list in Keep"). Contents stay on device.</td></tr>
+        <tr><td>Bluetooth (scan + connect)</td><td>Pair and connect to an optional Colmi R09 health ring. Can be declined; all other features remain.</td></tr>
     </table>
 
     <h2>Accessibility Service</h2>
-    <p>LUI uses AccessibilityService to read screen content, tap buttons, and type text in other apps. This is only active when LUI is set as your default launcher. No data from the accessibility service is transmitted off-device.</p>
+    <p>LUI uses Android's AccessibilityService to read screen content, tap buttons, and type text in other apps. This enables voice commands that operate other apps on your behalf (e.g. "post this to Slack", "add bread to my shopping list"). No screen content is transmitted off-device. The service is only active when you explicitly enable it in Settings, and you can revoke it at any time.</p>
+
+    <h2>Notification Listener</h2>
+    <p>When enabled, LUI's "Bouncer" reads incoming notifications to triage them into urgent (shown immediately), digest (summarized), or blocked categories. Notification contents are kept on device only and never transmitted. You can disable this in Settings → Apps → LUI → Notification access.</p>
 
     <h2>BYOS Bridge & Relay</h2>
     <p>The WebSocket bridge runs locally on your phone. The relay server is a stateless pass-through proxy — no messages are stored. Auth tokens are sent via encrypted WebSocket messages, never in URLs.</p>
