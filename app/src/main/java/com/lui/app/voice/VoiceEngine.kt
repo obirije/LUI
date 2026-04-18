@@ -434,7 +434,8 @@ class VoiceEngine(private val context: Context) {
         track.play()
         track.write(shorts, 0, shorts.size)
         Thread.sleep((samples.size * 1000L) / sampleRate + 5)
-        track.stop(); track.release(); audioTrack = null
+        if (track.state == AudioTrack.STATE_INITIALIZED) track.stop()
+        track.release(); audioTrack = null
     }
 
     fun release() {
