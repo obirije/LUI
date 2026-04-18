@@ -102,6 +102,24 @@ class ColmiRingService(private val context: Context) {
     private var bigDataExpectedSize: Int = 0
     private val bigDataBuffer = ByteArrayOutputStream()
 
+    // Big-data requests (sleep, temperature) share one accumulator buffer, so
+    // we serialize them through a queue. Two concurrent requests would
+    // interleave packets and corrupt both readings.
+    private data class BigDataRequest(val type: Byte, val metric: String, val command: ByteArray)
+    private val bigDataQueue = ArrayDeque<BigDataRequest>()
+    private var bigDataInFlight = false
+    private var bigDataStartedAt = 0L
+    private val bigDataTimeoutRunnable = Runnable { onBigDataTimeout() }
+
+    // Last-successful-read timestamps per metric (epoch millis). Observed by
+    // the UI so the user can see "HR: 62 BPM, 3 min ago" and spot stale reads.
+    private val _lastReadAt = MutableStateFlow<Map<String, Long>>(emptyMap())
+    val lastReadAt: StateFlow<Map<String, Long>> = _lastReadAt
+
+    private fun markRead(metric: String) {
+        _lastReadAt.value = _lastReadAt.value + (metric to System.currentTimeMillis())
+    }
+
     // Tracks which real-time measurement type is pending (0x69 serves HR, SpO2, HRV, stress)
     // Reading types: 1=HR, 3=SpO2, 4=Fatigue/Stress, 10=HRV
     private var pendingReadingType: Int = 1
@@ -216,12 +234,21 @@ class ColmiRingService(private val context: Context) {
     fun disconnect() {
         stopPeriodicSync()
         isRealtimeHrActive = false
+        clearBigDataQueue()
         bluetoothGatt?.disconnect()
         bluetoothGatt?.close()
         bluetoothGatt = null
         writeCharacteristic = null
         _state.value = State.DISCONNECTED
         LuiLogger.i(TAG, "Disconnected")
+    }
+
+    private fun clearBigDataQueue() {
+        handler.removeCallbacks(bigDataTimeoutRunnable)
+        bigDataQueue.clear()
+        bigDataInFlight = false
+        bigDataBuffer.reset()
+        bigDataExpectedSize = 0
     }
 
     val isConnected: Boolean get() = _state.value == State.CONNECTED
@@ -279,17 +306,51 @@ class ColmiRingService(private val context: Context) {
     }
 
     fun requestSleep() {
-        LuiLogger.i(TAG, "Requesting sleep data...")
-        bigDataBuffer.reset()
-        bigDataExpectedSize = 0
-        sendCommand(byteArrayOf(CMD_BIG_DATA, 0x27))
+        enqueueBigData(BigDataRequest(0x27, "sleep", byteArrayOf(CMD_BIG_DATA, 0x27)))
     }
 
     fun requestTemperature() {
-        LuiLogger.i(TAG, "Requesting temperature data...")
+        enqueueBigData(BigDataRequest(0x25, "temperature", byteArrayOf(CMD_BIG_DATA, 0x25)))
+    }
+
+    private fun enqueueBigData(req: BigDataRequest) {
+        // De-dup: don't queue a second request for the same metric that's
+        // already queued or in flight.
+        if (bigDataInFlight && bigDataType == req.type) return
+        if (bigDataQueue.any { it.type == req.type }) return
+        bigDataQueue.addLast(req)
+        LuiLogger.i(TAG, "Big data queued: ${req.metric} (queue size=${bigDataQueue.size})")
+        dispatchNextBigData()
+    }
+
+    private fun dispatchNextBigData() {
+        if (bigDataInFlight) return
+        if (!isConnected) { bigDataQueue.clear(); return }
+        val next = bigDataQueue.removeFirstOrNull() ?: return
+        bigDataInFlight = true
+        bigDataStartedAt = System.currentTimeMillis()
         bigDataBuffer.reset()
         bigDataExpectedSize = 0
-        sendCommand(byteArrayOf(CMD_BIG_DATA, 0x25))
+        bigDataType = next.type
+        LuiLogger.i(TAG, "Requesting ${next.metric} data...")
+        sendCommand(next.command)
+        // Safety timeout: if packets stop arriving, unblock the queue.
+        handler.postDelayed(bigDataTimeoutRunnable, 20_000L)
+    }
+
+    private fun onBigDataComplete(success: Boolean) {
+        handler.removeCallbacks(bigDataTimeoutRunnable)
+        bigDataInFlight = false
+        bigDataBuffer.reset()
+        bigDataExpectedSize = 0
+        // Gap so the ring has a moment before the next BLE write.
+        handler.postDelayed({ dispatchNextBigData() }, 3000L)
+    }
+
+    private fun onBigDataTimeout() {
+        if (!bigDataInFlight) return
+        LuiLogger.w(TAG, "Big data timeout (type=0x${String.format("%02X", bigDataType)})")
+        onBigDataComplete(success = false)
     }
 
     // ── Packet building ──
@@ -329,6 +390,7 @@ class ColmiRingService(private val context: Context) {
                     LuiLogger.i(TAG, "Disconnected from GATT")
                     _state.value = State.DISCONNECTED
                     writeCharacteristic = null
+                    clearBigDataQueue()
                 }
             }
         }
@@ -395,6 +457,7 @@ class ColmiRingService(private val context: Context) {
                 val level = value[1].toInt() and 0xFF
                 val charging = value[2].toInt() == 1
                 _batteryLevel.value = level
+                markRead("battery")
                 LuiLogger.i(TAG, "Battery: $level% (charging: $charging)")
             }
             CMD_MANUAL_HR -> {
@@ -411,21 +474,25 @@ class ColmiRingService(private val context: Context) {
                             when (type) {
                                 1 -> {
                                     _heartRate.value = reading
+                                    markRead("heart_rate")
                                     LuiLogger.i(TAG, "Heart rate: $reading BPM")
                                     onReading?.invoke("heart_rate", reading.toFloat())
                                 }
                                 3 -> {
                                     _spO2.value = reading
+                                    markRead("spo2")
                                     LuiLogger.i(TAG, "SpO2: $reading%")
                                     onReading?.invoke("spo2", reading.toFloat())
                                 }
                                 4 -> {
                                     _stress.value = reading
+                                    markRead("stress")
                                     LuiLogger.i(TAG, "Stress: $reading")
                                     onReading?.invoke("stress", reading.toFloat())
                                 }
                                 10 -> {
                                     _hrv.value = reading
+                                    markRead("hrv")
                                     LuiLogger.i(TAG, "HRV: $reading ms")
                                     onReading?.invoke("hrv", reading.toFloat())
                                 }
@@ -473,6 +540,7 @@ class ColmiRingService(private val context: Context) {
                     if (steps > 0) {
                         _steps.value = (_steps.value.coerceAtLeast(0)) + steps
                         _calories.value = (_calories.value.coerceAtLeast(0)) + cals
+                        markRead("steps")
                         LuiLogger.i(TAG, "Activity: +$steps steps, +$cals cal → total ${_steps.value}")
                         onReading?.invoke("steps", _steps.value.toFloat())
                     }
@@ -500,6 +568,7 @@ class ColmiRingService(private val context: Context) {
             if (bigDataExpectedSize == 0) {
                 // No data available on ring for this metric
                 LuiLogger.w(TAG, "Ring reports 0 bytes for type 0x${String.format("%02X", dataType)}")
+                onBigDataComplete(success = false)
                 return
             }
             if (value.size > 6) bigDataBuffer.write(value, 6, value.size - 6)
@@ -510,10 +579,12 @@ class ColmiRingService(private val context: Context) {
 
         if (bigDataExpectedSize > 0 && bigDataBuffer.size() >= bigDataExpectedSize) {
             val data = bigDataBuffer.toByteArray()
-            bigDataBuffer.reset()
-            bigDataExpectedSize = 0
+            val type = bigDataType
             LuiLogger.i(TAG, "Big data complete: ${data.size} bytes")
-            parseBigData(bigDataType, data)
+            // Reset queue/buffer state BEFORE parse so parseBigData's onReading
+            // callbacks and retry checks see a clean "done" state.
+            onBigDataComplete(success = true)
+            parseBigData(type, data)
         }
     }
 
@@ -533,6 +604,7 @@ class ColmiRingService(private val context: Context) {
             val v = data[i].toInt() and 0xFF
             if (v in 80..100) {
                 _spO2.value = v
+                markRead("spo2")
                 LuiLogger.i(TAG, "SpO2: $v%")
                 return
             }
@@ -559,6 +631,7 @@ class ColmiRingService(private val context: Context) {
         if (found) {
             val total = deep + light + rem + awake
             _sleepData.value = SleepData(total, deep, light, rem, awake)
+            markRead("sleep")
             LuiLogger.i(TAG, "Sleep: ${total}min total (deep=$deep, light=$light, rem=$rem, awake=$awake)")
             // Persist each metric so get_health_trend can query
             onReading?.invoke("sleep_total", total.toFloat())
@@ -578,6 +651,7 @@ class ColmiRingService(private val context: Context) {
             val temp = raw / 10f
             if (temp in 34f..42f) {
                 _temperature.value = temp
+                markRead("temperature")
                 LuiLogger.i(TAG, "Temperature: ${temp}°C")
                 onReading?.invoke("temperature", temp)
                 return
@@ -606,6 +680,7 @@ class ColmiRingService(private val context: Context) {
 
     private fun runSyncCycle() {
         if (!isConnected) return
+        val cycleStart = System.currentTimeMillis()
         LuiLogger.i(TAG, "Background sync: starting cycle")
 
         // Battery first (instant)
@@ -634,18 +709,32 @@ class ColmiRingService(private val context: Context) {
             if (isConnected) requestActivity()
         }, 140000)
 
-        // Temperature via big data — retry once if first attempt yields nothing
-        handler.postDelayed({
-            if (isConnected) requestTemperature()
-        }, 150000)
-        handler.postDelayed({
-            if (isConnected && _temperature.value <= 0f) requestTemperature()
-        }, 180000)
+        // Big-data metrics: enqueue once, then retry at +60s and +120s from the
+        // initial attempt if the metric didn't land. Retries are no-ops if the
+        // first attempt succeeded (skipIfReadAfter guards by cycle start).
+        scheduleBigDataWithRetries("temperature", cycleStart, initialDelayMs = 150_000L) {
+            requestTemperature()
+        }
+        scheduleBigDataWithRetries("sleep", cycleStart, initialDelayMs = 210_000L) {
+            requestSleep()
+        }
+    }
 
-        // Sleep via big data (last night's data)
-        handler.postDelayed({
-            if (isConnected) requestSleep()
-        }, 210000)
+    private fun scheduleBigDataWithRetries(
+        metric: String,
+        cycleStart: Long,
+        initialDelayMs: Long,
+        request: () -> Unit
+    ) {
+        val retryOffsets = listOf(0L, 30_000L, 90_000L, 210_000L) // +0, +30s, +90s, +3.5min
+        for (offset in retryOffsets) {
+            handler.postDelayed({
+                if (!isConnected) return@postDelayed
+                val lastRead = _lastReadAt.value[metric] ?: 0L
+                if (lastRead >= cycleStart) return@postDelayed // already got it this cycle
+                request()
+            }, initialDelayMs + offset)
+        }
     }
 
     // ── Helpers ──
