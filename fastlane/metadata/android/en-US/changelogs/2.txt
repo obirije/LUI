@@ -1,1 +1,1 @@
-87 device tools, web search and browse, rich message cards, geofence and scheduled triggers, MCP bridge with relay, voice-first with wake word, on-device LLM auto-download, camera and gallery vision, PersonaPlex real-time voice (experimental).
+106 device tools (up from 87). Health ring support — pair a Colmi R09 for heart rate, SpO2, HRV, stress, sleep, steps, temperature. Wellness mode with ambient sounds, notification filtering, and screen dimming. Proactive stress alerts. Gemma 4 cloud provider. Notification history with app filtering. Smarter step counting via ring.
