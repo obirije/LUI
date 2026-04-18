@@ -14,6 +14,8 @@ data class ChatMessage(
     enum class CardType {
         SEARCH_RESULTS,
         DEVICE_STATUS,
-        LINK_PREVIEW
+        LINK_PREVIEW,
+        HEALTH_TREND_CHART,
+        NOTIFICATIONS
     }
 }

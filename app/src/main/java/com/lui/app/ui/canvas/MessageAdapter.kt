@@ -25,6 +25,8 @@ class MessageAdapter : ListAdapter<ChatMessage, RecyclerView.ViewHolder>(DiffCal
         private const val TYPE_THINKING = 3
         private const val TYPE_CARD_SEARCH = 4
         private const val TYPE_CARD_STATUS = 5
+        private const val TYPE_CARD_HEALTH_TREND = 6
+        private const val TYPE_CARD_NOTIFICATIONS = 7
     }
 
     private var lastAnimatedPosition = -1
@@ -37,6 +39,8 @@ class MessageAdapter : ListAdapter<ChatMessage, RecyclerView.ViewHolder>(DiffCal
                 com.lui.app.data.ChatMessage.CardType.SEARCH_RESULTS -> TYPE_CARD_SEARCH
                 com.lui.app.data.ChatMessage.CardType.DEVICE_STATUS -> TYPE_CARD_STATUS
                 com.lui.app.data.ChatMessage.CardType.LINK_PREVIEW -> TYPE_CARD_SEARCH
+                com.lui.app.data.ChatMessage.CardType.HEALTH_TREND_CHART -> TYPE_CARD_HEALTH_TREND
+                com.lui.app.data.ChatMessage.CardType.NOTIFICATIONS -> TYPE_CARD_NOTIFICATIONS
             }
         }
         return when (msg.sender) {
@@ -55,6 +59,8 @@ class MessageAdapter : ListAdapter<ChatMessage, RecyclerView.ViewHolder>(DiffCal
             TYPE_THINKING -> ThinkingViewHolder(inflater.inflate(R.layout.item_message_thinking, parent, false))
             TYPE_CARD_SEARCH -> SearchResultsViewHolder(inflater.inflate(R.layout.item_card_search_results, parent, false))
             TYPE_CARD_STATUS -> DeviceStatusViewHolder(inflater.inflate(R.layout.item_card_device_status, parent, false))
+            TYPE_CARD_HEALTH_TREND -> HealthTrendViewHolder(inflater.inflate(R.layout.item_card_health_trend, parent, false))
+            TYPE_CARD_NOTIFICATIONS -> NotificationsViewHolder(inflater.inflate(R.layout.item_card_notifications, parent, false))
             else -> LuiViewHolder(inflater.inflate(R.layout.item_message_lui, parent, false))
         }
     }
@@ -68,6 +74,8 @@ class MessageAdapter : ListAdapter<ChatMessage, RecyclerView.ViewHolder>(DiffCal
             is ThinkingViewHolder -> holder.startPulse()
             is SearchResultsViewHolder -> holder.bind(message)
             is DeviceStatusViewHolder -> holder.bind(message)
+            is HealthTrendViewHolder -> holder.bind(message)
+            is NotificationsViewHolder -> holder.bind(message)
         }
 
         if (message.sender == Sender.USER && position > lastAnimatedPosition) {
@@ -291,6 +299,117 @@ class MessageAdapter : ListAdapter<ChatMessage, RecyclerView.ViewHolder>(DiffCal
 
                 container.addView(rowView)
             }
+        }
+    }
+
+    class HealthTrendViewHolder(view: View) : RecyclerView.ViewHolder(view) {
+        private val labelView: TextView = view.findViewById(R.id.trendLabel)
+        private val windowView: TextView = view.findViewById(R.id.trendWindow)
+        private val sparkline: SparklineView = view.findViewById(R.id.sparkline)
+        private val latestView: TextView = view.findViewById(R.id.trendLatest)
+        private val avgView: TextView = view.findViewById(R.id.trendAvg)
+        private val rangeView: TextView = view.findViewById(R.id.trendRange)
+
+        fun bind(message: ChatMessage) {
+            val rows = message.cardData ?: return
+            if (rows.isEmpty()) return
+            val meta = rows[0]
+            val label = meta["label"] ?: "Health"
+            val hours = meta["hours"]?.toIntOrNull() ?: 24
+            labelView.text = label
+            windowView.text = if (hours >= 24 && hours % 24 == 0) "last ${hours / 24}d" else "last ${hours}h"
+            latestView.text = meta["latest"]?.substringBefore(" (") ?: "—"
+            avgView.text = meta["avg"] ?: "—"
+            rangeView.text = meta["range"] ?: "—"
+
+            val points = rows.drop(1).mapNotNull { it["v"]?.toFloatOrNull() }.toFloatArray()
+            sparkline.setData(points, colorFor(label))
+        }
+
+        private fun colorFor(label: String): Int = when {
+            label.contains("Heart", true) -> android.graphics.Color.parseColor("#F44336")
+            label.contains("SpO2", true) || label.contains("Oxygen", true) -> android.graphics.Color.parseColor("#42A5F5")
+            label.contains("Stress", true) -> android.graphics.Color.parseColor("#FF9800")
+            label.contains("HRV", true) -> android.graphics.Color.parseColor("#9C27B0")
+            label.contains("Temperature", true) -> android.graphics.Color.parseColor("#FF7043")
+            label.contains("Step", true) || label.contains("Activity", true) -> android.graphics.Color.parseColor("#4CAF50")
+            label.contains("Sleep", true) -> android.graphics.Color.parseColor("#7E57C2")
+            else -> android.graphics.Color.parseColor("#4CAF50")
+        }
+    }
+
+    class NotificationsViewHolder(view: View) : RecyclerView.ViewHolder(view) {
+        private val titleView: TextView = view.findViewById(R.id.notifTitle)
+        private val container: android.widget.LinearLayout = view.findViewById(R.id.notifContainer)
+
+        fun bind(message: ChatMessage) {
+            container.removeAllViews()
+            val rows = message.cardData ?: return
+            if (rows.isEmpty()) return
+
+            // First row is the header (e.g. "Notifications (12 in last 24h):")
+            titleView.text = rows[0]["header"] ?: "Notifications"
+
+            val inflater = LayoutInflater.from(container.context)
+            var lastApp: String? = null
+            for (row in rows.drop(1)) {
+                val app = row["app"] ?: continue
+                val rowView = inflater.inflate(R.layout.item_notification_row, container, false)
+                val appView = rowView.findViewById<TextView>(R.id.notifApp)
+                val countView = rowView.findViewById<TextView>(R.id.notifCount)
+                val timeView = rowView.findViewById<TextView>(R.id.notifTime)
+                val snippetView = rowView.findViewById<TextView>(R.id.notifSnippet)
+                val iconView = rowView.findViewById<android.widget.ImageView>(R.id.notifIcon)
+
+                // Only label the first row of each app group; subsequent rows
+                // for the same app stay quieter.
+                if (app != lastApp) {
+                    appView.text = app
+                    val count = row["count"]?.toIntOrNull() ?: 0
+                    countView.text = if (count > 1) "·$count" else ""
+                    iconView.setImageDrawable(loadAppIcon(container.context, app))
+                    iconView.alpha = 1f
+                } else {
+                    appView.text = ""
+                    countView.text = ""
+                    iconView.setImageDrawable(null)
+                }
+                lastApp = app
+
+                timeView.text = row["time"] ?: ""
+                val title = row["title"] ?: ""
+                val snippet = row["snippet"] ?: ""
+                snippetView.text = if (snippet.isNotBlank()) "$title — $snippet" else title
+
+                if (container.childCount > 0) {
+                    val divider = View(container.context).apply {
+                        layoutParams = android.widget.LinearLayout.LayoutParams(
+                            android.widget.LinearLayout.LayoutParams.MATCH_PARENT, 1
+                        )
+                        setBackgroundColor(android.graphics.Color.parseColor("#1F1F1F"))
+                    }
+                    container.addView(divider)
+                }
+                container.addView(rowView)
+            }
+        }
+
+        private val iconCache = mutableMapOf<String, android.graphics.drawable.Drawable?>()
+        private fun loadAppIcon(context: android.content.Context, appName: String): android.graphics.drawable.Drawable? {
+            iconCache[appName]?.let { return it }
+            // Heuristic: try to resolve a package whose label matches the app
+            // name. Falls back to null (icon area stays blank).
+            val pm = context.packageManager
+            val matchedPkg = try {
+                pm.getInstalledApplications(0).firstOrNull {
+                    pm.getApplicationLabel(it).toString().equals(appName, ignoreCase = true)
+                }?.packageName
+            } catch (_: Exception) { null }
+            val drawable = matchedPkg?.let {
+                try { pm.getApplicationIcon(it) } catch (_: Exception) { null }
+            }
+            iconCache[appName] = drawable
+            return drawable
         }
     }
 
