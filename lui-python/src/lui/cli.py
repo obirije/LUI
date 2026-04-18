@@ -41,14 +41,36 @@ def cmd_bridge_connect(args):
     bridge = LuiBridge(args.url, args.token, args.agent,
                        on_instruction=on_instruction, on_event=on_event)
 
-    tool_count = bridge.connect()
-    print(f"Connected to LUI as '{args.agent}' — {tool_count} tools, mode={args.mode}")
-    print(f"Device: {bridge.get_device_state()[:80]}")
-    print(f"\nOn LUI say: 'patch me to {args.agent}' or '@{args.agent} do something'")
-    print("Listening... (Ctrl+C to exit)\n")
+    def establish():
+        # Exponential backoff forever; caller Ctrl-Cs to give up.
+        attempt = 0
+        while True:
+            try:
+                count = bridge.connect()
+                print(f"Connected to LUI as '{args.agent}' — {count} tools, mode={args.mode}", flush=True)
+                if attempt == 0:
+                    print(f"Device: {bridge.get_device_state()[:80]}", flush=True)
+                    print(f"\nOn LUI say: 'patch me to {args.agent}' or '@{args.agent} do something'", flush=True)
+                    print("Listening... (Ctrl+C to exit)\n", flush=True)
+                else:
+                    print(f"[reconnected after {attempt} attempt(s)]", flush=True)
+                return
+            except Exception as e:
+                attempt += 1
+                delay = min(60, 2 ** min(attempt, 6))
+                print(f"[connect failed: {e} — retrying in {delay}s (attempt {attempt})]", flush=True)
+                time.sleep(delay)
 
     try:
-        while bridge.connected:
+        establish()
+        while True:
+            if not bridge.connected:
+                print("[bridge disconnected — reconnecting...]", flush=True)
+                try:
+                    bridge.disconnect()
+                except Exception:
+                    pass
+                establish()
             time.sleep(1)
     except KeyboardInterrupt:
         bridge.disconnect()
@@ -127,7 +149,7 @@ def _execute_hermes(instruction):
     try:
         result = subprocess.run(
             ["hermes", "chat", "-q", instruction, "--yolo"],
-            capture_output=True, text=True, timeout=120,
+            capture_output=True, text=True, timeout=3600,
             env={**os.environ, "TERM": "dumb", "NO_COLOR": "1"}
         )
         output = result.stdout.strip() or result.stderr.strip()
@@ -151,7 +173,7 @@ def _execute_claude_code(instruction):
     try:
         result = subprocess.run(
             ["claude", "--print", "--dangerously-skip-permissions", instruction],
-            capture_output=True, text=True, timeout=120
+            capture_output=True, text=True, timeout=3600
         )
         output = result.stdout.strip() or result.stderr.strip()
         output = re.sub(r'\x1b\[[0-9;]*m', '', output)
