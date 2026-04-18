@@ -111,6 +111,12 @@
         </LinearLayout>
 
         <!-- ==================== Local Model ==================== -->
+        <!-- Wrapped section so the lite (cloud-only) build can hide it via View.GONE. -->
+        <LinearLayout
+            android:id="@+id/localModelSection"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
 
         <!-- Divider -->
         <View android:layout_width="match_parent" android:layout_height="1dp" android:layout_marginTop="20dp" android:background="@color/lui_divider" />
@@ -209,6 +215,9 @@
                 android:visibility="gone" />
 
         </LinearLayout>
+
+        </LinearLayout>
+        <!-- ==================== /Local Model section wrapper ==================== -->
 
         <!-- Divider -->
         <View android:layout_width="match_parent" android:layout_height="1dp" android:layout_marginTop="20dp" android:background="@color/lui_divider" />

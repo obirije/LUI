@@ -65,7 +65,12 @@ class ConnectionHubFragment : Fragment() {
         loadConfig()
         setupListeners()
         updateStatus()
-        updateLocalModelStatus()
+        // Lite (cloud-only) builds hide the entire local model section.
+        if (com.lui.app.BuildConfig.HAS_LOCAL_MODEL) {
+            updateLocalModelStatus()
+        } else {
+            binding.localModelSection.visibility = View.GONE
+        }
 
         // Auto-scroll to focused field when keyboard opens
         val focusListener = View.OnFocusChangeListener { v, hasFocus ->
@@ -360,10 +365,12 @@ class ConnectionHubFragment : Fragment() {
             binding.btnRefreshToken.postDelayed({ binding.btnRefreshToken.text = "↻" }, 1500)
         }
 
-        // Local model download
-        binding.btnDownloadModel.setOnClickListener { startModelDownload() }
-        binding.btnCancelDownload.setOnClickListener { cancelModelDownload() }
-        binding.btnDeleteModel.setOnClickListener { deleteModel() }
+        // Local model download (only relevant for builds that ship llama.cpp)
+        if (com.lui.app.BuildConfig.HAS_LOCAL_MODEL) {
+            binding.btnDownloadModel.setOnClickListener { startModelDownload() }
+            binding.btnCancelDownload.setOnClickListener { cancelModelDownload() }
+            binding.btnDeleteModel.setOnClickListener { deleteModel() }
+        }
 
         // Test all
         binding.btnTest.setOnClickListener { testAllConnections() }

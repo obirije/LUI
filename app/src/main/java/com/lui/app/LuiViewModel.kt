@@ -140,16 +140,31 @@ class LuiViewModel(application: Application) : AndroidViewModel(application) {
             prefs.edit().putBoolean("wallpaper_set", true).apply()
         }
 
-        // Initialize LLM
+        // Initialize LLM (file I/O + model load on IO dispatcher).
+        // Cloud-first + cloud ready: skip local load entirely — saves RAM and
+        // avoids surfacing "failed to load" when the user doesn't need local.
+        // Local is loaded lazily via loadLocalModel() when cloud fails or the
+        // user toggles to local.
         viewModelScope.launch {
+            if (keyStore.isCloudFirst && cloudModel.isReady) {
+                _llmStatus.value = "cloud"
+                return@launch
+            }
+
             _llmStatus.value = "Checking for model..."
-            val found = ModelManager.ensureModel(application)
+            val found = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                ModelManager.ensureModel(application)
+            }
             if (found) {
                 _llmStatus.value = "Loading model..."
-                val result = localModel.initialize()
+                val result = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                    localModel.initialize()
+                }
                 if (result.isSuccess) {
-                    // Check if cloud should take priority
-                    _llmStatus.value = if (keyStore.isCloudFirst && cloudModel.isReady) "cloud" else "ready"
+                    _llmStatus.value = "ready"
+                } else if (cloudModel.isReady) {
+                    _llmStatus.value = "cloud"
+                    Log.e("LuiVM", "Local init failed, using cloud", result.exceptionOrNull())
                 } else {
                     _llmStatus.value = "Model failed to load. Using keyword mode."
                     Log.e("LuiVM", "Model init failed", result.exceptionOrNull())
@@ -165,10 +180,12 @@ class LuiViewModel(application: Application) : AndroidViewModel(application) {
             }
         }
 
-        // Initialize voice engine
+        // Initialize voice engine (file I/O on IO dispatcher)
         viewModelScope.launch {
-            ModelManager.ensureVoiceModels(application)
-            ModelManager.ensureTtsModel(application)
+            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                ModelManager.ensureVoiceModels(application)
+                ModelManager.ensureTtsModel(application)
+            }
             voiceEngine.initialize(keyStore)
         }
 
@@ -954,7 +971,9 @@ class LuiViewModel(application: Application) : AndroidViewModel(application) {
                 }
             } catch (e: Exception) {
                 LuiLogger.error("LLM", "Generation error: ${e.message}", e)
-                replaceLastWithLui("Something went wrong: ${e.message}", streaming = false)
+                val friendly = friendlyCloudError(e)
+                replaceLastWithLui(friendly, streaming = false)
+                maybeLoadLocalAfterCloudFailure(e)
                 return
             }
 
@@ -1232,10 +1251,26 @@ class LuiViewModel(application: Application) : AndroidViewModel(application) {
                     ChatMessage(text = text, sender = Sender.LUI)
                 }
             }
-            "get_health_summary", "get_health_trend", "ring_status", "ring_capabilities" -> {
+            "get_health_trend" -> {
+                val cardData = com.lui.app.data.ChatMessageEntity.deriveHealthTrendForBuilder(text)
+                if (cardData != null && cardData.size > 1) {
+                    ChatMessage(text = text, sender = Sender.LUI, cardType = ChatMessage.CardType.HEALTH_TREND_CHART, cardData = cardData)
+                } else {
+                    ChatMessage(text = text, sender = Sender.LUI)
+                }
+            }
+            "get_health_summary", "ring_status", "ring_capabilities" -> {
                 val cardData = parseHealthToCards(text)
                 if (cardData.isNotEmpty()) {
                     ChatMessage(text = text, sender = Sender.LUI, cardType = ChatMessage.CardType.DEVICE_STATUS, cardData = cardData)
+                } else {
+                    ChatMessage(text = text, sender = Sender.LUI)
+                }
+            }
+            "read_notifications", "get_digest", "get_notification_history" -> {
+                val cardData = com.lui.app.data.ChatMessageEntity.deriveNotificationsForBuilder(text)
+                if (cardData != null && cardData.size > 1) {
+                    ChatMessage(text = text, sender = Sender.LUI, cardType = ChatMessage.CardType.NOTIFICATIONS, cardData = cardData)
                 } else {
                     ChatMessage(text = text, sender = Sender.LUI)
                 }
@@ -1523,7 +1558,9 @@ class LuiViewModel(application: Application) : AndroidViewModel(application) {
     fun loadLocalModel() {
         viewModelScope.launch {
             _llmStatus.value = "Loading model..."
-            val result = localModel.initialize()
+            val result = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                localModel.initialize()
+            }
             _llmStatus.value = when {
                 result.isSuccess && keyStore.isCloudFirst && cloudModel.isReady -> "cloud"
                 result.isSuccess -> "ready"
@@ -1531,6 +1568,36 @@ class LuiViewModel(application: Application) : AndroidViewModel(application) {
                 else -> "Model failed to load"
             }
         }
+    }
+
+    private fun friendlyCloudError(e: Exception): String {
+        val msg = e.message ?: ""
+        return when {
+            "429" in msg || "quota" in msg.lowercase() ->
+                "Cloud model is rate-limited. Falling back to local if available."
+            "401" in msg || "403" in msg || "API key" in msg ->
+                "Cloud API key is invalid. Check your settings."
+            "Unable to resolve host" in msg || "timeout" in msg.lowercase() || "network" in msg.lowercase() ->
+                "No internet. Switching to local if available."
+            else -> "Something went wrong: ${e.message}"
+        }
+    }
+
+    /**
+     * If a cloud call failed and the local model isn't loaded yet, kick off
+     * an async load. Next message will route through local.
+     */
+    private fun maybeLoadLocalAfterCloudFailure(e: Exception) {
+        if (localModel.isReady) return
+        val msg = e.message ?: ""
+        val networkish = "429" in msg ||
+            "Unable to resolve host" in msg ||
+            "timeout" in msg.lowercase() ||
+            "network" in msg.lowercase() ||
+            "quota" in msg.lowercase()
+        if (!networkish) return
+        LuiLogger.i("ROUTE", "Cloud failed (${msg.take(60)}) — lazy-loading local model")
+        loadLocalModel()
     }
 
     override fun onCleared() {

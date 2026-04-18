@@ -7,6 +7,10 @@ import android.app.PendingIntent
 import android.app.Service
 import android.content.Context
 import android.content.Intent
+import android.net.ConnectivityManager
+import android.net.Network
+import android.net.NetworkCapabilities
+import android.net.NetworkRequest
 import android.net.wifi.WifiManager
 import android.os.Build
 import android.os.IBinder
@@ -71,6 +75,7 @@ class LuiBridgeService : Service() {
 
     private var server: LuiBridgeServer? = null
     private var relay: RelayClient? = null
+    private var networkCallback: ConnectivityManager.NetworkCallback? = null
 
     override fun onCreate() {
         super.onCreate()
@@ -79,57 +84,62 @@ class LuiBridgeService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        val token = getAuthToken(this)
-        val port = LuiBridgeServer.DEFAULT_PORT
-
         startForeground(NOTIFICATION_ID, buildNotification("Starting bridge...", 0))
 
-        // Load permission tier from settings
-        val tierName = SecureKeyStore(this).bridgePermissionTier
-        BridgeProtocol.currentTier = try {
-            BridgeProtocol.BridgeTier.valueOf(tierName)
-        } catch (_: Exception) { BridgeProtocol.BridgeTier.STANDARD }
-        LuiLogger.i(TAG, "Bridge permission tier: ${BridgeProtocol.currentTier}")
+        // Move all server/relay startup off the main thread
+        Thread {
+            val token = getAuthToken(this)
+            val port = LuiBridgeServer.DEFAULT_PORT
 
-        try {
-            server = LuiBridgeServer(applicationContext, token, port).apply {
-                setConnectionListener { count ->
-                    updateNotification(count)
-                }
-                isReuseAddr = true
-                start()
-            }
+            // Load permission tier from settings
+            val tierName = SecureKeyStore(this).bridgePermissionTier
+            BridgeProtocol.currentTier = try {
+                BridgeProtocol.BridgeTier.valueOf(tierName)
+            } catch (_: Exception) { BridgeProtocol.BridgeTier.STANDARD }
+            LuiLogger.i(TAG, "Bridge permission tier: ${BridgeProtocol.currentTier}")
 
-            BridgeEvents.setServer(server)
-
-            val ip = getLocalIpAddress(this) ?: "unknown"
-            LuiLogger.i(TAG, "Bridge started at ws://$ip:$port")
-
-            // Start relay if configured
-            val keyStore = SecureKeyStore(this)
-            val relayUrl = keyStore.relayUrl
-            if (keyStore.relayEnabled && relayUrl != null) {
-                relay = RelayClient(applicationContext, relayUrl, token).apply {
-                    onStatusChange = { status ->
-                        LuiLogger.i(TAG, "Relay: $status")
-                        updateNotification(server?.connectedCount ?: 0)
+            try {
+                server = LuiBridgeServer(applicationContext, token, port).apply {
+                    setConnectionListener { count ->
+                        updateNotification(count)
                     }
-                    connect()
+                    isReuseAddr = true
+                    start()
                 }
-            }
 
-            updateNotification(0)
-            notifyState(true)
-        } catch (e: Exception) {
-            LuiLogger.e(TAG, "Failed to start bridge: ${e.message}", e)
-            stopSelf()
-        }
+                BridgeEvents.setServer(server)
+
+                val ip = getLocalIpAddress(this) ?: "unknown"
+                LuiLogger.i(TAG, "Bridge started at ws://$ip:$port")
+
+                // Start relay if configured
+                val keyStore = SecureKeyStore(this)
+                val relayUrl = keyStore.relayUrl
+                if (keyStore.relayEnabled && relayUrl != null) {
+                    relay = RelayClient(applicationContext, relayUrl, token).apply {
+                        onStatusChange = { status ->
+                            LuiLogger.i(TAG, "Relay: $status")
+                            updateNotification(server?.connectedCount ?: 0)
+                        }
+                        connect()
+                    }
+                    registerNetworkCallback()
+                }
+
+                updateNotification(0)
+                notifyState(true)
+            } catch (e: Exception) {
+                LuiLogger.e(TAG, "Failed to start bridge: ${e.message}", e)
+                android.os.Handler(android.os.Looper.getMainLooper()).post { stopSelf() }
+            }
+        }.start()
 
         return START_STICKY
     }
 
     override fun onDestroy() {
         BridgeEvents.setServer(null)
+        unregisterNetworkCallback()
         relay?.disconnect()
         relay = null
         try {
@@ -192,5 +202,51 @@ class LuiBridgeService : Service() {
     private fun updateNotification(connections: Int) {
         val nm = getSystemService(NotificationManager::class.java)
         nm.notify(NOTIFICATION_ID, buildNotification("", connections))
+    }
+
+    @Volatile private var networkWasLost = false
+
+    private fun registerNetworkCallback() {
+        if (networkCallback != null) return
+        val cm = getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager ?: return
+        val request = NetworkRequest.Builder()
+            .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+            .build()
+        val callback = object : ConnectivityManager.NetworkCallback() {
+            override fun onAvailable(network: Network) {
+                if (networkWasLost) {
+                    // Came back from a genuine outage — the existing WS may
+                    // look alive but be half-dead. Force a fresh socket.
+                    networkWasLost = false
+                    LuiLogger.i(TAG, "Network returned after loss — forcing relay reconnect")
+                    relay?.forceReconnect()
+                } else {
+                    // Normal availability signal (e.g. service start, secondary
+                    // network appearing) — just skip any pending backoff.
+                    LuiLogger.i(TAG, "Network available — poking relay reconnect")
+                    relay?.reconnectNow()
+                }
+            }
+
+            override fun onLost(network: Network) {
+                networkWasLost = true
+                LuiLogger.i(TAG, "Network lost")
+            }
+        }
+        try {
+            cm.registerNetworkCallback(request, callback)
+            networkCallback = callback
+        } catch (e: Exception) {
+            LuiLogger.e(TAG, "Failed to register network callback: ${e.message}", e)
+        }
+    }
+
+    private fun unregisterNetworkCallback() {
+        val cb = networkCallback ?: return
+        try {
+            val cm = getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
+            cm?.unregisterNetworkCallback(cb)
+        } catch (_: Exception) {}
+        networkCallback = null
     }
 }

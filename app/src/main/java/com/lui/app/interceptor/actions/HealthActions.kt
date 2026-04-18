@@ -433,6 +433,27 @@ object HealthActions {
             }
         }
 
+        // Embed sparkline points for the renderer. Down-sample to ≤60 points
+        // (sparkline width is ~360px @1.5dp stroke, more is just noise). Marker
+        // is hidden from chat (card UI doesn't display text) but persisted so
+        // rehydration from Room reconstructs the chart.
+        val readings = dao.getReadingsSince(resolvedMetric, since).asReversed() // oldest → newest
+        val sampled = downsample(readings, 60)
+        if (sampled.isNotEmpty()) {
+            sb.append("[chart:")
+            sampled.forEachIndexed { i, r ->
+                if (i > 0) sb.append(';')
+                sb.append(r.timestamp).append('=').append(r.value)
+            }
+            sb.append(']')
+        }
+
         return ActionResult.Success(sb.toString().trim())
+    }
+
+    private fun downsample(readings: List<HealthReadingEntity>, target: Int): List<HealthReadingEntity> {
+        if (readings.size <= target) return readings
+        val step = readings.size / target.toDouble()
+        return (0 until target).map { i -> readings[(i * step).toInt().coerceAtMost(readings.size - 1)] }
     }
 }

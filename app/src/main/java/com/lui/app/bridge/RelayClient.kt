@@ -1,6 +1,8 @@
 package com.lui.app.bridge
 
 import android.content.Context
+import android.os.Handler
+import android.os.Looper
 import com.lui.app.helper.LuiLogger
 import org.java_websocket.client.WebSocketClient
 import org.java_websocket.handshake.ServerHandshake
@@ -24,13 +26,16 @@ class RelayClient(
 ) {
     companion object {
         private const val TAG = "RelayClient"
-        private const val RECONNECT_DELAY_MS = 5000L
-        private const val MAX_RECONNECT_ATTEMPTS = 10
+        private const val INITIAL_RECONNECT_DELAY_MS = 2000L
+        private const val MAX_RECONNECT_DELAY_MS = 60_000L
+        private const val CONNECTION_LOST_TIMEOUT_SEC = 30
     }
 
     private var client: WebSocketClient? = null
     private var reconnectAttempts = 0
     private var isRunning = false
+    private val reconnectHandler = Handler(Looper.getMainLooper())
+    private var pendingReconnect: Runnable? = null
     var onStatusChange: ((String) -> Unit)? = null
 
     fun connect() {
@@ -42,13 +47,72 @@ class RelayClient(
 
     fun disconnect() {
         isRunning = false
+        cancelPendingReconnect()
         client?.close()
         client = null
         onStatusChange?.invoke("disconnected")
         LuiLogger.i(TAG, "Relay disconnected")
     }
 
+    /**
+     * Skip the remaining backoff wait and reconnect immediately.
+     * Safe to call from network-available callbacks; no-op if already connected
+     * or if no reconnect is pending.
+     */
+    fun reconnectNow() {
+        if (!isRunning || isConnected) return
+        val pending = pendingReconnect ?: return
+        reconnectHandler.removeCallbacks(pending)
+        pendingReconnect = null
+        reconnectAttempts = 0
+        LuiLogger.i(TAG, "reconnectNow() — skipping backoff")
+        doConnect()
+    }
+
+    /**
+     * Unconditionally close any current socket and restart the connection.
+     * Use this when the underlying network transitioned (e.g. Wi-Fi lost then
+     * regained) — the old socket may look open but be dead, and we don't want
+     * to wait for ping timeout to discover that.
+     */
+    fun forceReconnect() {
+        if (!isRunning) return
+        LuiLogger.i(TAG, "forceReconnect() — closing stale socket")
+        cancelPendingReconnect()
+        reconnectAttempts = 0
+        try { client?.close() } catch (_: Exception) {}
+        // onClose will fire and schedule a reconnect via scheduleReconnect; but
+        // we also kick off immediately for minimal latency.
+        doConnect()
+    }
+
     val isConnected: Boolean get() = client?.isOpen == true
+
+    private fun cancelPendingReconnect() {
+        pendingReconnect?.let { reconnectHandler.removeCallbacks(it) }
+        pendingReconnect = null
+    }
+
+    private fun scheduleReconnect() {
+        if (!isRunning) return
+        reconnectAttempts++
+        // Exponential backoff with jitter. Shift cap at 5 keeps max base at
+        // INITIAL * 32 = 64s; final coerceAtMost then clamps to MAX_RECONNECT_DELAY_MS.
+        val baseDelay = (INITIAL_RECONNECT_DELAY_MS shl (reconnectAttempts - 1).coerceAtMost(5))
+            .coerceAtMost(MAX_RECONNECT_DELAY_MS)
+        val jitter = (Math.random() * 1000).toLong()
+        val delay = baseDelay + jitter
+        LuiLogger.i(TAG, "Reconnecting in ${delay}ms (attempt $reconnectAttempts)")
+        onStatusChange?.invoke("reconnecting ($reconnectAttempts)")
+
+        cancelPendingReconnect()
+        val runnable = Runnable {
+            pendingReconnect = null
+            if (isRunning) doConnect()
+        }
+        pendingReconnect = runnable
+        reconnectHandler.postDelayed(runnable, delay)
+    }
 
     private fun doConnect() {
         if (!isRunning) return
@@ -86,23 +150,16 @@ class RelayClient(
             override fun onClose(code: Int, reason: String?, remote: Boolean) {
                 LuiLogger.i(TAG, "Relay connection closed: code=$code reason=$reason")
                 onStatusChange?.invoke("disconnected")
-
-                // Auto-reconnect if still running
-                if (isRunning && reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
-                    reconnectAttempts++
-                    val delay = RECONNECT_DELAY_MS * reconnectAttempts
-                    LuiLogger.i(TAG, "Reconnecting in ${delay}ms (attempt $reconnectAttempts)")
-                    onStatusChange?.invoke("reconnecting ($reconnectAttempts)")
-                    Thread {
-                        Thread.sleep(delay)
-                        if (isRunning) doConnect()
-                    }.start()
-                }
+                if (isRunning) scheduleReconnect()
             }
 
             override fun onError(ex: Exception?) {
                 LuiLogger.e(TAG, "Relay error: ${ex?.message}", ex)
             }
+        }.apply {
+            // Application-level ping/pong: send a ping every N seconds; close if
+            // no pong within 2N. Prevents Fly edge from dropping idle connections.
+            connectionLostTimeout = CONNECTION_LOST_TIMEOUT_SEC
         }
 
         try {
@@ -110,6 +167,7 @@ class RelayClient(
         } catch (e: Exception) {
             LuiLogger.e(TAG, "Relay connect failed: ${e.message}", e)
             onStatusChange?.invoke("error")
+            if (isRunning) scheduleReconnect()
         }
     }
 }

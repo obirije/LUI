@@ -110,16 +110,26 @@ object AgentRegistry {
         LuiLogger.i("AGENTS", "→ Instruction to $agentName: ${instruction.take(80)}")
         agent.conn.send(message.toString())
 
-        // Wait for response (blocking — called from tool execution context)
+        // Wait for response. We don't impose an upper time bound — long-running
+        // agents (claude-code with deep tool use) can take 30+ min. We poll the
+        // agent's WS every 2s and bail the moment it disconnects, so the user
+        // is never blocked on a dead agent. Generation can also be cancelled
+        // by the user from the app.
         val latch = java.util.concurrent.CountDownLatch(1)
-        var response = "Agent did not respond within 2 minutes."
+        var response = "Agent disconnected without responding."
 
         pendingResponses[instructionId] = { result ->
             response = result
             latch.countDown()
         }
 
-        latch.await(120, java.util.concurrent.TimeUnit.SECONDS)
+        while (true) {
+            if (latch.await(2, java.util.concurrent.TimeUnit.SECONDS)) break
+            if (!agent.conn.isOpen) {
+                response = "Agent '$agentName' disconnected while processing."
+                break
+            }
+        }
         pendingResponses.remove(instructionId)
 
         return response

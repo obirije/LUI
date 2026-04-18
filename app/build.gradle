@@ -35,31 +35,60 @@ android {
         applicationId "com.lui.app"
         minSdkVersion 26
         targetSdkVersion 35
-        versionCode 1
-        versionName "0.3.1"
+        versionCode 2
+        versionName "0.4.0"
     }
 
     flavorDimensions "distribution"
     productFlavors {
-        // Full build — all 87 tools, all permissions, Play Services included
+        // Full build — all 106 tools, all permissions, Play Services included, on-device LLM
         // For sideloading, debug, and direct APK distribution
         full {
             dimension "distribution"
             buildConfigField "boolean", "HAS_PLAY_SERVICES", "true"
             buildConfigField "boolean", "HAS_SMS_PERMISSION", "true"
+            buildConfigField "boolean", "HAS_LOCAL_MODEL", "true"
         }
-        // Play Store build — restricted SMS (uses intents instead), includes Play Services
+        // Play Store build — restricted SMS (uses intents instead), includes Play Services + on-device LLM
         playstore {
             dimension "distribution"
             buildConfigField "boolean", "HAS_PLAY_SERVICES", "true"
             buildConfigField "boolean", "HAS_SMS_PERMISSION", "false"
+            buildConfigField "boolean", "HAS_LOCAL_MODEL", "true"
         }
-        // F-Droid build — no Play Services, no SMS, fully open source
+        // Play Store Lite build — cloud-only LLM (no llama.cpp). ~96 MB smaller APK.
+        // Distinct applicationId so it can coexist with full LUI on-device.
+        playstoreLite {
+            dimension "distribution"
+            applicationIdSuffix ".lite"
+            versionNameSuffix "-lite"
+            buildConfigField "boolean", "HAS_PLAY_SERVICES", "true"
+            buildConfigField "boolean", "HAS_SMS_PERMISSION", "false"
+            buildConfigField "boolean", "HAS_LOCAL_MODEL", "false"
+        }
+        // F-Droid build — no Play Services, no SMS, fully open source, on-device LLM
         fdroid {
             dimension "distribution"
             buildConfigField "boolean", "HAS_PLAY_SERVICES", "false"
             buildConfigField "boolean", "HAS_SMS_PERMISSION", "false"
+            buildConfigField "boolean", "HAS_LOCAL_MODEL", "true"
         }
+    }
+
+    // Per-flavor source sets:
+    //   real LocalModel.kt — for flavors that bundle :llama (full, playstore, fdroid)
+    //   stub LocalModel.kt — for cloud-only flavors (playstoreLite)
+    sourceSets {
+        full.java.srcDirs       += 'src/withlocal/java'
+        playstore.java.srcDirs  += 'src/withlocal/java'
+        fdroid.java.srcDirs     += 'src/withlocal/java'
+
+        // playstoreLite shares the playstore flavor's manifest + Java
+        // (Play Services GeofenceHelper, SMS-removal manifest), but uses the
+        // cloud-only LocalModel stub instead of the real llama-backed one.
+        playstoreLite.java.srcDirs += 'src/cloudonly/java'
+        playstoreLite.java.srcDirs += 'src/playstore/java'
+        playstoreLite.manifest.srcFile 'src/playstore/AndroidManifest.xml'
     }
 
     buildTypes {
@@ -118,8 +147,11 @@ dependencies {
     implementation libs.room.ktx
     ksp libs.room.compiler
 
-    // llama.cpp Android
-    implementation project(':llama')
+    // llama.cpp Android — only for variants that include the on-device LLM
+    // (playstoreLite is cloud-only and excludes this to drop ~96 MB of native libs)
+    fullImplementation project(':llama')
+    playstoreImplementation project(':llama')
+    fdroidImplementation project(':llama')
 
     // Sherpa-ONNX (STT + VAD + TTS)
     implementation files('libs/sherpa-onnx.aar')
@@ -133,8 +165,9 @@ dependencies {
     // Testing
     testImplementation 'junit:junit:4.13.2'
 
-    // Google Play Services (geofencing) — only for full + playstore flavors
+    // Google Play Services (geofencing) — only for full + playstore + playstoreLite flavors
     fullImplementation 'com.google.android.gms:play-services-location:21.3.0'
     playstoreImplementation 'com.google.android.gms:play-services-location:21.3.0'
+    playstoreLiteImplementation 'com.google.android.gms:play-services-location:21.3.0'
     // fdroid flavor: no Play Services — geofencing disabled at runtime via BuildConfig.HAS_PLAY_SERVICES
 }
