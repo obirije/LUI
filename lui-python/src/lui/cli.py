@@ -207,7 +207,7 @@ def _execute_shell(instruction):
 
 def main():
     parser = argparse.ArgumentParser(prog="lui", description="LUI — Android agent bridge and relay")
-    parser.add_argument("--version", action="version", version="lui-bridge 0.1.0")
+    parser.add_argument("--version", action="version", version="lui-bridge 0.4.0")
     subparsers = parser.add_subparsers(dest="command")
 
     # lui bridge

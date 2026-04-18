@@ -32,6 +32,7 @@ class LuiBridge {
     this.tools = [];
     this._requestId = 0;
     this._pending = new Map();
+    this._pingInterval = null;
   }
 
   /**
@@ -39,6 +40,11 @@ class LuiBridge {
    * @returns {Promise<number>} Number of available tools
    */
   async connect() {
+    // Reset state in case this instance is being reconnected.
+    this._pending.clear();
+    this._listening = false;
+    if (this._pingInterval) { clearInterval(this._pingInterval); this._pingInterval = null; }
+
     return new Promise((resolve, reject) => {
       this.ws = new WebSocket(this.url);
 
@@ -92,6 +98,7 @@ class LuiBridge {
 
           this.connected = true;
           this._startListener();
+          this._startKeepalive();
           resolve(this.tools.length);
         } catch (err) {
           reject(err);
@@ -100,6 +107,7 @@ class LuiBridge {
 
       this.ws.on('close', () => {
         this.connected = false;
+        if (this._pingInterval) { clearInterval(this._pingInterval); this._pingInterval = null; }
       });
     });
   }
@@ -107,10 +115,24 @@ class LuiBridge {
   /** Disconnect from the bridge. */
   disconnect() {
     this.connected = false;
+    if (this._pingInterval) { clearInterval(this._pingInterval); this._pingInterval = null; }
     if (this.ws) {
       this.ws.close();
       this.ws = null;
     }
+  }
+
+  /**
+   * Send a WebSocket ping every 25s so idle proxies (e.g. Fly edge) don't
+   * close the connection. The 'ws' library auto-replies to pings server-side
+   * but doesn't auto-send from the client.
+   */
+  _startKeepalive() {
+    this._pingInterval = setInterval(() => {
+      if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+        try { this.ws.ping(); } catch {}
+      }
+    }, 25000);
   }
 
   /**

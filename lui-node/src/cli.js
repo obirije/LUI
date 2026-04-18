@@ -30,7 +30,7 @@ const subcommand = args[1];
 
 async function main() {
   if (hasArg('version')) {
-    console.log('lui-bridge 0.1.0');
+    console.log('lui-bridge 0.4.0');
     return;
   }
 
@@ -117,21 +117,48 @@ async function bridgeConnect(url, token) {
     }
   });
 
-  const toolCount = await bridge.connect();
-  const state = await bridge.getDeviceState();
-  console.log(`Connected to LUI as '${agentName}' — ${toolCount} tools, mode=${mode}`);
-  console.log(`Device: ${state.split('\n')[0]}`);
-  console.log(`\nOn LUI say: 'patch me to ${agentName}' or '@${agentName} do something'`);
-  console.log('Listening... (Ctrl+C to exit)\n');
-
+  let stopped = false;
   process.on('SIGINT', () => {
+    stopped = true;
     bridge.disconnect();
     console.log('\nDisconnected.');
     process.exit(0);
   });
 
-  // Keep alive
-  await new Promise(() => {});
+  // Exponential backoff (cap 60s) — reconnect forever until SIGINT.
+  async function establish() {
+    let attempt = 0;
+    while (!stopped) {
+      try {
+        const count = await bridge.connect();
+        if (attempt === 0) {
+          const state = await bridge.getDeviceState();
+          console.log(`Connected to LUI as '${agentName}' — ${count} tools, mode=${mode}`);
+          console.log(`Device: ${state.split('\n')[0]}`);
+          console.log(`\nOn LUI say: 'patch me to ${agentName}' or '@${agentName} do something'`);
+          console.log('Listening... (Ctrl+C to exit)\n');
+        } else {
+          console.log(`[reconnected after ${attempt} attempt(s)]`);
+        }
+        return;
+      } catch (err) {
+        attempt += 1;
+        const delay = Math.min(60, Math.pow(2, Math.min(attempt, 6)));
+        console.log(`[connect failed: ${err.message} — retrying in ${delay}s (attempt ${attempt})]`);
+        await new Promise(r => setTimeout(r, delay * 1000));
+      }
+    }
+  }
+
+  await establish();
+  while (!stopped) {
+    if (!bridge.connected) {
+      console.log('[bridge disconnected — reconnecting...]');
+      try { bridge.disconnect(); } catch {}
+      await establish();
+    }
+    await new Promise(r => setTimeout(r, 1000));
+  }
 }
 
 async function bridgeTools(url, token) {
@@ -208,7 +235,7 @@ function getExecutor(mode) {
       return (instruction) => {
         try {
           const output = execSync(`hermes chat -q "${instruction.replace(/"/g, '\\"')}" --yolo`, {
-            timeout: 120000, encoding: 'utf-8', env: { ...process.env, TERM: 'dumb', NO_COLOR: '1' }
+            timeout: 3600000, encoding: 'utf-8', env: { ...process.env, TERM: 'dumb', NO_COLOR: '1' }
           });
           // Strip ANSI and box drawing
           const clean = output.replace(/\x1b\[[0-9;]*[a-zA-Z]/g, '')
@@ -227,7 +254,7 @@ function getExecutor(mode) {
       return (instruction) => {
         try {
           const output = execSync(`claude --print --dangerously-skip-permissions "${instruction.replace(/"/g, '\\"')}"`, {
-            timeout: 120000, encoding: 'utf-8'
+            timeout: 3600000, encoding: 'utf-8'
           });
           return output.replace(/\x1b\[[0-9;]*m/g, '').trim().slice(0, 1000) || 'Claude Code returned no output.';
         } catch (err) {
