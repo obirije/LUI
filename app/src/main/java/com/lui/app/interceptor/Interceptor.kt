@@ -17,7 +17,7 @@ object Interceptor {
         "read_notifications", "clear_notifications", "undo",
         "get_location", "get_distance", "read_calendar", "read_sms",
         "now_playing", "read_clipboard", "screen_time",
-        "read_screen", "find_and_tap", "type_text", "scroll_down", "press_back", "press_home", "open_lui",
+        "read_screen", "tap_by_index", "scroll_by_index", "find_and_tap", "type_text", "scroll_down", "press_back", "press_home", "open_lui", "open_app_and_read", "do_steps",
         "take_photo", "pick_image", "analyze_image",
         "lock_screen", "take_screenshot", "split_screen", "set_screen_timeout", "keep_screen_on", "bedtime_mode",
         "start_bridge", "stop_bridge", "bridge_status",

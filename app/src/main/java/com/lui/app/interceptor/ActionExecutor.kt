@@ -79,9 +79,16 @@ object ActionExecutor {
                 bucket = toolCall.params["bucket"] ?: "urgent")
 
             "read_screen" -> ScreenActions.readScreen(context)
+            "tap_by_index" -> ScreenActions.tapByIndex(context, index = toolCall.params["index"]?.toIntOrNull() ?: -1)
+            "scroll_by_index" -> ScreenActions.scrollByIndex(
+                context,
+                index = toolCall.params["index"]?.toIntOrNull() ?: -1,
+                direction = toolCall.params["direction"] ?: "forward")
             "find_and_tap" -> ScreenActions.findAndTap(context, query = toolCall.params["query"] ?: "")
             "type_text" -> ScreenActions.typeText(context, text = toolCall.params["text"] ?: "")
             "scroll_down" -> ScreenActions.scrollDown(context)
+            "open_app_and_read" -> ScreenActions.openAppAndRead(context, name = toolCall.params["name"] ?: "")
+            "do_steps" -> ScreenActions.doSteps(context, stepsJson = toolCall.params["steps"] ?: "[]")
             "press_back" -> ScreenActions.pressBack(context)
             "press_home" -> ScreenActions.pressHome(context)
             "open_lui" -> ScreenActions.openLui(context)
