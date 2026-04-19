@@ -80,7 +80,8 @@ class CloudModel(private val keyStore: SecureKeyStore, private val appContext: a
             else -> {
                 val apiKey = keyStore.getApiKey(provider) ?: throw Exception("No API key")
                 when (provider) {
-                    CloudProvider.GEMMA4 -> emitAll(generateGemini(apiKey, provider.defaultModel, userMessage, history, toolResults))
+                    CloudProvider.GEMMA4,
+                    CloudProvider.GEMINI_FLASH -> emitAll(generateGemini(apiKey, provider.defaultModel, userMessage, history, toolResults))
                     CloudProvider.CLAUDE -> emitAll(generateClaude(apiKey, provider.defaultModel, userMessage, history, toolResults))
                     CloudProvider.OPENAI -> emitAll(generateOpenAI(apiKey, provider.defaultModel, userMessage, history, toolResults))
                     else -> {}
@@ -180,6 +181,15 @@ class CloudModel(private val keyStore: SecureKeyStore, private val appContext: a
         val body = JSONObject()
             .put("contents", contents)
             .put("tools", ToolRegistry.toGeminiTools())
+            // Force structured function calls. Without this, Gemini Flash falls
+            // back to its code-execution path and emits Python like
+            // `print(default_api.do_steps(...))` which the API then rejects as
+            // MALFORMED_FUNCTION_CALL. AUTO lets the model also reply in plain
+            // text when no tool fits.
+            .put("toolConfig", JSONObject().put(
+                "functionCallingConfig",
+                JSONObject().put("mode", "AUTO")
+            ))
 
         conn.outputStream.write(body.toString().toByteArray())
 

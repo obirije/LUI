@@ -54,8 +54,19 @@ class SecureKeyStore(context: Context) {
         get() = prefs.getString("llm_mode", "local_first") == "cloud_first"
         set(value) = prefs.edit().putString("llm_mode", if (value) "cloud_first" else "local_first").apply()
 
-    fun getApiKey(provider: CloudProvider): String? =
-        prefs.getString("api_key_${provider.name}", null)?.takeIf { it.isNotBlank() }
+    fun getApiKey(provider: CloudProvider): String? {
+        val direct = prefs.getString("api_key_${provider.name}", null)?.takeIf { it.isNotBlank() }
+        if (direct != null) return direct
+        // Gemma 4 and Gemini Flash share the same Google AI Studio token, so
+        // fall back to whichever was set first to avoid double-entry.
+        if (provider == CloudProvider.GEMINI_FLASH) {
+            return prefs.getString("api_key_${CloudProvider.GEMMA4.name}", null)?.takeIf { it.isNotBlank() }
+        }
+        if (provider == CloudProvider.GEMMA4) {
+            return prefs.getString("api_key_${CloudProvider.GEMINI_FLASH.name}", null)?.takeIf { it.isNotBlank() }
+        }
+        return null
+    }
 
     fun setApiKey(provider: CloudProvider, key: String?) =
         prefs.edit().putString("api_key_${provider.name}", key ?: "").apply()

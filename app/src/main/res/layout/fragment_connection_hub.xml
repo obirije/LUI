@@ -50,6 +50,7 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="10dp"
             android:orientation="horizontal">
+            <RadioButton android:id="@+id/rbGeminiFlash" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:buttonTint="@color/lui_gray" android:text="Flash" android:textColor="@color/lui_white" android:textSize="12sp" />
             <RadioButton android:id="@+id/rbGemma4" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:buttonTint="@color/lui_gray" android:text="Gemma 4" android:textColor="@color/lui_white" android:textSize="12sp" />
             <RadioButton android:id="@+id/rbClaude" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:buttonTint="@color/lui_gray" android:text="Claude" android:textColor="@color/lui_white" android:textSize="12sp" />
             <RadioButton android:id="@+id/rbOpenAI" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:buttonTint="@color/lui_gray" android:text="OpenAI" android:textColor="@color/lui_white" android:textSize="12sp" />

@@ -10,6 +10,11 @@ enum class CloudProvider(
         "https://generativelanguage.googleapis.com/v1beta/models",
         "gemma-4-26b-a4b-it"
     ),
+    GEMINI_FLASH(
+        "Gemini Flash",
+        "https://generativelanguage.googleapis.com/v1beta/models",
+        "gemini-2.5-flash"
+    ),
     CLAUDE(
         "Claude",
         "https://api.anthropic.com/v1/messages",
