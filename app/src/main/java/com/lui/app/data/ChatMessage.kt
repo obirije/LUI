@@ -16,6 +16,7 @@ data class ChatMessage(
         DEVICE_STATUS,
         LINK_PREVIEW,
         HEALTH_TREND_CHART,
-        NOTIFICATIONS
+        NOTIFICATIONS,
+        SLEEP
     }
 }

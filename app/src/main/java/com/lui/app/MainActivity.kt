@@ -39,6 +39,14 @@ class MainActivity : AppCompatActivity() {
                 }
             }
         })
+
+        // Cold-start path for wake word / ring-gesture activation — onCreate
+        // fires instead of onNewIntent when LUI wasn't already running.
+        if (intent?.getBooleanExtra("wake_word", false) == true ||
+            intent?.getBooleanExtra("ring_gesture", false) == true) {
+            val vm = androidx.lifecycle.ViewModelProvider(this)[LuiViewModel::class.java]
+            window.decorView.postDelayed({ vm.onWakeWordActivated() }, 800)
+        }
     }
 
     override fun onNewIntent(intent: android.content.Intent?) {
@@ -48,10 +56,11 @@ class MainActivity : AppCompatActivity() {
         }
 
         // Wake word triggered — greet and start conversation mode
-        if (intent?.getBooleanExtra("wake_word", false) == true) {
+        if (intent?.getBooleanExtra("wake_word", false) == true ||
+            intent?.getBooleanExtra("ring_gesture", false) == true) {
             val vm = androidx.lifecycle.ViewModelProvider(this)[LuiViewModel::class.java]
             window.decorView.postDelayed({
-                // LUI responds to wake word with a greeting, then listens
+                // Same entry point as wake word — greet, then listen.
                 vm.onWakeWordActivated()
             }, 500)
         }

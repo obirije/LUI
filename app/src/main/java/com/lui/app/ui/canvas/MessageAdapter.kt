@@ -27,6 +27,7 @@ class MessageAdapter : ListAdapter<ChatMessage, RecyclerView.ViewHolder>(DiffCal
         private const val TYPE_CARD_STATUS = 5
         private const val TYPE_CARD_HEALTH_TREND = 6
         private const val TYPE_CARD_NOTIFICATIONS = 7
+        private const val TYPE_CARD_SLEEP = 8
     }
 
     private var lastAnimatedPosition = -1
@@ -41,6 +42,7 @@ class MessageAdapter : ListAdapter<ChatMessage, RecyclerView.ViewHolder>(DiffCal
                 com.lui.app.data.ChatMessage.CardType.LINK_PREVIEW -> TYPE_CARD_SEARCH
                 com.lui.app.data.ChatMessage.CardType.HEALTH_TREND_CHART -> TYPE_CARD_HEALTH_TREND
                 com.lui.app.data.ChatMessage.CardType.NOTIFICATIONS -> TYPE_CARD_NOTIFICATIONS
+                com.lui.app.data.ChatMessage.CardType.SLEEP -> TYPE_CARD_SLEEP
             }
         }
         return when (msg.sender) {
@@ -61,6 +63,7 @@ class MessageAdapter : ListAdapter<ChatMessage, RecyclerView.ViewHolder>(DiffCal
             TYPE_CARD_STATUS -> DeviceStatusViewHolder(inflater.inflate(R.layout.item_card_device_status, parent, false))
             TYPE_CARD_HEALTH_TREND -> HealthTrendViewHolder(inflater.inflate(R.layout.item_card_health_trend, parent, false))
             TYPE_CARD_NOTIFICATIONS -> NotificationsViewHolder(inflater.inflate(R.layout.item_card_notifications, parent, false))
+            TYPE_CARD_SLEEP -> SleepCardViewHolder(inflater.inflate(R.layout.item_card_sleep, parent, false))
             else -> LuiViewHolder(inflater.inflate(R.layout.item_message_lui, parent, false))
         }
     }
@@ -76,6 +79,7 @@ class MessageAdapter : ListAdapter<ChatMessage, RecyclerView.ViewHolder>(DiffCal
             is DeviceStatusViewHolder -> holder.bind(message)
             is HealthTrendViewHolder -> holder.bind(message)
             is NotificationsViewHolder -> holder.bind(message)
+            is SleepCardViewHolder -> holder.bind(message)
         }
 
         if (message.sender == Sender.USER && position > lastAnimatedPosition) {
@@ -410,6 +414,44 @@ class MessageAdapter : ListAdapter<ChatMessage, RecyclerView.ViewHolder>(DiffCal
             }
             iconCache[appName] = drawable
             return drawable
+        }
+    }
+
+    class SleepCardViewHolder(view: View) : RecyclerView.ViewHolder(view) {
+        private val duration: TextView = view.findViewById(R.id.sleepDuration)
+        private val qualityBadge: TextView = view.findViewById(R.id.sleepQualityBadge)
+        private val timeline: SleepTimelineView = view.findViewById(R.id.sleepTimeline)
+        private val deep: TextView = view.findViewById(R.id.sleepDeep)
+        private val light: TextView = view.findViewById(R.id.sleepLight)
+        private val rem: TextView = view.findViewById(R.id.sleepRem)
+        private val awake: TextView = view.findViewById(R.id.sleepAwake)
+
+        fun bind(message: ChatMessage) {
+            val rows = message.cardData ?: return
+            if (rows.isEmpty()) return
+            val meta = rows[0]
+
+            duration.text = meta["duration"] ?: "—"
+            qualityBadge.text = meta["quality"] ?: "—"
+            qualityBadge.setTextColor(
+                when (meta["qualityLevel"]) {
+                    "Excellent" -> android.graphics.Color.parseColor("#4CAF50")
+                    "Good" -> android.graphics.Color.parseColor("#8BC34A")
+                    "Fair" -> android.graphics.Color.parseColor("#FFC107")
+                    else -> android.graphics.Color.parseColor("#F44336")
+                }
+            )
+            deep.text = meta["deep"] ?: "—"
+            light.text = meta["light"] ?: "—"
+            rem.text = meta["rem"] ?: "—"
+            awake.text = meta["awake"] ?: "—"
+
+            val segments = rows.drop(1).mapNotNull {
+                val stage = it["stage"]?.toIntOrNull(16) ?: return@mapNotNull null
+                val mins = it["mins"]?.toIntOrNull() ?: return@mapNotNull null
+                stage to mins
+            }
+            timeline.setSegments(segments)
         }
     }
 

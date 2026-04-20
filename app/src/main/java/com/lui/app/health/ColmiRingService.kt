@@ -18,10 +18,15 @@ import java.util.UUID
 /**
  * BLE client for Colmi smart rings (R02/R03/R06/R07/R09/R10/R12).
  *
- * Protocol: 16-byte packets over Nordic UART Service.
- * Service:  6e40fff0-b5a3-f393-e0a9-e50e24dcca9e
- * Write:    6e400002-b5a3-f393-e0a9-e50e24dcca9e
- * Notify:   6e400003-b5a3-f393-e0a9-e50e24dcca9e
+ * Two protocols, two services:
+ *   1. **Commands** — 16-byte fixed packets with XOR checksum over Nordic UART.
+ *      Used for real-time HR/SpO2/HRV/stress, battery, steps, time, find.
+ *   2. **Big Data** — variable-length packets over a separate custom service.
+ *      Used for historical sleep, SpO2 history, temperature. Multi-packet
+ *      responses reassembled using a length field in the first packet.
+ *
+ *   Commands service: 6e40fff0-b5a3-f393-e0a9-e50e24dcca9e
+ *   Big Data service: de5bf728-d711-4e47-af26-65e3012a5dc7
  *
  * No bonding, no encryption, no pairing PIN.
  */
@@ -30,10 +35,16 @@ class ColmiRingService(private val context: Context) {
     companion object {
         private const val TAG = "ColmiRing"
 
+        // Commands service (Nordic UART) — 16-byte packets, XOR checksum
         val SERVICE_UUID: UUID = UUID.fromString("6e40fff0-b5a3-f393-e0a9-e50e24dcca9e")
         val WRITE_UUID: UUID = UUID.fromString("6e400002-b5a3-f393-e0a9-e50e24dcca9e")
         val NOTIFY_UUID: UUID = UUID.fromString("6e400003-b5a3-f393-e0a9-e50e24dcca9e")
         val CCCD_UUID: UUID = UUID.fromString("00002902-0000-1000-8000-00805f9b34fb")
+
+        // Big Data service — variable-length packets
+        val BIG_DATA_SERVICE_UUID: UUID = UUID.fromString("de5bf728-d711-4e47-af26-65e3012a5dc7")
+        val BIG_DATA_WRITE_UUID: UUID = UUID.fromString("de5bf72a-d711-4e47-af26-65e3012a5dc7")
+        val BIG_DATA_NOTIFY_UUID: UUID = UUID.fromString("de5bf729-d711-4e47-af26-65e3012a5dc7")
 
         // Command bytes
         const val CMD_BATTERY: Byte = 0x03
@@ -46,7 +57,16 @@ class ColmiRingService(private val context: Context) {
         const val CMD_SYNC_HRV: Byte = 0x39
         const val CMD_FIND_DEVICE: Byte = 0x50
         const val CMD_NOTIFICATION: Byte = 0x73
+        // Gesture events from the ring's motion detector. Subtype in byte[1].
+        const val CMD_GESTURE: Byte = 0x2F
+        const val GESTURE_DOUBLE_TAP: Byte = 0xF4.toByte()
         val CMD_BIG_DATA: Byte = 0xBC.toByte()
+
+        // Big Data dataIds (Puxtril/colmi-docs)
+        const val BD_ID_SLEEP: Byte = 0x27
+        const val BD_ID_SPO2_HISTORY: Byte = 0x2A
+        // Temperature dataId varies by firmware; we probe a few.
+        val BD_ID_TEMP_CANDIDATES: List<Byte> = listOf(0x25, 0x28, 0x2B)
     }
 
     data class SleepData(
@@ -54,7 +74,10 @@ class ColmiRingService(private val context: Context) {
         val deepMinutes: Int = 0,
         val lightMinutes: Int = 0,
         val remMinutes: Int = 0,
-        val awakeMinutes: Int = 0
+        val awakeMinutes: Int = 0,
+        /** Ordered stage timeline: (stageType 0x02=light / 0x03=deep / 0x04=REM / 0x05=awake, minutes).
+         *  Empty if the ring only returned aggregate totals. */
+        val stages: List<Pair<Int, Int>> = emptyList()
     )
 
     enum class State { DISCONNECTED, SCANNING, CONNECTING, CONNECTED }
@@ -94,6 +117,8 @@ class ColmiRingService(private val context: Context) {
 
     private var bluetoothGatt: BluetoothGatt? = null
     private var writeCharacteristic: BluetoothGattCharacteristic? = null
+    private var bigDataWriteChar: BluetoothGattCharacteristic? = null
+    private var bigDataNotifyChar: BluetoothGattCharacteristic? = null
     private val handler = Handler(Looper.getMainLooper())
     private var scanner: BluetoothLeScanner? = null
     private var isRealtimeHrActive = false
@@ -102,10 +127,17 @@ class ColmiRingService(private val context: Context) {
     private var bigDataExpectedSize: Int = 0
     private val bigDataBuffer = ByteArrayOutputStream()
 
-    // Big-data requests (sleep, temperature) share one accumulator buffer, so
-    // we serialize them through a queue. Two concurrent requests would
+    /** Populated from SetTime response byte[1]. `false` means this firmware
+     *  physically can't report skin temperature — no point asking. */
+    @Volatile private var supportsTemperature: Boolean = true
+
+    /** Once a temperature dataId succeeds, remember it so we don't probe again. */
+    @Volatile private var knownTempDataId: Byte? = null
+
+    // Big-data requests (sleep, temperature, SpO2 history) share one
+    // accumulator buffer, so we serialize them. Two concurrent requests would
     // interleave packets and corrupt both readings.
-    private data class BigDataRequest(val type: Byte, val metric: String, val command: ByteArray)
+    private data class BigDataRequest(val type: Byte, val metric: String)
     private val bigDataQueue = ArrayDeque<BigDataRequest>()
     private var bigDataInFlight = false
     private var bigDataStartedAt = 0L
@@ -126,6 +158,9 @@ class ColmiRingService(private val context: Context) {
 
     /** Callback fired when any health metric is updated. (metric name, value) */
     var onReading: ((String, Float) -> Unit)? = null
+
+    /** Callback fired when the ring emits a motion gesture (e.g. "double_tap"). */
+    var onGesture: ((String) -> Unit)? = null
 
     // ── Auto-connect ──
 
@@ -306,11 +341,26 @@ class ColmiRingService(private val context: Context) {
     }
 
     fun requestSleep() {
-        enqueueBigData(BigDataRequest(0x27, "sleep", byteArrayOf(CMD_BIG_DATA, 0x27)))
+        enqueueBigData(BigDataRequest(BD_ID_SLEEP, "sleep"))
     }
 
+    /**
+     * Request temperature data. R09 and some earlier firmwares don't expose
+     * temperature — we short-circuit if `supportsTemperature` is false. When
+     * we haven't probed yet, try each candidate dataId one at a time.
+     */
     fun requestTemperature() {
-        enqueueBigData(BigDataRequest(0x25, "temperature", byteArrayOf(CMD_BIG_DATA, 0x25)))
+        if (!supportsTemperature) {
+            LuiLogger.d(TAG, "Temperature request skipped — firmware reports unsupported")
+            return
+        }
+        val id = knownTempDataId ?: BD_ID_TEMP_CANDIDATES.first()
+        enqueueBigData(BigDataRequest(id, "temperature"))
+    }
+
+    /** Request all SpO2 historical data. */
+    fun requestSpO2History() {
+        enqueueBigData(BigDataRequest(BD_ID_SPO2_HISTORY, "spo2_history"))
     }
 
     private fun enqueueBigData(req: BigDataRequest) {
@@ -327,15 +377,44 @@ class ColmiRingService(private val context: Context) {
         if (bigDataInFlight) return
         if (!isConnected) { bigDataQueue.clear(); return }
         val next = bigDataQueue.removeFirstOrNull() ?: return
+        if (bigDataWriteChar == null) {
+            LuiLogger.w(TAG, "Big Data write char unavailable — dropping ${next.metric}")
+            handler.postDelayed({ dispatchNextBigData() }, 1000L)
+            return
+        }
         bigDataInFlight = true
         bigDataStartedAt = System.currentTimeMillis()
         bigDataBuffer.reset()
         bigDataExpectedSize = 0
         bigDataType = next.type
-        LuiLogger.i(TAG, "Requesting ${next.metric} data...")
-        sendCommand(next.command)
+        LuiLogger.i(TAG, "Requesting ${next.metric} data (dataId=0x${String.format("%02X", next.type)})")
+        sendBigDataRequest(next.type)
         // Safety timeout: if packets stop arriving, unblock the queue.
         handler.postDelayed(bigDataTimeoutRunnable, 20_000L)
+    }
+
+    /**
+     * Build and send a Big Data request on the Big Data write characteristic.
+     * Format (6 bytes, variable-length — NOT the Commands-channel 16-byte
+     * fixed framing with XOR checksum):
+     *   [0]   = 0xBC magic
+     *   [1]   = dataId
+     *   [2-3] = dataLen (little-endian)  — 0 for "give me everything"
+     *   [4-5] = crc16 (little-endian)    — 0xFFFF sentinel for empty payload
+     */
+    @Suppress("MissingPermission")
+    private fun sendBigDataRequest(dataId: Byte) {
+        val char = bigDataWriteChar ?: return
+        val gatt = bluetoothGatt ?: return
+        val packet = byteArrayOf(
+            CMD_BIG_DATA,
+            dataId,
+            0x00, 0x00,                    // dataLen = 0
+            0xFF.toByte(), 0xFF.toByte()   // crc16 sentinel
+        )
+        char.value = packet
+        gatt.writeCharacteristic(char)
+        LuiLogger.d(TAG, "BD sent: ${packet.toHex()}")
     }
 
     private fun onBigDataComplete(success: Boolean) {
@@ -350,7 +429,26 @@ class ColmiRingService(private val context: Context) {
     private fun onBigDataTimeout() {
         if (!bigDataInFlight) return
         LuiLogger.w(TAG, "Big data timeout (type=0x${String.format("%02X", bigDataType)})")
+        val type = bigDataType
         onBigDataComplete(success = false)
+        if (type in BD_ID_TEMP_CANDIDATES && knownTempDataId == null) probeNextTemperatureId(type)
+    }
+
+    /**
+     * When temperature is supposedly supported but a given dataId returned
+     * 0 bytes or timed out, queue the next candidate. After exhausting the
+     * list, stop trying this session.
+     */
+    private fun probeNextTemperatureId(failed: Byte) {
+        val idx = BD_ID_TEMP_CANDIDATES.indexOf(failed)
+        val next = BD_ID_TEMP_CANDIDATES.getOrNull(idx + 1)
+        if (next == null) {
+            LuiLogger.w(TAG, "Temperature probe exhausted — no dataId worked")
+            supportsTemperature = false
+            return
+        }
+        LuiLogger.i(TAG, "Temperature probe: trying next dataId 0x${String.format("%02X", next)}")
+        enqueueBigData(BigDataRequest(next, "temperature"))
     }
 
     // ── Packet building ──
@@ -390,6 +488,8 @@ class ColmiRingService(private val context: Context) {
                     LuiLogger.i(TAG, "Disconnected from GATT")
                     _state.value = State.DISCONNECTED
                     writeCharacteristic = null
+                    bigDataWriteChar = null
+                    bigDataNotifyChar = null
                     clearBigDataQueue()
                 }
             }
@@ -416,33 +516,71 @@ class ColmiRingService(private val context: Context) {
                 return
             }
 
-            // Enable notifications
+            // Enable notifications on the Commands channel.
             gatt.setCharacteristicNotification(notifyChar, true)
             val cccd = notifyChar.getDescriptor(CCCD_UUID)
             cccd?.value = BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
             gatt.writeDescriptor(cccd)
 
+            // Find the Big Data service — separate from Nordic UART. Rings
+            // without this service (older firmwares?) can't deliver
+            // sleep/temperature; we just keep bigDataWriteChar null and
+            // skip those requests.
+            val bdService = gatt.getService(BIG_DATA_SERVICE_UUID)
+            if (bdService != null) {
+                bigDataWriteChar = bdService.getCharacteristic(BIG_DATA_WRITE_UUID)
+                bigDataNotifyChar = bdService.getCharacteristic(BIG_DATA_NOTIFY_UUID)
+                if (bigDataNotifyChar != null) {
+                    gatt.setCharacteristicNotification(bigDataNotifyChar, true)
+                    val bdCccd = bigDataNotifyChar!!.getDescriptor(CCCD_UUID)
+                    bdCccd?.value = BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
+                    // Queue — one descriptor write at a time. Commands-channel
+                    // CCCD write is already in flight above; post after it
+                    // completes via onDescriptorWrite.
+                }
+                LuiLogger.i(TAG, "Big Data service found (write=${bigDataWriteChar != null}, notify=${bigDataNotifyChar != null})")
+            } else {
+                LuiLogger.w(TAG, "Big Data service not found — sleep/temperature unavailable")
+            }
+
             LuiLogger.i(TAG, "Services discovered, notifications enabled")
         }
 
+        @Suppress("MissingPermission")
         override fun onDescriptorWrite(gatt: BluetoothGatt, descriptor: BluetoothGattDescriptor, status: Int) {
-            if (status == BluetoothGatt.GATT_SUCCESS) {
-                _state.value = State.CONNECTED
-                LuiLogger.i(TAG, "Ring connected and ready")
+            if (status != BluetoothGatt.GATT_SUCCESS) return
 
-                // Post-connect: set time + request battery + start periodic sync
-                handler.postDelayed({
-                    setDateTime()
-                    handler.postDelayed({ requestBattery() }, 500)
-                    handler.postDelayed({ startPeriodicSync() }, 2000)
-                }, 1000)
+            val writtenChar = descriptor.characteristic
+            // First CCCD write was on the Commands notify channel. Chain the
+            // Big Data notify subscription before we mark connected.
+            if (writtenChar?.uuid == NOTIFY_UUID && bigDataNotifyChar != null) {
+                val bdCccd = bigDataNotifyChar!!.getDescriptor(CCCD_UUID)
+                if (bdCccd != null) {
+                    bdCccd.value = BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
+                    gatt.writeDescriptor(bdCccd)
+                    return // wait for this descriptor's callback
+                }
             }
+
+            _state.value = State.CONNECTED
+            LuiLogger.i(TAG, "Ring connected and ready")
+
+            // Post-connect: set time + request battery + start periodic sync
+            handler.postDelayed({
+                setDateTime()
+                handler.postDelayed({ requestBattery() }, 500)
+                handler.postDelayed({ startPeriodicSync() }, 2000)
+            }, 1000)
         }
 
         override fun onCharacteristicChanged(gatt: BluetoothGatt, characteristic: BluetoothGattCharacteristic) {
             val value = characteristic.value ?: return
             if (value.isEmpty()) return
-            handleResponse(value)
+            // Route by channel: Commands (Nordic UART) vs Big Data.
+            when (characteristic.uuid) {
+                BIG_DATA_NOTIFY_UUID -> handleBigDataResponse(value)
+                else -> handleResponse(value)
+            }
         }
     }
 
@@ -546,41 +684,86 @@ class ColmiRingService(private val context: Context) {
                     }
                 }
             }
-            CMD_BIG_DATA -> handleBigDataResponse(value)
+            CMD_BIG_DATA -> {
+                // Stray BC packets on the Commands channel shouldn't happen
+                // post-fix — BD responses come on the BigData notify char now.
+                // Log for diagnosis.
+                LuiLogger.d(TAG, "BD response on Commands channel (ignored): ${value.toHex()}")
+            }
             CMD_FIND_DEVICE -> LuiLogger.i(TAG, "Find device acknowledged")
-            CMD_SET_TIME -> LuiLogger.d(TAG, "Time set acknowledged")
+            CMD_GESTURE -> {
+                val subtype = if (value.size > 1) value[1] else 0
+                val gesture = when (subtype) {
+                    GESTURE_DOUBLE_TAP -> "double_tap"
+                    else -> "gesture_0x${String.format("%02X", subtype)}"
+                }
+                LuiLogger.i(TAG, "Gesture: $gesture (subtype=0x${String.format("%02X", subtype)})")
+                onGesture?.invoke(gesture)
+            }
+            CMD_SET_TIME -> {
+                // Puxtril docs: byte[1] of the SetTime ACK is supportsTemperature.
+                // Check before asking for temperature so we don't probe firmwares
+                // that physically can't deliver it.
+                if (value.size > 1) {
+                    val flag = value[1].toInt() and 0xFF
+                    supportsTemperature = flag != 0
+                    LuiLogger.i(TAG, "Ring supportsTemperature=$supportsTemperature (flag=$flag)")
+                }
+            }
             else -> LuiLogger.d(TAG, "Unknown response: cmd=0x${String.format("%02X", cmd)}")
         }
     }
 
     // ── Big data protocol (SpO2, sleep, temperature) ──
 
+    /**
+     * Parse Big Data notifications. Format (Puxtril/colmi-docs, QRing):
+     *   First packet: [0]=0xBC, [1]=dataId, [2..3]=dataLen (LE),
+     *                 [4..5]=crc16 (LE), [6..]=payload chunk.
+     *   Continuation packets: raw payload (no header). Reassemble until
+     *   buffer size reaches dataLen.
+     */
     private fun handleBigDataResponse(value: ByteArray) {
-        LuiLogger.d(TAG, "Big data packet: ${value.toHex()}")
-        if (value.size < 4) return
-        val dataType = value[1]
+        LuiLogger.d(TAG, "BD packet: ${value.toHex()}")
+        if (value.isEmpty()) return
 
         if (bigDataBuffer.size() == 0) {
-            // First packet — extract header: [cmd, type, sizeLo, sizeHi, ...]
+            // First packet. Spec requires the 0xBC magic at [0].
+            if (value.size < 6 || value[0] != CMD_BIG_DATA) {
+                LuiLogger.w(TAG, "BD first packet malformed: ${value.toHex()}")
+                return
+            }
+            val dataType = value[1]
             bigDataType = dataType
             bigDataExpectedSize = (value[2].toInt() and 0xFF) or ((value[3].toInt() and 0xFF) shl 8)
-            LuiLogger.i(TAG, "Big data start: type=0x${String.format("%02X", dataType)}, expected=$bigDataExpectedSize bytes")
+            LuiLogger.i(TAG, "BD start: type=0x${String.format("%02X", dataType)}, expected=$bigDataExpectedSize bytes")
             if (bigDataExpectedSize == 0) {
-                // No data available on ring for this metric
-                LuiLogger.w(TAG, "Ring reports 0 bytes for type 0x${String.format("%02X", dataType)}")
+                // Ring has no data for this dataId — may be unsupported or just empty.
+                // For temperature: try the next candidate dataId before giving up.
+                LuiLogger.w(TAG, "Ring reports 0 bytes for 0x${String.format("%02X", dataType)}")
+                val metric = if (dataType == BD_ID_SLEEP) "sleep"
+                    else if (dataType == BD_ID_SPO2_HISTORY) "spo2_history"
+                    else "temperature"
                 onBigDataComplete(success = false)
+                if (metric == "temperature" && knownTempDataId == null) probeNextTemperatureId(dataType)
                 return
             }
             if (value.size > 6) bigDataBuffer.write(value, 6, value.size - 6)
         } else {
-            // Continuation — append payload after [cmd, type]
-            if (value.size > 2) bigDataBuffer.write(value, 2, value.size - 2)
+            // Continuation — entire packet is raw payload.
+            bigDataBuffer.write(value, 0, value.size)
         }
 
         if (bigDataExpectedSize > 0 && bigDataBuffer.size() >= bigDataExpectedSize) {
             val data = bigDataBuffer.toByteArray()
             val type = bigDataType
-            LuiLogger.i(TAG, "Big data complete: ${data.size} bytes")
+            LuiLogger.i(TAG, "BD complete: ${data.size} bytes for 0x${String.format("%02X", type)}")
+            // If this was a temperature probe and we got real data, remember
+            // the working dataId so we don't re-probe on future cycles.
+            if (type in BD_ID_TEMP_CANDIDATES && knownTempDataId == null) {
+                knownTempDataId = type
+                LuiLogger.i(TAG, "Temperature dataId locked at 0x${String.format("%02X", type)}")
+            }
             // Reset queue/buffer state BEFORE parse so parseBigData's onReading
             // callbacks and retry checks see a clean "done" state.
             onBigDataComplete(success = true)
@@ -590,10 +773,10 @@ class ColmiRingService(private val context: Context) {
 
     private fun parseBigData(type: Byte, data: ByteArray) {
         LuiLogger.i(TAG, "Parsing big data type=0x${String.format("%02X", type)}, ${data.size} bytes")
-        when (type) {
-            0x2A.toByte() -> parseSpO2Data(data)
-            0x27.toByte() -> parseSleepStages(data)
-            0x25.toByte() -> parseTemperatureData(data)
+        when {
+            type == BD_ID_SLEEP -> parseSleepStages(data)
+            type == BD_ID_SPO2_HISTORY -> parseSpO2Data(data)
+            type in BD_ID_TEMP_CANDIDATES -> parseTemperatureData(data)
             else -> LuiLogger.w(TAG, "Unknown big data type: 0x${String.format("%02X", type)}")
         }
     }
@@ -615,24 +798,28 @@ class ColmiRingService(private val context: Context) {
     private fun parseSleepStages(data: ByteArray) {
         // Sleep records: [stageType, durationMinutes] pairs
         // Stage types: 0x02=light, 0x03=deep, 0x04=REM, 0x05=awake
-        var deep = 0; var light = 0; var rem = 0; var awake = 0; var found = false
+        var deep = 0; var light = 0; var rem = 0; var awake = 0
+        val stages = mutableListOf<Pair<Int, Int>>()
         var i = 0
         while (i < data.size - 1) {
             val stage = data[i].toInt() and 0xFF
             val mins = data[i + 1].toInt() and 0xFF
-            when (stage) {
-                0x02 -> { light += mins; found = true }
-                0x03 -> { deep += mins; found = true }
-                0x04 -> { rem += mins; found = true }
-                0x05 -> { awake += mins; found = true }
+            if (mins in 1..240 && stage in 0x02..0x05) {
+                stages.add(stage to mins)
+                when (stage) {
+                    0x02 -> light += mins
+                    0x03 -> deep += mins
+                    0x04 -> rem += mins
+                    0x05 -> awake += mins
+                }
             }
             i += 2
         }
-        if (found) {
+        if (stages.isNotEmpty()) {
             val total = deep + light + rem + awake
-            _sleepData.value = SleepData(total, deep, light, rem, awake)
+            _sleepData.value = SleepData(total, deep, light, rem, awake, stages)
             markRead("sleep")
-            LuiLogger.i(TAG, "Sleep: ${total}min total (deep=$deep, light=$light, rem=$rem, awake=$awake)")
+            LuiLogger.i(TAG, "Sleep: ${total}min total (deep=$deep, light=$light, rem=$rem, awake=$awake, segments=${stages.size})")
             // Persist each metric so get_health_trend can query
             onReading?.invoke("sleep_total", total.toFloat())
             onReading?.invoke("sleep_deep", deep.toFloat())
@@ -644,20 +831,37 @@ class ColmiRingService(private val context: Context) {
         }
     }
 
+    /**
+     * Parse temperature Big Data payload.
+     *
+     * Each byte encodes skin temp as `(byte + 200) / 10.0` — so 0xA0 = 36.0°C,
+     * 0xA9 = 36.9°C, etc. Readings are packed sequentially (one per time slot
+     * through the day), with zero bytes for slots where the ring wasn't worn.
+     *
+     * The packet starts with a small record header (e.g. `01 1E 00`) we skip
+     * by filtering anything below the plausible byte range. We pick the LAST
+     * valid reading as "latest" and average the rest for a daily mean.
+     */
     private fun parseTemperatureData(data: ByteArray) {
-        // Temperature as value × 10 (e.g. 367 = 36.7°C), 2 bytes LE
-        for (i in 0 until data.size - 1) {
-            val raw = (data[i].toInt() and 0xFF) or ((data[i + 1].toInt() and 0xFF) shl 8)
-            val temp = raw / 10f
-            if (temp in 34f..42f) {
-                _temperature.value = temp
-                markRead("temperature")
-                LuiLogger.i(TAG, "Temperature: ${temp}°C")
-                onReading?.invoke("temperature", temp)
-                return
-            }
+        // Plausible raw byte range for skin temp 32–42°C under the (b+200)/10
+        // encoding: byte in 120..220.
+        val readings = mutableListOf<Float>()
+        for (b in data) {
+            val v = b.toInt() and 0xFF
+            if (v < 120 || v > 220) continue  // padding zeros + record-header bytes
+            val temp = (v + 200) / 10.0f
+            if (temp in 32f..42f) readings.add(temp)
         }
-        LuiLogger.w(TAG, "No valid temperature in ${data.size} bytes")
+        if (readings.isEmpty()) {
+            LuiLogger.w(TAG, "No valid temperature in ${data.size} bytes (first 16: ${data.take(16).toByteArray().toHex()})")
+            return
+        }
+        val latest = readings.last()
+        val avg = readings.average().toFloat()
+        _temperature.value = latest
+        markRead("temperature")
+        LuiLogger.i(TAG, "Temperature: latest=${"%.1f".format(latest)}°C, avg=${"%.1f".format(avg)}°C over ${readings.size} readings")
+        onReading?.invoke("temperature", latest)
     }
 
     // ── Periodic background sync ──
