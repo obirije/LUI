@@ -227,6 +227,14 @@ class VoiceEngine(private val context: Context) {
         if (_state.value == State.LISTENING) _state.value = State.PROCESSING
     }
 
+    /** Silent no-state-change variant used from TTS paths to prevent echo. */
+    private fun stopListeningIfActive() {
+        if (speechRecognizer != null) {
+            try { speechRecognizer?.stopListening(); speechRecognizer?.destroy() } catch (_: Exception) {}
+            speechRecognizer = null
+        }
+    }
+
     // ---- TTS: producer/player pipeline ----
 
     /**
@@ -263,7 +271,10 @@ class VoiceEngine(private val context: Context) {
             for (chunk in audioChannel!!) {
                 if (!isActive) break
                 withContext(Dispatchers.Main) {
-                    if (_state.value != State.SPEAKING) _state.value = State.SPEAKING
+                    if (_state.value != State.SPEAKING) {
+                        _state.value = State.SPEAKING
+                        stopListeningIfActive()
+                    }
                 }
                 playAudio(chunk.samples, chunk.sampleRate)
             }
@@ -293,6 +304,12 @@ class VoiceEngine(private val context: Context) {
                 }
                 withContext(Dispatchers.Main) {
                     if (_state.value != State.SPEAKING) _state.value = State.SPEAKING
+                    // If the mic was opened by a previous autoListen (common
+                    // between rounds of a tool-call flow), kill it before we
+                    // start speaking — otherwise the recognizer captures our
+                    // own TTS as user input. Bug reproduced: the mic heard
+                    // "let me see" while LUI was saying it.
+                    stopListeningIfActive()
                 }
                 var played = false
                 cloudTts!!.speakStreaming(sentence) { track ->
@@ -369,8 +386,28 @@ class VoiceEngine(private val context: Context) {
 
         if (useCloudTts) {
             scope.launch {
-                withContext(Dispatchers.Main) { _state.value = State.SPEAKING }
-                cloudTts!!.speakStreaming(text) { track -> audioTrack = track }
+                withContext(Dispatchers.Main) {
+                    _state.value = State.SPEAKING
+                    stopListeningIfActive()
+                }
+                val ok = cloudTts!!.speakStreaming(text) { track -> audioTrack = track }
+                // Cloud failed (auth/network) → fall back to local TTS so the
+                // user still hears the greeting / response. Without this a
+                // bad cloud key meant silent everything — and autoListen
+                // wouldn't fire either, leaving the mic closed forever.
+                if (!ok && tts != null && referenceAudio != null) {
+                    com.lui.app.helper.LuiLogger.w("TTS", "Cloud TTS failed — falling back to local")
+                    startPipeline()
+                    sentenceChannel?.send(text)
+                    sentenceChannel?.close()
+                    // Local pipeline sets State.SPEAKING and clears to IDLE on
+                    // drain. Schedule autoListen; the inner wait-while-speaking
+                    // loop keeps the mic closed until playback actually ends.
+                    withContext(Dispatchers.Main) {
+                        if (conversationMode) autoListen()
+                    }
+                    return@launch
+                }
                 withContext(Dispatchers.Main) {
                     _state.value = State.IDLE
                     if (conversationMode) autoListen()
@@ -391,9 +428,14 @@ class VoiceEngine(private val context: Context) {
 
     private fun autoListen() {
         CoroutineScope(Dispatchers.Main).launch {
-            // Wait for speaker to fully drain before listening
-            // Prevents mic from picking up TTS output
-            delay(800)
+            // The actual echo-loop bug was opening the mic while TTS was still
+            // playing — not speaker buffer latency. The real guard is the
+            // state check below. Keep a short settle to let the audio path
+            // (AudioTrack release → mic capture) swap cleanly.
+            delay(150)
+            while (_state.value == State.SPEAKING) {
+                delay(200)
+            }
             _autoListenStarted.emit(Unit)
             startListening()
         }
