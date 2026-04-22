@@ -4,8 +4,11 @@ import android.app.NotificationManager
 import android.content.Context
 import android.content.Intent
 import android.provider.Settings
+import com.lui.app.audio.AceStepClient
 import com.lui.app.audio.AmbientSoundPlayer
+import com.lui.app.data.SecureKeyStore
 import com.lui.app.helper.LuiLogger
+import kotlinx.coroutines.runBlocking
 
 /**
  * Tools for stress relief and digital wellbeing: ambient sounds and wellness mode.
@@ -168,6 +171,88 @@ object WellnessActions {
 
         priorState = null
         return ActionResult.Success("Wellness mode off. Welcome back.")
+    }
+
+    /**
+     * Generate a one-off calming track via ACE-Step and play it on loop.
+     * Falls back to the bundled PIANO sound when the endpoint isn't
+     * configured or the call fails. Intentionally blocking — callers
+     * should expect a 10-60s wait for generation.
+     */
+    fun generateRelaxingMusic(context: Context, prompt: String, durationSec: Int = 45): ActionResult {
+        val store = SecureKeyStore(context)
+        // Inherit wellness state so pickVolume keeps the wellness boost + time-of-day curve.
+        val wellness = isWellnessModeActive
+        if (!store.hasAceStepConfigured) {
+            AmbientSoundPlayer.play(context, AmbientSoundPlayer.Sound.PIANO, wellnessMode = wellness).fold(
+                onSuccess = { return ActionResult.Success("Music gen isn't configured yet — I put on Clair de Lune instead. Add an ACE-Step endpoint in Connection Hub to unlock generated tracks.") },
+                onFailure = { return ActionResult.Failure("Music gen isn't configured and the fallback piano track isn't bundled either.") }
+            )
+        }
+
+        val composed = if (prompt.isBlank()) composeDefaultPrompt(context) else prompt
+        val result = runBlocking { AceStepClient.generate(context, composed, durationSec) }
+        return result.fold(
+            onSuccess = { file ->
+                // Persist to library so it shows up in Connection Hub > Your tracks.
+                runBlocking {
+                    try {
+                        val dao = com.lui.app.data.LuiDatabase.getInstance(context).generatedTrackDao()
+                        dao.insert(
+                            com.lui.app.data.GeneratedTrackEntity(
+                                filename = file.name,
+                                displayName = deriveTrackName(composed),
+                                prompt = composed,
+                                durationMs = durationSec * 1000L,
+                                sizeBytes = file.length()
+                            )
+                        )
+                    } catch (e: Exception) {
+                        LuiLogger.e("Wellness", "Library insert failed: ${e.message}")
+                    }
+                }
+                AmbientSoundPlayer.playFromFile(context, file, wellnessMode = wellness).fold(
+                    onSuccess = { ActionResult.Success("Generated and playing: \"${composed.take(80)}\". Saved to your library. Say 'stop sound' when you're done.") },
+                    onFailure = { e -> ActionResult.Failure("Generated the track but couldn't play it: ${e.message}") }
+                )
+            },
+            onFailure = { e ->
+                // Soft fall-back so the user still gets calming audio
+                AmbientSoundPlayer.play(context, AmbientSoundPlayer.Sound.PIANO, wellnessMode = wellness)
+                ActionResult.Failure("Couldn't generate music (${e.message?.take(60)}). Put on Clair de Lune as a fallback.")
+            }
+        )
+    }
+
+    /** Turn a prompt into a short, human-readable default name — first 3-4
+     *  content words, title-cased. Fallback is a timestamp. */
+    private fun deriveTrackName(prompt: String): String {
+        val words = prompt.replace(Regex("[,.;]+"), " ").split(Regex("\\s+"))
+            .filter { it.length >= 3 }
+            .take(4)
+        if (words.isEmpty()) return "Track ${java.text.SimpleDateFormat("HH:mm", java.util.Locale.getDefault()).format(java.util.Date())}"
+        return words.joinToString(" ") { it.lowercase().replaceFirstChar { c -> c.uppercaseChar() } }
+    }
+
+    private fun composeDefaultPrompt(context: Context): String {
+        val hour = java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY)
+        val stress = try { HealthActions.getRingService(context).stress.value } catch (_: Exception) { -1 }
+
+        val mood = when {
+            stress in 86..100 -> "deep calm, anxiety release, very slow tempo"
+            stress in 75..85 -> "grounding, steady, gentle warmth"
+            stress in 40..74 -> "relaxed focus, even mood"
+            else -> "soft, spacious, comforting"
+        }
+        val tod = when (hour) {
+            in 22..23, in 0..5 -> "night wind-down, sparse piano, low warm pads"
+            in 6..8 -> "dawn, soft strings, hopeful"
+            in 9..11 -> "morning clarity, airy piano"
+            in 12..15 -> "afternoon focus, muted textures"
+            in 16..18 -> "late afternoon, mellow sundown"
+            else -> "evening calm, cello, rain overlay"
+        }
+        return "Ambient instrumental, $mood, $tod, 60-70 bpm, no vocals, no percussion"
     }
 
     fun listRelaxingSounds(context: Context): ActionResult {

@@ -150,4 +150,21 @@ class SecureKeyStore(context: Context) {
     var personaPlexVoice: String
         get() = prefs.getString("personaplex_voice", "NATF2.pt") ?: "NATF2.pt"
         set(value) = prefs.edit().putString("personaplex_voice", value).apply()
+
+    // ---- ACE-Step generative music ----
+    // Endpoint is expected to accept POST {endpoint}/generate with a JSON
+    // body {prompt, duration} and return either raw audio bytes (audio/*)
+    // or a JSON with an "audio_url"/"url"/"output" field. Leave blank to
+    // disable — wellness mode falls back to bundled PIANO.
+
+    var aceStepEndpoint: String?
+        get() = prefs.getString("acestep_endpoint", null)?.takeIf { it.isNotBlank() }
+        set(value) = prefs.edit().putString("acestep_endpoint", value ?: "").apply()
+
+    var aceStepApiKey: String?
+        get() = prefs.getString("acestep_api_key", null)?.takeIf { it.isNotBlank() }
+        set(value) = prefs.edit().putString("acestep_api_key", value ?: "").apply()
+
+    val hasAceStepConfigured: Boolean
+        get() = aceStepEndpoint != null
 }

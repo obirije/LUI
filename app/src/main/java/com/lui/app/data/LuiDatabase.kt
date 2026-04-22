@@ -7,12 +7,13 @@ import androidx.room.RoomDatabase
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 
-@Database(entities = [ChatMessageEntity::class, DigestEntity::class, TriggerEntity::class, HealthReadingEntity::class], version = 5, exportSchema = false)
+@Database(entities = [ChatMessageEntity::class, DigestEntity::class, TriggerEntity::class, HealthReadingEntity::class, GeneratedTrackEntity::class], version = 6, exportSchema = false)
 abstract class LuiDatabase : RoomDatabase() {
     abstract fun chatMessageDao(): ChatMessageDao
     abstract fun digestDao(): DigestDao
     abstract fun triggerDao(): TriggerDao
     abstract fun healthReadingDao(): HealthReadingDao
+    abstract fun generatedTrackDao(): GeneratedTrackDao
 
     companion object {
         @Volatile private var INSTANCE: LuiDatabase? = null
@@ -77,10 +78,27 @@ abstract class LuiDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_5_6 = object : Migration(5, 6) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS generated_tracks (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        filename TEXT NOT NULL,
+                        displayName TEXT NOT NULL,
+                        prompt TEXT NOT NULL,
+                        durationMs INTEGER NOT NULL DEFAULT 0,
+                        sizeBytes INTEGER NOT NULL DEFAULT 0,
+                        favorite INTEGER NOT NULL DEFAULT 0,
+                        createdAt INTEGER NOT NULL
+                    )
+                """.trimIndent())
+            }
+        }
+
         fun getInstance(context: Context): LuiDatabase {
             return INSTANCE ?: synchronized(this) {
                 Room.databaseBuilder(context.applicationContext, LuiDatabase::class.java, "lui_db")
-                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
+                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6)
                     .build()
                     .also { INSTANCE = it }
             }

@@ -476,6 +476,92 @@
         <!-- Divider -->
         <View android:layout_width="match_parent" android:layout_height="1dp" android:layout_marginTop="20dp" android:background="@color/lui_divider" />
 
+        <!-- ==================== Music generation ==================== -->
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="20dp"
+            android:text="Music generation"
+            android:textColor="@color/lui_white"
+            android:textSize="16sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:text="Bespoke calming tracks on demand. Requires a self-hosted endpoint."
+            android:textColor="@color/lui_gray_dark"
+            android:textSize="11sp" />
+
+        <EditText
+            android:id="@+id/aceStepEndpointField"
+            android:layout_width="match_parent"
+            android:layout_height="44dp"
+            android:layout_marginTop="10dp"
+            android:background="@drawable/input_background"
+            android:hint="Endpoint (e.g., http://192.168.1.100:8010)"
+            android:inputType="textUri"
+            android:paddingStart="16dp"
+            android:paddingEnd="16dp"
+            android:textColor="@color/lui_white"
+            android:textColorHint="@color/lui_gray_dark"
+            android:textSize="12sp" />
+
+        <EditText
+            android:id="@+id/aceStepKeyField"
+            android:layout_width="match_parent"
+            android:layout_height="44dp"
+            android:layout_marginTop="6dp"
+            android:background="@drawable/input_background"
+            android:hint="API key (optional)"
+            android:inputType="textPassword"
+            android:paddingStart="16dp"
+            android:paddingEnd="16dp"
+            android:textColor="@color/lui_white"
+            android:textColorHint="@color/lui_gray_dark"
+            android:textSize="12sp" />
+
+        <TextView
+            android:id="@+id/aceStepStatus"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:textColor="@color/lui_gray"
+            android:textSize="11sp" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="18dp"
+            android:text="Your tracks"
+            android:textColor="@color/lui_white"
+            android:textSize="14sp"
+            android:textStyle="bold" />
+
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/musicLibraryList"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:nestedScrollingEnabled="false"
+            android:overScrollMode="never" />
+
+        <TextView
+            android:id="@+id/musicLibraryEmpty"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:paddingTop="10dp"
+            android:paddingBottom="10dp"
+            android:text="Generated tracks will show up here."
+            android:textColor="@color/lui_gray_dark"
+            android:textSize="11sp" />
+
+        <!-- Divider -->
+        <View android:layout_width="match_parent" android:layout_height="1dp" android:layout_marginTop="20dp" android:background="@color/lui_divider" />
+
         <!-- ==================== BYOS Bridge ==================== -->
 
         <TextView

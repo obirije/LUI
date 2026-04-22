@@ -70,15 +70,41 @@ class TriggerReceiver : BroadcastReceiver() {
                 }
                 LuiLogger.i(TAG, "Trigger #$triggerId result: ${if (success) "OK" else "FAIL"}: $msg")
 
+                // Surface to chat canvas when LUI is alive. Scenario tools
+                // return Failure("__skip__ …") when they intentionally don't
+                // have anything to say (e.g. weekly pattern still in
+                // cooldown) — don't spam the user in that case.
+                if (success && !msg.startsWith("__skip__")) {
+                    try {
+                        com.lui.app.scenarios.ProactiveBus.emit(
+                            com.lui.app.data.ChatMessage(
+                                text = msg,
+                                sender = com.lui.app.data.ChatMessage.Sender.LUI
+                            )
+                        )
+                    } catch (e: Exception) {
+                        LuiLogger.e(TAG, "ProactiveBus emit failed: ${e.message}")
+                    }
+                }
+
                 // Push event to bridge if active
                 try {
                     com.lui.app.bridge.BridgeEvents.pushTriggerEvent(trigger.name, trigger.toolName, msg)
                 } catch (_: Exception) {}
 
-                // Clean up non-recurring scheduled triggers
-                if (trigger.type == "scheduled" && !trigger.recurring) {
-                    dao.deleteById(triggerId)
-                    LuiLogger.i(TAG, "Cleaned up non-recurring trigger #$triggerId")
+                // Scheduled triggers need re-arming: recurring ones roll
+                // forward a day, one-shots get cleaned up.
+                if (trigger.type == "scheduled") {
+                    if (trigger.recurring) {
+                        val nextFire = (trigger.triggerTimeMs ?: System.currentTimeMillis()) + 24 * 3600_000L
+                        val updated = trigger.copy(triggerTimeMs = nextFire)
+                        dao.update(updated)
+                        com.lui.app.triggers.TriggerManager.rescheduleAlarm(context, updated)
+                        LuiLogger.i(TAG, "Rescheduled recurring trigger #$triggerId for $nextFire")
+                    } else {
+                        dao.deleteById(triggerId)
+                        LuiLogger.i(TAG, "Cleaned up non-recurring trigger #$triggerId")
+                    }
                 }
 
             } catch (e: Exception) {

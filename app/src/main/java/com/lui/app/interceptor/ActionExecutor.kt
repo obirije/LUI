@@ -122,6 +122,10 @@ object ActionExecutor {
             "list_relaxing_sounds" -> WellnessActions.listRelaxingSounds(context)
             "start_wellness_mode" -> WellnessActions.startWellnessMode(context, toolCall.params["sound"] ?: "")
             "stop_wellness_mode" -> WellnessActions.stopWellnessMode(context)
+            "generate_relaxing_music" -> WellnessActions.generateRelaxingMusic(
+                context,
+                prompt = toolCall.params["prompt"] ?: "",
+                durationSec = toolCall.params["duration"]?.toIntOrNull() ?: 45)
 
             "get_steps" -> SensorActions.getSteps(context)
             "get_proximity" -> SensorActions.getProximity(context)
@@ -246,6 +250,20 @@ object ActionExecutor {
             "get_health_trend" -> HealthActions.getHealthTrend(context,
                 metric = toolCall.params["metric"] ?: "heart_rate",
                 hours = toolCall.params["hours"]?.toIntOrNull() ?: 24)
+
+            // Proactive scenarios
+            "morning_briefing" -> com.lui.app.scenarios.ScenarioActions.morningBriefing(context)
+            "detect_stress_patterns" -> {
+                if (!com.lui.app.scenarios.ProactiveScenarios.patternCheckAllowed(context)) {
+                    ActionResult.Failure("__skip__ pattern check still in 7-day cooldown")
+                } else {
+                    val r = com.lui.app.scenarios.ScenarioActions.detectStressPatterns(context)
+                    if (r is ActionResult.Success) com.lui.app.scenarios.ProactiveScenarios.markPatternCheckRan(context)
+                    r
+                }
+            }
+            "pre_meeting_check" -> com.lui.app.scenarios.ScenarioActions.preMeetingCheck(
+                context, eventTitle = toolCall.params["event_title"] ?: "")
 
             "ambient_context" -> AmbientActions.getAmbientContext(context)
             "bluetooth_devices" -> AmbientActions.getBluetoothDevices(context)

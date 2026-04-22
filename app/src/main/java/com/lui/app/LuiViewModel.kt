@@ -212,47 +212,18 @@ class LuiViewModel(application: Application) : AndroidViewModel(application) {
             }
         }
 
-        // Proactive stress alert — watch ring stress readings
+        // Proactive wellbeing scenarios — acute stress watcher, morning briefing,
+        // pre-meeting readiness, weekly pattern detection.
+        com.lui.app.scenarios.ProactiveScenarios.conversationModeProvider = { voiceEngine.conversationMode }
+        com.lui.app.scenarios.ProactiveScenarios.start(application, viewModelScope)
+
+        // Forward proactive messages (from background triggers + stress watcher)
+        // onto the canvas.
         viewModelScope.launch {
-            val ring = com.lui.app.interceptor.actions.HealthActions.getRingService(application)
-            ring.stress.collect { level ->
-                if (level > 0) onStressReading(level)
+            com.lui.app.scenarios.ProactiveBus.messages.collect { msg ->
+                addMessage(msg)
             }
         }
-    }
-
-    // ── Proactive stress alert ──
-    // Fire when we see N consecutive high readings and we haven't alerted recently.
-
-    private var consecutiveHighStress = 0
-    private var lastStressAlertAt = 0L
-
-    private fun onStressReading(level: Int) {
-        val HIGH_THRESHOLD = 75
-        val REQUIRED_CONSECUTIVE = 3          // ~45 min given 15-min sync cycle
-        val COOLDOWN_MS = 2 * 60 * 60 * 1000L // 2 hours between alerts
-
-        if (level >= HIGH_THRESHOLD) {
-            consecutiveHighStress += 1
-        } else {
-            consecutiveHighStress = 0
-            return
-        }
-
-        if (consecutiveHighStress < REQUIRED_CONSECUTIVE) return
-
-        val now = System.currentTimeMillis()
-        if (now - lastStressAlertAt < COOLDOWN_MS) return
-
-        // Don't interrupt if the user is mid-conversation with voice mode
-        if (voiceEngine.conversationMode) return
-
-        lastStressAlertAt = now
-        consecutiveHighStress = 0
-
-        val text = "Your stress has been elevated (around $level) for the last while. Want me to start wellness mode? I'll play something calming, mute notifications, and dim the screen."
-        addMessage(ChatMessage(text = text, sender = Sender.LUI))
-        LuiLogger.i("STRESS", "Proactive alert fired at level $level")
     }
 
     fun handleUserInput(text: String) {
