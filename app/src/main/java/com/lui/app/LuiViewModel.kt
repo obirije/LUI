@@ -1432,6 +1432,14 @@ class LuiViewModel(application: Application) : AndroidViewModel(application) {
                     ChatMessage(text = text, sender = Sender.LUI)
                 }
             }
+            "start_breathing_exercise" -> {
+                val data = com.lui.app.data.ChatMessageEntity.deriveBreathingForBuilder(text)
+                if (data != null && data.isNotEmpty()) {
+                    ChatMessage(text = text, sender = Sender.LUI, cardType = ChatMessage.CardType.BREATHING, cardData = data)
+                } else {
+                    ChatMessage(text = text, sender = Sender.LUI)
+                }
+            }
             "get_activity" -> {
                 val steps = Regex("Steps:\\s*(\\d+)").find(text)?.groupValues?.get(1)?.toIntOrNull()
                 val cals = Regex("Calories:\\s*(\\d+)").find(text)?.groupValues?.get(1)?.toIntOrNull()

@@ -72,6 +72,7 @@ data class ChatMessageEntity(
                 ChatMessage.CardType.HEALTH_TREND_CHART -> deriveHealthTrend(text)
                 ChatMessage.CardType.NOTIFICATIONS -> deriveNotifications(text)
                 ChatMessage.CardType.SLEEP -> deriveSleep(text)
+                ChatMessage.CardType.BREATHING -> deriveBreathing(text)
             }
         }
 
@@ -80,6 +81,20 @@ data class ChatMessageEntity(
         fun deriveHealthTrendForBuilder(text: String) = deriveHealthTrend(text)
         fun deriveNotificationsForBuilder(text: String) = deriveNotifications(text)
         fun deriveSleepForBuilder(text: String) = deriveSleep(text)
+        fun deriveBreathingForBuilder(text: String) = deriveBreathing(text)
+
+        /** Parses [breath:pattern=478;cycles=4;in=4;hold=7;out=8;hold2=0]
+         *  into a single-row map the BreathingCardViewHolder consumes. */
+        private fun deriveBreathing(text: String): List<Map<String, String>>? {
+            val match = Regex("""\[breath:([^]]+)]""").find(text) ?: return null
+            val parts = match.groupValues[1].split(';')
+                .mapNotNull {
+                    val kv = it.split('=', limit = 2)
+                    if (kv.size == 2) kv[0].trim() to kv[1].trim() else null
+                }.toMap()
+            if (parts.isEmpty()) return null
+            return listOf(parts)
+        }
 
         private fun deriveHealthTrend(text: String): List<Map<String, String>>? {
             val rows = mutableListOf<Map<String, String>>()

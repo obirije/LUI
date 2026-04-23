@@ -255,6 +255,41 @@ object WellnessActions {
         return "Ambient instrumental, $mood, $tod, 60-70 bpm, no vocals, no percussion"
     }
 
+    /**
+     * Start a guided breathing exercise. Returns a chat-ready string that
+     * carries an embedded [breath:…] marker — the BREATHING card adapter
+     * parses it to drive the pacer animation + phase timings.
+     *
+     * Patterns:
+     *   "4-7-8" / "478" — inhale 4s, hold 7s, exhale 8s (deep parasympathetic)
+     *   "box" / "4-4-4-4" — inhale 4, hold 4, exhale 4, hold 4 (calming + focusing)
+     *   "5-5" / "paced" — inhale 5s, exhale 5s (no holds, easy default)
+     */
+    fun startBreathingExercise(context: Context, pattern: String = "4-7-8", cycles: Int = 4): ActionResult {
+        val normalized = when (pattern.lowercase().trim().replace("-", "").replace(" ", "")) {
+            "478", "" -> "478"
+            "box", "4444" -> "box"
+            "55", "paced" -> "55"
+            else -> "478"
+        }
+        val cycleN = cycles.coerceIn(2, 12)
+
+        val (inhale, holdIn, exhale, holdOut, name) = when (normalized) {
+            "box" -> Quintuple(4, 4, 4, 4, "Box (4-4-4-4)")
+            "55"  -> Quintuple(5, 0, 5, 0, "Paced (5-5)")
+            else  -> Quintuple(4, 7, 8, 0, "4-7-8 calming")
+        }
+        val totalSec = (inhale + holdIn + exhale + holdOut) * cycleN
+
+        // Embedded marker — adapter reads pattern + counts. Keep on a single
+        // line so it survives Room round-trips into the chat history.
+        val marker = "[breath:pattern=$normalized;cycles=$cycleN;in=$inhale;hold=$holdIn;out=$exhale;hold2=$holdOut]"
+        val msg = "$name — ${cycleN} cycles, about ${totalSec}s. Follow the pacer. $marker"
+        return ActionResult.Success(msg)
+    }
+
+    private data class Quintuple(val a: Int, val b: Int, val c: Int, val d: Int, val name: String)
+
     fun listRelaxingSounds(context: Context): ActionResult {
         val available = AmbientSoundPlayer.availableSounds(context)
         if (available.isEmpty()) {

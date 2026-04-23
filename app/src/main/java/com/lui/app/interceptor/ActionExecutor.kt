@@ -126,6 +126,10 @@ object ActionExecutor {
                 context,
                 prompt = toolCall.params["prompt"] ?: "",
                 durationSec = toolCall.params["duration"]?.toIntOrNull() ?: 45)
+            "start_breathing_exercise" -> WellnessActions.startBreathingExercise(
+                context,
+                pattern = toolCall.params["pattern"] ?: "4-7-8",
+                cycles = toolCall.params["cycles"]?.toIntOrNull() ?: 4)
 
             "get_steps" -> SensorActions.getSteps(context)
             "get_proximity" -> SensorActions.getProximity(context)

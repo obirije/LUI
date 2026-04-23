@@ -174,6 +174,9 @@ If unsure, rain is the safe universal pick.""",
         ToolDef("generate_relaxing_music", "Generate a bespoke calming instrumental track via ACE-Step (requires the endpoint to be configured in Connection Hub) and play it on loop. Use when the user asks for 'generate music', 'make me a track', or when bundled sounds don't fit the moment. Takes 10-60s to generate. Falls back to bundled piano if ACE-Step isn't reachable.",
             listOf(ParamDef("prompt", description = "Free-text description of the desired music — mood, tempo, instruments. Leave blank to auto-compose from current stress + time of day."),
                    ParamDef("duration", description = "Length in seconds (default 45)"))),
+        ToolDef("start_breathing_exercise", "Open a guided breathing exercise card with an animated pacer. Use when the user asks to 'breathe', 'do a breath reset', 'help me calm down quickly', or proactively when stress is high. Pairs naturally with start_wellness_mode (chain them: ambient + breathwork). Pattern picks: '4-7-8' (deep parasympathetic, default), 'box' (focusing), '5-5' (gentle paced).",
+            listOf(ParamDef("pattern", description = "Breathing pattern", enum = listOf("4-7-8", "box", "5-5")),
+                   ParamDef("cycles", description = "Number of breath cycles (default 4)"))),
 
         // Sensors
         ToolDef("get_steps", "Get step count from the pedometer sensor"),

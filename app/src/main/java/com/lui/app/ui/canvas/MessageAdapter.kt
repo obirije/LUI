@@ -15,6 +15,7 @@ import androidx.recyclerview.widget.RecyclerView
 import com.lui.app.R
 import com.lui.app.data.ChatMessage
 import com.lui.app.data.ChatMessage.Sender
+import kotlinx.coroutines.launch
 
 class MessageAdapter : ListAdapter<ChatMessage, RecyclerView.ViewHolder>(DiffCallback) {
 
@@ -28,6 +29,7 @@ class MessageAdapter : ListAdapter<ChatMessage, RecyclerView.ViewHolder>(DiffCal
         private const val TYPE_CARD_HEALTH_TREND = 6
         private const val TYPE_CARD_NOTIFICATIONS = 7
         private const val TYPE_CARD_SLEEP = 8
+        private const val TYPE_CARD_BREATHING = 9
     }
 
     private var lastAnimatedPosition = -1
@@ -43,6 +45,7 @@ class MessageAdapter : ListAdapter<ChatMessage, RecyclerView.ViewHolder>(DiffCal
                 com.lui.app.data.ChatMessage.CardType.HEALTH_TREND_CHART -> TYPE_CARD_HEALTH_TREND
                 com.lui.app.data.ChatMessage.CardType.NOTIFICATIONS -> TYPE_CARD_NOTIFICATIONS
                 com.lui.app.data.ChatMessage.CardType.SLEEP -> TYPE_CARD_SLEEP
+                com.lui.app.data.ChatMessage.CardType.BREATHING -> TYPE_CARD_BREATHING
             }
         }
         return when (msg.sender) {
@@ -64,6 +67,7 @@ class MessageAdapter : ListAdapter<ChatMessage, RecyclerView.ViewHolder>(DiffCal
             TYPE_CARD_HEALTH_TREND -> HealthTrendViewHolder(inflater.inflate(R.layout.item_card_health_trend, parent, false))
             TYPE_CARD_NOTIFICATIONS -> NotificationsViewHolder(inflater.inflate(R.layout.item_card_notifications, parent, false))
             TYPE_CARD_SLEEP -> SleepCardViewHolder(inflater.inflate(R.layout.item_card_sleep, parent, false))
+            TYPE_CARD_BREATHING -> BreathingCardViewHolder(inflater.inflate(R.layout.item_card_breathing, parent, false))
             else -> LuiViewHolder(inflater.inflate(R.layout.item_message_lui, parent, false))
         }
     }
@@ -80,6 +84,7 @@ class MessageAdapter : ListAdapter<ChatMessage, RecyclerView.ViewHolder>(DiffCal
             is HealthTrendViewHolder -> holder.bind(message)
             is NotificationsViewHolder -> holder.bind(message)
             is SleepCardViewHolder -> holder.bind(message)
+            is BreathingCardViewHolder -> holder.bind(message)
         }
 
         if (message.sender == Sender.USER && position > lastAnimatedPosition) {
@@ -452,6 +457,140 @@ class MessageAdapter : ListAdapter<ChatMessage, RecyclerView.ViewHolder>(DiffCal
                 stage to mins
             }
             timeline.setSegments(segments)
+        }
+    }
+
+    /**
+     * Renders the breathing-exercise card. The Lottie is driven
+     * frame-by-phase so the on-screen pacer visually *matches* the
+     * countdown text:
+     *
+     *   • inhale  → plays frames 90..150 stretched over the chosen
+     *               inhale seconds (setSpeed).
+     *   • hold-in → pauses at frame 150 for the hold duration.
+     *   • exhale  → plays frames 180..330 stretched over the chosen
+     *               exhale seconds.
+     *   • hold-out→ pauses at frame 330.
+     *
+     * Frame ranges were derived from the Lottie's scale keyframes
+     * (90,150,180,330 at 30fps). The coroutine is cancelled when the
+     * holder rebinds to a different message.
+     */
+    class BreathingCardViewHolder(view: View) : RecyclerView.ViewHolder(view) {
+        private val lottie: com.airbnb.lottie.LottieAnimationView = view.findViewById(R.id.breathingLottie)
+        private val pattern: TextView = view.findViewById(R.id.breathingPattern)
+        private val phase: TextView = view.findViewById(R.id.breathingPhase)
+        private val count: TextView = view.findViewById(R.id.breathingCount)
+        private val progress: TextView = view.findViewById(R.id.breathingProgress)
+        private var pacerJob: kotlinx.coroutines.Job? = null
+        private var lastBoundKey: String? = null
+
+        companion object {
+            // Derived from the pacer-breathe Lottie's MAIN circle keyframes
+            // (layer 15): scales from 28%→210% over frames 0→150 (inhale),
+            // holds 150→180 (peak), shrinks 180→330 back to ~26% (exhale).
+            // Frames 330→420 are a static rest tail we don't use.
+            private const val FPS = 29.97f
+            private const val INHALE_START = 0f
+            private const val INHALE_END = 150f
+            private const val EXHALE_START = 180f
+            private const val EXHALE_END = 330f
+        }
+
+        fun bind(message: ChatMessage) {
+            val meta = message.cardData?.firstOrNull() ?: return
+            val patternKey = meta["pattern"] ?: "478"
+            val cycles = meta["cycles"]?.toIntOrNull() ?: 4
+            val inhale = meta["in"]?.toIntOrNull() ?: 4
+            val holdIn = meta["hold"]?.toIntOrNull() ?: 0
+            val exhale = meta["out"]?.toIntOrNull() ?: 4
+            val holdOut = meta["hold2"]?.toIntOrNull() ?: 0
+
+            pattern.text = when (patternKey) {
+                "478" -> "4-7-8"
+                "box" -> "BOX"
+                "55" -> "5-5"
+                else -> patternKey.uppercase()
+            }
+
+            val key = "${message.timestamp}-$patternKey"
+            if (lastBoundKey == key && pacerJob?.isActive == true) return
+            lastBoundKey = key
+            pacerJob?.cancel()
+
+            // Don't replay historical sessions when Room rehydrates the
+            // chat — once a message is older than one full pacer run, it's
+            // a past event and should render in a completed state.
+            val sessionMs = (cycles * (inhale + holdIn + exhale + holdOut) * 1000L) + 2000L
+            val age = System.currentTimeMillis() - message.timestamp
+            if (age > sessionMs) {
+                renderCompletedState(cycles)
+                return
+            }
+
+            pacerJob = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Main).launch {
+                runPacer(cycles, inhale, holdIn, exhale, holdOut)
+            }
+        }
+
+        private fun renderCompletedState(cycles: Int) {
+            phase.text = "Completed"
+            count.text = "—"
+            progress.text = "Earlier session · $cycles cycles"
+            try {
+                lottie.cancelAnimation()
+                lottie.setMinAndMaxFrame(0, 420)
+                lottie.frame = EXHALE_END.toInt()  // at-rest small circle
+            } catch (_: Exception) {}
+        }
+
+        private suspend fun runPacer(cycles: Int, inhale: Int, holdIn: Int, exhale: Int, holdOut: Int) {
+            for (cycleIdx in 1..cycles) {
+                progress.text = "Cycle $cycleIdx of $cycles"
+                if (inhale > 0)  { startInhale(inhale); phaseCountdown("Inhale", inhale) }
+                if (holdIn > 0)  { holdAt(INHALE_END); phaseCountdown("Hold", holdIn) }
+                if (exhale > 0)  { startExhale(exhale); phaseCountdown("Exhale", exhale) }
+                if (holdOut > 0) { holdAt(EXHALE_END); phaseCountdown("Hold", holdOut) }
+            }
+            phase.text = "Done"
+            count.text = "Nice work."
+            try { lottie.pauseAnimation() } catch (_: Exception) {}
+        }
+
+        private fun startInhale(seconds: Int) = playSegment(INHALE_START, INHALE_END, seconds)
+        private fun startExhale(seconds: Int) = playSegment(EXHALE_START, EXHALE_END, seconds)
+
+        /** Plays a frame range, stretched so it lasts [durationSec] on the
+         *  wall clock. Uses [setMinAndMaxFrame] as one call + [progress=0]
+         *  so the Lottie library snaps cleanly to the new range instead of
+         *  clamping the old frame pointer. */
+        private fun playSegment(startFrame: Float, endFrame: Float, durationSec: Int) {
+            try {
+                lottie.cancelAnimation()
+                lottie.setMinAndMaxFrame(startFrame.toInt(), endFrame.toInt())
+                lottie.progress = 0f
+                val speed = (endFrame - startFrame) / (FPS * durationSec.coerceAtLeast(1))
+                lottie.speed = speed.coerceAtLeast(0.01f)
+                lottie.playAnimation()
+            } catch (_: Exception) {}
+        }
+
+        private fun holdAt(frame: Float) {
+            try {
+                lottie.cancelAnimation()
+                // Widen the range so setting `frame` is accepted (the lib
+                // clamps to min..max). Then park at the requested frame.
+                lottie.setMinAndMaxFrame(0, 420)
+                lottie.frame = frame.toInt()
+            } catch (_: Exception) {}
+        }
+
+        private suspend fun phaseCountdown(label: String, seconds: Int) {
+            phase.text = label
+            for (s in seconds downTo 1) {
+                count.text = s.toString()
+                kotlinx.coroutines.delay(1000)
+            }
         }
     }
 

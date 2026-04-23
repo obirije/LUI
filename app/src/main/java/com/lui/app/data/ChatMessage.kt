@@ -17,6 +17,7 @@ data class ChatMessage(
         LINK_PREVIEW,
         HEALTH_TREND_CHART,
         NOTIFICATIONS,
-        SLEEP
+        SLEEP,
+        BREATHING
     }
 }
