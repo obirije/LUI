@@ -1,6 +1,6 @@
 # lui-bridge
 
-Connect AI agents to LUI Android devices. 110 phone tools (including health ring, wellness mode, proactive scenarios, and generative music), MCP protocol, bidirectional communication.
+Connect AI agents to LUI Android devices. 112 phone tools (including health ring, wellness mode, proactive scenarios, generative music, guided breathing + counting), MCP protocol, bidirectional communication.
 
 ## Install
 
@@ -83,6 +83,11 @@ bridge.call_tool("generate_relaxing_music")   # auto-prompt from current stress 
 bridge.call_tool("morning_briefing")          # sleep recap + today's calendar
 bridge.call_tool("detect_stress_patterns")    # 21-day recurring peak analysis (7-day cooldown)
 bridge.call_tool("pre_meeting_check", {"event_title": "Standup"})
+
+# Guided exercises (open animated chat cards on the phone)
+bridge.call_tool("start_breathing_exercise", {"pattern": "4-7-8", "cycles": "4"})
+bridge.call_tool("start_counting_exercise", {"mode": "down", "start": "100", "end": "0"})
+bridge.call_tool("start_counting_exercise", {"mode": "primes"})  # auto-range by time of day
 
 # Get device state
 print(bridge.get_device_state())
