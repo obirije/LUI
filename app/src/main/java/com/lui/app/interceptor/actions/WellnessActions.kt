@@ -32,7 +32,10 @@ object WellnessActions {
             )
 
         return AmbientSoundPlayer.play(context, sound, wellnessMode = false).fold(
-            onSuccess = { ActionResult.Success("Playing ${sound.displayName}. Say 'stop sound' when you're done.") },
+            onSuccess = {
+                val marker = " [playing:kind=ambient;sound=${sound.name};label=${sound.displayName}]"
+                ActionResult.Success("Playing ${sound.displayName}. Say 'stop sound' when you're done.$marker")
+            },
             onFailure = { e -> ActionResult.Failure(e.message ?: "Couldn't play ${sound.displayName}.") }
         )
     }
@@ -142,7 +145,13 @@ object WellnessActions {
             onSuccess = { "${sound.displayName}${pickedNote} playing" },
             onFailure = { "(sound unavailable — ${it.message?.take(80)})" }
         )
-        return ActionResult.Success("Wellness mode on: $soundNote, notifications muted, screen dimmed. Say 'stop wellness mode' when you're ready to come back.")
+        // [playing:…] marker drives the NOW_PLAYING card renderer.
+        val marker = if (soundResult.isSuccess)
+            " [playing:kind=wellness;sound=${sound.name};label=${sound.displayName}]"
+        else ""
+        return ActionResult.Success(
+            "Wellness mode on: $soundNote, notifications muted, screen dimmed. Say 'stop wellness mode' when you're ready to come back.$marker"
+        )
     }
 
     /** Exit wellness mode: stop sound, restore brightness and DND. */
@@ -212,7 +221,11 @@ object WellnessActions {
                     }
                 }
                 AmbientSoundPlayer.playFromFile(context, file, wellnessMode = wellness).fold(
-                    onSuccess = { ActionResult.Success("Generated and playing: \"${composed.take(80)}\". Saved to your library. Say 'stop sound' when you're done.") },
+                    onSuccess = {
+                        val escaped = composed.take(60).replace(';', ',').replace('[', '(').replace(']', ')')
+                        val marker = " [playing:kind=generated;file=${file.name};label=$escaped]"
+                        ActionResult.Success("Generated and playing: \"${composed.take(80)}\". Saved to your library. Say 'stop sound' when you're done.$marker")
+                    },
                     onFailure = { e -> ActionResult.Failure("Generated the track but couldn't play it: ${e.message}") }
                 )
             },

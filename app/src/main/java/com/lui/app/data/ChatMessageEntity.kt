@@ -73,6 +73,7 @@ data class ChatMessageEntity(
                 ChatMessage.CardType.NOTIFICATIONS -> deriveNotifications(text)
                 ChatMessage.CardType.SLEEP -> deriveSleep(text)
                 ChatMessage.CardType.BREATHING -> deriveBreathing(text)
+                ChatMessage.CardType.NOW_PLAYING -> deriveNowPlaying(text)
             }
         }
 
@@ -82,6 +83,20 @@ data class ChatMessageEntity(
         fun deriveNotificationsForBuilder(text: String) = deriveNotifications(text)
         fun deriveSleepForBuilder(text: String) = deriveSleep(text)
         fun deriveBreathingForBuilder(text: String) = deriveBreathing(text)
+        fun deriveNowPlayingForBuilder(text: String) = deriveNowPlaying(text)
+
+        /** Parses [playing:kind=…;sound=…;label=…;file=…] into a single
+         *  row. Tells the card which audio is active so the ViewHolder
+         *  can reconcile against AmbientSoundPlayer live state. */
+        private fun deriveNowPlaying(text: String): List<Map<String, String>>? {
+            val match = Regex("""\[playing:([^]]+)]""").find(text) ?: return null
+            val parts = match.groupValues[1].split(';').mapNotNull {
+                val kv = it.split('=', limit = 2)
+                if (kv.size == 2) kv[0].trim() to kv[1].trim() else null
+            }.toMap()
+            if (parts.isEmpty()) return null
+            return listOf(parts)
+        }
 
         /** Parses [breath:pattern=478;cycles=4;in=4;hold=7;out=8;hold2=0]
          *  into a single-row map the BreathingCardViewHolder consumes. */

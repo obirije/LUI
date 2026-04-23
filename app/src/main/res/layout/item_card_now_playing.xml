@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Immersive layout used for sound effects (rain, fire, ocean, etc).
+     The Lottie IS the card — no title overlay, no dark footer. Only the
+     stop button floats in the corner, and even that hides when audio
+     isn't live so the surface stays uniform. -->
+<FrameLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:lottie="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:paddingTop="4dp"
+    android:paddingBottom="4dp">
+
+    <FrameLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="start"
+        android:layout_marginEnd="40dp"
+        android:background="@drawable/card_now_playing_bg"
+        android:clipToOutline="true">
+
+        <com.airbnb.lottie.LottieAnimationView
+            android:id="@+id/nowPlayingLottie"
+            android:layout_width="match_parent"
+            android:layout_height="200dp"
+            android:scaleType="centerCrop"
+            lottie:lottie_autoPlay="false"
+            lottie:lottie_loop="true"
+            lottie:lottie_rawRes="@raw/ai_music" />
+
+        <!-- Stop button, top-right, floating on animation -->
+        <ImageButton
+            android:id="@+id/nowPlayingStop"
+            android:layout_width="32dp"
+            android:layout_height="32dp"
+            android:layout_gravity="top|end"
+            android:layout_marginTop="10dp"
+            android:layout_marginEnd="10dp"
+            android:background="@drawable/btn_outlined"
+            android:contentDescription="Stop"
+            android:padding="8dp"
+            android:scaleType="centerInside"
+            android:src="@drawable/ic_stop_small" />
+
+        <!-- Hidden fields kept so the shared ViewHolder keeps working — they
+             carry state (live/stopped) but are not drawn on the immersive
+             variant. -->
+        <TextView
+            android:id="@+id/nowPlayingKind"
+            android:layout_width="0dp"
+            android:layout_height="0dp"
+            android:visibility="invisible" />
+
+        <TextView
+            android:id="@+id/nowPlayingName"
+            android:layout_width="0dp"
+            android:layout_height="0dp"
+            android:visibility="invisible" />
+
+        <TextView
+            android:id="@+id/nowPlayingStatus"
+            android:layout_width="0dp"
+            android:layout_height="0dp"
+            android:visibility="invisible" />
+    </FrameLayout>
+</FrameLayout>

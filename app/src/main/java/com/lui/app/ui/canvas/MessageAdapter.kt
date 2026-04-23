@@ -30,6 +30,8 @@ class MessageAdapter : ListAdapter<ChatMessage, RecyclerView.ViewHolder>(DiffCal
         private const val TYPE_CARD_NOTIFICATIONS = 7
         private const val TYPE_CARD_SLEEP = 8
         private const val TYPE_CARD_BREATHING = 9
+        private const val TYPE_CARD_NOW_PLAYING = 10
+        private const val TYPE_CARD_NOW_PLAYING_COMPACT = 11
     }
 
     private var lastAnimatedPosition = -1
@@ -46,6 +48,15 @@ class MessageAdapter : ListAdapter<ChatMessage, RecyclerView.ViewHolder>(DiffCal
                 com.lui.app.data.ChatMessage.CardType.NOTIFICATIONS -> TYPE_CARD_NOTIFICATIONS
                 com.lui.app.data.ChatMessage.CardType.SLEEP -> TYPE_CARD_SLEEP
                 com.lui.app.data.ChatMessage.CardType.BREATHING -> TYPE_CARD_BREATHING
+                com.lui.app.data.ChatMessage.CardType.NOW_PLAYING -> {
+                    // Compact layout for music (PIANO, MEDITATION, ACE-Step
+                    // generated tracks); immersive neon equalizer for
+                    // sound-effect-type ambients (rain, fire, ocean, …).
+                    val meta = msg.cardData?.firstOrNull()
+                    val isMusic = meta?.get("kind") == "generated" ||
+                        meta?.get("sound") in setOf("PIANO", "MEDITATION")
+                    if (isMusic) TYPE_CARD_NOW_PLAYING_COMPACT else TYPE_CARD_NOW_PLAYING
+                }
             }
         }
         return when (msg.sender) {
@@ -68,6 +79,8 @@ class MessageAdapter : ListAdapter<ChatMessage, RecyclerView.ViewHolder>(DiffCal
             TYPE_CARD_NOTIFICATIONS -> NotificationsViewHolder(inflater.inflate(R.layout.item_card_notifications, parent, false))
             TYPE_CARD_SLEEP -> SleepCardViewHolder(inflater.inflate(R.layout.item_card_sleep, parent, false))
             TYPE_CARD_BREATHING -> BreathingCardViewHolder(inflater.inflate(R.layout.item_card_breathing, parent, false))
+            TYPE_CARD_NOW_PLAYING -> NowPlayingCardViewHolder(inflater.inflate(R.layout.item_card_now_playing, parent, false))
+            TYPE_CARD_NOW_PLAYING_COMPACT -> NowPlayingCardViewHolder(inflater.inflate(R.layout.item_card_now_playing_compact, parent, false))
             else -> LuiViewHolder(inflater.inflate(R.layout.item_message_lui, parent, false))
         }
     }
@@ -85,6 +98,7 @@ class MessageAdapter : ListAdapter<ChatMessage, RecyclerView.ViewHolder>(DiffCal
             is NotificationsViewHolder -> holder.bind(message)
             is SleepCardViewHolder -> holder.bind(message)
             is BreathingCardViewHolder -> holder.bind(message)
+            is NowPlayingCardViewHolder -> holder.bind(message)
         }
 
         if (message.sender == Sender.USER && position > lastAnimatedPosition) {
@@ -590,6 +604,88 @@ class MessageAdapter : ListAdapter<ChatMessage, RecyclerView.ViewHolder>(DiffCal
             for (s in seconds downTo 1) {
                 count.text = s.toString()
                 kotlinx.coroutines.delay(1000)
+            }
+        }
+    }
+
+    /**
+     * Shows an equalizer-style Lottie while audio from [AmbientSoundPlayer]
+     * is active. The card is *message-scoped*: it reflects the sound the
+     * tool started, not whatever is playing now. When playback stops (or
+     * moves to a different sound/file), the Lottie pauses and the status
+     * switches to "Stopped".
+     */
+    class NowPlayingCardViewHolder(view: View) : RecyclerView.ViewHolder(view) {
+        private val lottie: com.airbnb.lottie.LottieAnimationView = view.findViewById(R.id.nowPlayingLottie)
+        private val kind: TextView = view.findViewById(R.id.nowPlayingKind)
+        private val name: TextView = view.findViewById(R.id.nowPlayingName)
+        private val status: TextView = view.findViewById(R.id.nowPlayingStatus)
+        private val stopBtn: android.widget.ImageButton = view.findViewById(R.id.nowPlayingStop)
+        private var pollJob: kotlinx.coroutines.Job? = null
+        private var lastBoundTs: Long = 0L
+
+        fun bind(message: ChatMessage) {
+            val meta = message.cardData?.firstOrNull() ?: return
+            val kindKey = meta["kind"] ?: "ambient"
+            val label = meta["label"]?.takeIf { it.isNotBlank() } ?: "Audio"
+            val soundName = meta["sound"]
+            val filename = meta["file"]
+
+            kind.text = when (kindKey) {
+                "wellness" -> "WELLNESS MODE"
+                "generated" -> "GENERATED"
+                else -> "AMBIENT"
+            }
+            name.text = label
+
+            // Reconcile state IMMEDIATELY on every bind — stale cards in
+            // chat history must not auto-play. The Lottie's autoPlay is
+            // off in XML; we flip it on here only if this card *is* the
+            // currently-playing audio.
+            renderState(isCurrentlyLive(soundName, filename))
+
+            stopBtn.setOnClickListener {
+                com.lui.app.audio.AmbientSoundPlayer.stop(itemView.context)
+                renderState(false)
+            }
+
+            if (lastBoundTs == message.timestamp && pollJob?.isActive == true) return
+            lastBoundTs = message.timestamp
+
+            // 500ms poll keeps the live card in sync when audio stops from
+            // elsewhere (voice "stop sound", another card's stop button,
+            // or wellness-mode ending).
+            pollJob?.cancel()
+            pollJob = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Main).launch {
+                while (kotlin.coroutines.coroutineContext[kotlinx.coroutines.Job]?.isActive == true) {
+                    renderState(isCurrentlyLive(soundName, filename))
+                    kotlinx.coroutines.delay(500)
+                }
+            }
+        }
+
+        private fun isCurrentlyLive(soundName: String?, filename: String?): Boolean {
+            val playing = com.lui.app.audio.AmbientSoundPlayer.currentlyPlaying
+            val playingFile = com.lui.app.audio.AmbientSoundPlayer.currentlyPlayingFile
+            return when {
+                soundName != null -> playing?.name == soundName
+                filename != null -> playingFile?.name == filename
+                else -> playing != null || playingFile != null
+            }
+        }
+
+        private fun renderState(live: Boolean) {
+            if (live) {
+                if (!lottie.isAnimating) try { lottie.playAnimation() } catch (_: Exception) {}
+                status.text = "Playing"
+                status.setTextColor(android.graphics.Color.parseColor("#9ED8A9"))
+                stopBtn.visibility = View.VISIBLE
+            } else {
+                if (lottie.isAnimating) try { lottie.pauseAnimation() } catch (_: Exception) {}
+                try { lottie.progress = 0f } catch (_: Exception) {}
+                status.text = "Stopped"
+                status.setTextColor(android.graphics.Color.parseColor("#9E9480"))
+                stopBtn.visibility = View.GONE
             }
         }
     }
