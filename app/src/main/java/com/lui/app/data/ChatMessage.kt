@@ -19,6 +19,7 @@ data class ChatMessage(
         NOTIFICATIONS,
         SLEEP,
         BREATHING,
-        NOW_PLAYING
+        NOW_PLAYING,
+        COUNTING
     }
 }

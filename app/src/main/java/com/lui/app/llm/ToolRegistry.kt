@@ -177,6 +177,11 @@ If unsure, rain is the safe universal pick.""",
         ToolDef("start_breathing_exercise", "Open a guided breathing exercise card with an animated pacer. Use when the user asks to 'breathe', 'do a breath reset', 'help me calm down quickly', or proactively when stress is high. Pairs naturally with start_wellness_mode (chain them: ambient + breathwork). Pattern picks: '4-7-8' (deep parasympathetic, default), 'box' (focusing), '5-5' (gentle paced).",
             listOf(ParamDef("pattern", description = "Breathing pattern", enum = listOf("4-7-8", "box", "5-5")),
                    ParamDef("cycles", description = "Number of breath cycles (default 4)"))),
+        ToolDef("start_counting_exercise", "Open a guided counting-exercise card — a grounding technique for acute stress/panic. The card cycles through numbers with gentle fade transitions while the user follows along. Use when the user asks to 'count down', 'help me calm down with numbers', or proactively when stress spikes and breathwork isn't a fit. The `start` and `end` define the full range — 'count down from 100' sets start=100 and counts all the way to end=0. Leave `start`/`end` blank to let LUI pick sensibly based on time of day (shorter at night, longer midday).",
+            listOf(ParamDef("mode", description = "Counting mode", enum = listOf("down", "up", "primes", "odds", "evens", "by_sevens")),
+                   ParamDef("start", description = "First number in the range (optional — auto-picked by time of day)"),
+                   ParamDef("end", description = "Last number — for 'down' this is typically 0; for 'up' it's the max. Optional — auto-picked by time of day."),
+                   ParamDef("interval_ms", description = "Milliseconds per number (default 2500)"))),
 
         // Sensors
         ToolDef("get_steps", "Get step count from the pedometer sensor"),

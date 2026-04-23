@@ -56,13 +56,28 @@
                 android:textColor="#F3EBD8"
                 android:textSize="15sp" />
 
-            <TextView
-                android:id="@+id/nowPlayingStatus"
-                android:layout_width="wrap_content"
+            <LinearLayout
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="2dp"
-                android:textColor="#9E9480"
-                android:textSize="11sp" />
+                android:orientation="horizontal">
+
+                <TextView
+                    android:id="@+id/nowPlayingStatus"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:textColor="#9E9480"
+                    android:textSize="11sp" />
+
+                <TextView
+                    android:id="@+id/nowPlayingElapsed"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="6dp"
+                    android:fontFamily="monospace"
+                    android:textColor="#6E6554"
+                    android:textSize="11sp" />
+            </LinearLayout>
         </LinearLayout>
 
         <ImageButton

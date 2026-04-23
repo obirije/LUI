@@ -32,6 +32,7 @@ class MessageAdapter : ListAdapter<ChatMessage, RecyclerView.ViewHolder>(DiffCal
         private const val TYPE_CARD_BREATHING = 9
         private const val TYPE_CARD_NOW_PLAYING = 10
         private const val TYPE_CARD_NOW_PLAYING_COMPACT = 11
+        private const val TYPE_CARD_COUNTING = 12
     }
 
     private var lastAnimatedPosition = -1
@@ -48,6 +49,7 @@ class MessageAdapter : ListAdapter<ChatMessage, RecyclerView.ViewHolder>(DiffCal
                 com.lui.app.data.ChatMessage.CardType.NOTIFICATIONS -> TYPE_CARD_NOTIFICATIONS
                 com.lui.app.data.ChatMessage.CardType.SLEEP -> TYPE_CARD_SLEEP
                 com.lui.app.data.ChatMessage.CardType.BREATHING -> TYPE_CARD_BREATHING
+                com.lui.app.data.ChatMessage.CardType.COUNTING -> TYPE_CARD_COUNTING
                 com.lui.app.data.ChatMessage.CardType.NOW_PLAYING -> {
                     // Compact layout for music (PIANO, MEDITATION, ACE-Step
                     // generated tracks); immersive neon equalizer for
@@ -81,6 +83,7 @@ class MessageAdapter : ListAdapter<ChatMessage, RecyclerView.ViewHolder>(DiffCal
             TYPE_CARD_BREATHING -> BreathingCardViewHolder(inflater.inflate(R.layout.item_card_breathing, parent, false))
             TYPE_CARD_NOW_PLAYING -> NowPlayingCardViewHolder(inflater.inflate(R.layout.item_card_now_playing, parent, false))
             TYPE_CARD_NOW_PLAYING_COMPACT -> NowPlayingCardViewHolder(inflater.inflate(R.layout.item_card_now_playing_compact, parent, false))
+            TYPE_CARD_COUNTING -> CountingCardViewHolder(inflater.inflate(R.layout.item_card_counting, parent, false))
             else -> LuiViewHolder(inflater.inflate(R.layout.item_message_lui, parent, false))
         }
     }
@@ -99,6 +102,7 @@ class MessageAdapter : ListAdapter<ChatMessage, RecyclerView.ViewHolder>(DiffCal
             is SleepCardViewHolder -> holder.bind(message)
             is BreathingCardViewHolder -> holder.bind(message)
             is NowPlayingCardViewHolder -> holder.bind(message)
+            is CountingCardViewHolder -> holder.bind(message)
         }
 
         if (message.sender == Sender.USER && position > lastAnimatedPosition) {
@@ -620,9 +624,15 @@ class MessageAdapter : ListAdapter<ChatMessage, RecyclerView.ViewHolder>(DiffCal
         private val kind: TextView = view.findViewById(R.id.nowPlayingKind)
         private val name: TextView = view.findViewById(R.id.nowPlayingName)
         private val status: TextView = view.findViewById(R.id.nowPlayingStatus)
+        private val elapsed: TextView = view.findViewById(R.id.nowPlayingElapsed)
         private val stopBtn: android.widget.ImageButton = view.findViewById(R.id.nowPlayingStop)
         private var pollJob: kotlinx.coroutines.Job? = null
         private var lastBoundTs: Long = 0L
+        private var startTs: Long = 0L
+        // Final elapsed when playback stops — persisted per message
+        // timestamp so rehydrating the chat shows "Played for 3:42" rather
+        // than restarting the counter at 0.
+        private var finalDurations: MutableMap<Long, Long> = mutableMapOf()
 
         fun bind(message: ChatMessage) {
             val meta = message.cardData?.firstOrNull() ?: return
@@ -637,29 +647,38 @@ class MessageAdapter : ListAdapter<ChatMessage, RecyclerView.ViewHolder>(DiffCal
                 else -> "AMBIENT"
             }
             name.text = label
+            startTs = message.timestamp
 
             // Reconcile state IMMEDIATELY on every bind — stale cards in
             // chat history must not auto-play. The Lottie's autoPlay is
             // off in XML; we flip it on here only if this card *is* the
             // currently-playing audio.
-            renderState(isCurrentlyLive(soundName, filename))
+            renderState(isCurrentlyLive(soundName, filename), startTs)
 
             stopBtn.setOnClickListener {
                 com.lui.app.audio.AmbientSoundPlayer.stop(itemView.context)
-                renderState(false)
+                finalDurations[startTs] = System.currentTimeMillis() - startTs
+                renderState(false, startTs)
             }
 
             if (lastBoundTs == message.timestamp && pollJob?.isActive == true) return
             lastBoundTs = message.timestamp
 
-            // 500ms poll keeps the live card in sync when audio stops from
-            // elsewhere (voice "stop sound", another card's stop button,
-            // or wellness-mode ending).
+            // 1-second poll drives the live elapsed counter + reconciles
+            // when audio stops from elsewhere (voice "stop sound", another
+            // card's stop button, or wellness-mode ending).
             pollJob?.cancel()
             pollJob = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Main).launch {
+                var wasLive = false
                 while (kotlin.coroutines.coroutineContext[kotlinx.coroutines.Job]?.isActive == true) {
-                    renderState(isCurrentlyLive(soundName, filename))
-                    kotlinx.coroutines.delay(500)
+                    val live = isCurrentlyLive(soundName, filename)
+                    // Capture the stop instant so rehydration remembers it
+                    if (wasLive && !live && finalDurations[startTs] == null) {
+                        finalDurations[startTs] = System.currentTimeMillis() - startTs
+                    }
+                    wasLive = live
+                    renderState(live, startTs)
+                    kotlinx.coroutines.delay(1000)
                 }
             }
         }
@@ -674,19 +693,159 @@ class MessageAdapter : ListAdapter<ChatMessage, RecyclerView.ViewHolder>(DiffCal
             }
         }
 
-        private fun renderState(live: Boolean) {
+        private fun renderState(live: Boolean, startMs: Long) {
             if (live) {
                 if (!lottie.isAnimating) try { lottie.playAnimation() } catch (_: Exception) {}
                 status.text = "Playing"
                 status.setTextColor(android.graphics.Color.parseColor("#9ED8A9"))
                 stopBtn.visibility = View.VISIBLE
+                elapsed.text = formatElapsed(System.currentTimeMillis() - startMs)
             } else {
                 if (lottie.isAnimating) try { lottie.pauseAnimation() } catch (_: Exception) {}
                 try { lottie.progress = 0f } catch (_: Exception) {}
-                status.text = "Stopped"
+                val finalMs = finalDurations[startMs]
+                if (finalMs != null) {
+                    status.text = "Played for"
+                    elapsed.text = formatElapsed(finalMs)
+                } else {
+                    status.text = "Stopped"
+                    elapsed.text = ""
+                }
                 status.setTextColor(android.graphics.Color.parseColor("#9E9480"))
                 stopBtn.visibility = View.GONE
             }
+        }
+
+        private fun formatElapsed(ms: Long): String {
+            val s = (ms / 1000).coerceAtLeast(0)
+            val m = s / 60
+            val rem = s % 60
+            return String.format(java.util.Locale.getDefault(), "%d:%02d", m, rem)
+        }
+    }
+
+    /**
+     * Renders the counting-exercise card — a grounding technique for acute
+     * stress. The number itself is the animation: each tick the current
+     * number fades out, the next one fades in over ~250ms, then holds for
+     * the remainder of the interval. No Lottie — pure typography keeps
+     * focus on the number, which is the whole point of the technique.
+     *
+     * Stale-session guard: if a card is older than its total duration,
+     * shows a static "Completed" state and skips the fade loop.
+     */
+    class CountingCardViewHolder(view: View) : RecyclerView.ViewHolder(view) {
+        private val eyebrow: TextView = view.findViewById(R.id.countingEyebrow)
+        private val number: TextView = view.findViewById(R.id.countingNumber)
+        private val label: TextView = view.findViewById(R.id.countingLabel)
+        private val progress: TextView = view.findViewById(R.id.countingProgress)
+        private var tickerJob: kotlinx.coroutines.Job? = null
+        private var lastBoundKey: String? = null
+
+        fun bind(message: ChatMessage) {
+            val meta = message.cardData?.firstOrNull() ?: return
+            val mode = meta["mode"] ?: "down"
+            val start = meta["start"]?.toIntOrNull() ?: 100
+            val end = meta["end"]?.toIntOrNull() ?: if (mode == "down") 0 else start + 9
+            val intervalMs = meta["interval"]?.toLongOrNull()?.coerceIn(500L, 10_000L) ?: 2500L
+
+            eyebrow.text = "COUNTING — ${mode.uppercase().replace('_', ' ')}"
+            label.text = when (mode) {
+                "up"        -> "Count from $start to $end"
+                "down"      -> "Count down from $start to $end"
+                "primes"    -> "Primes from $start up to $end"
+                "odds"      -> "Odd numbers from $start to $end"
+                "evens"     -> "Even numbers from $start to $end"
+                "by_sevens" -> "Serial sevens from $start to $end"
+                else -> "Counting"
+            }
+
+            val key = "${message.timestamp}-$mode-$start-$end"
+            if (lastBoundKey == key && tickerJob?.isActive == true) return
+            lastBoundKey = key
+            tickerJob?.cancel()
+
+            val sequence = generateSequence(mode, start, end)
+            val sessionMs = sequence.size * intervalMs + 2000L
+            val age = System.currentTimeMillis() - message.timestamp
+            if (age > sessionMs) {
+                renderCompleted(sequence.size)
+                return
+            }
+
+            tickerJob = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Main).launch {
+                runTicker(sequence, intervalMs)
+            }
+        }
+
+        private suspend fun runTicker(seq: List<Int>, intervalMs: Long) {
+            // Show the first number without a prior fade-out
+            if (seq.isEmpty()) return
+            number.alpha = 0f
+            number.text = seq[0].toString()
+            progress.text = "1 of ${seq.size}"
+            fadeIn(250)
+            kotlinx.coroutines.delay(intervalMs - 250)
+
+            for (i in 1 until seq.size) {
+                fadeOut(250)
+                kotlinx.coroutines.delay(260)
+                number.text = seq[i].toString()
+                progress.text = "${i + 1} of ${seq.size}"
+                fadeIn(250)
+                kotlinx.coroutines.delay(intervalMs - 250)
+            }
+
+            // Done — fade the number to a soft resting state
+            fadeOut(400)
+            kotlinx.coroutines.delay(420)
+            number.text = "✓"
+            fadeIn(400)
+            progress.text = "Completed"
+        }
+
+        private fun renderCompleted(count: Int) {
+            number.alpha = 1f
+            number.text = "✓"
+            progress.text = "Earlier session · $count numbers"
+        }
+
+        private fun fadeIn(ms: Long) {
+            number.animate().alpha(1f).setDuration(ms).start()
+        }
+
+        private fun fadeOut(ms: Long) {
+            number.animate().alpha(0f).setDuration(ms).start()
+        }
+
+        private fun generateSequence(mode: String, start: Int, end: Int): List<Int> {
+            return when (mode) {
+                "up"        -> (start..end).toList()
+                "down"      -> (start downTo end).toList()
+                "odds"      -> {
+                    val first = if (start % 2 == 1) start else start + 1
+                    generateSequence(first) { if (it + 2 <= end) it + 2 else null }.toList()
+                }
+                "evens"     -> {
+                    val first = if (start % 2 == 0) start else start + 1
+                    generateSequence(first) { if (it + 2 <= end) it + 2 else null }.toList()
+                }
+                "by_sevens" -> generateSequence(start) { if (it + 7 <= end) it + 7 else null }.toList()
+                "primes"    -> (maxOf(start, 2)..end).filter { isPrime(it) }
+                else -> (start..end).toList()
+            }
+        }
+
+        private fun isPrime(n: Int): Boolean {
+            if (n < 2) return false
+            if (n < 4) return true
+            if (n % 2 == 0) return false
+            var i = 3
+            while (i.toLong() * i <= n) {
+                if (n % i == 0) return false
+                i += 2
+            }
+            return true
         }
     }
 

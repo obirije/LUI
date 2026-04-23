@@ -74,6 +74,7 @@ data class ChatMessageEntity(
                 ChatMessage.CardType.SLEEP -> deriveSleep(text)
                 ChatMessage.CardType.BREATHING -> deriveBreathing(text)
                 ChatMessage.CardType.NOW_PLAYING -> deriveNowPlaying(text)
+                ChatMessage.CardType.COUNTING -> deriveCounting(text)
             }
         }
 
@@ -84,6 +85,19 @@ data class ChatMessageEntity(
         fun deriveSleepForBuilder(text: String) = deriveSleep(text)
         fun deriveBreathingForBuilder(text: String) = deriveBreathing(text)
         fun deriveNowPlayingForBuilder(text: String) = deriveNowPlaying(text)
+        fun deriveCountingForBuilder(text: String) = deriveCounting(text)
+
+        /** Parses [counting:mode=…;start=…;count=…;interval=…] into a single
+         *  row. The ViewHolder generates the number sequence from this. */
+        private fun deriveCounting(text: String): List<Map<String, String>>? {
+            val match = Regex("""\[counting:([^]]+)]""").find(text) ?: return null
+            val parts = match.groupValues[1].split(';').mapNotNull {
+                val kv = it.split('=', limit = 2)
+                if (kv.size == 2) kv[0].trim() to kv[1].trim() else null
+            }.toMap()
+            if (parts.isEmpty()) return null
+            return listOf(parts)
+        }
 
         /** Parses [playing:kind=…;sound=…;label=…;file=…] into a single
          *  row. Tells the card which audio is active so the ViewHolder

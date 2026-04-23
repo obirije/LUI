@@ -303,6 +303,130 @@ object WellnessActions {
 
     private data class Quintuple(val a: Int, val b: Int, val c: Int, val d: Int, val name: String)
 
+    /**
+     * Start a guided counting exercise — a classic grounding technique for
+     * acute stress. The card shows each number in sequence with a gentle
+     * fade transition; the ViewHolder generates the sequence client-side
+     * from [mode] + [start] + [count] so the marker stays compact.
+     *
+     * Modes:
+     *   "down"  — canonical "count back from 100" (most therapeutic)
+     *   "up"    — ascending from start
+     *   "primes" — 2, 3, 5, 7, 11… (deeper cognitive distraction)
+     *   "odds" / "evens" — alternating parity
+     *   "by_sevens" — classic serial-7 technique (adds 7 each step)
+     */
+    fun startCountingExercise(
+        context: Context,
+        mode: String = "down",
+        start: Int? = null,
+        end: Int? = null,
+        intervalMs: Int = 2500
+    ): ActionResult {
+        val normalizedMode = when (mode.lowercase().trim().replace(" ", "").replace("-", "_")) {
+            "up", "ascending" -> "up"
+            "down", "descending", "backward", "backwards" -> "down"
+            "primes", "prime" -> "primes"
+            "odds", "odd" -> "odds"
+            "evens", "even" -> "evens"
+            "by_sevens", "sevens", "serial_7", "serial7" -> "by_sevens"
+            else -> "down"
+        }
+
+        // Pick a sensible (start, end) based on mode + time of day when the
+        // caller leaves them blank. Night = shorter sequences (help the
+        // user fall asleep sooner); work hours = longer sequences (more
+        // grounding through harder mental effort).
+        val (actualStart, actualEnd) = resolveRange(normalizedMode, start, end)
+        val count = sequenceLength(normalizedMode, actualStart, actualEnd).coerceIn(3, 200)
+        val safeInterval = intervalMs.coerceIn(800, 6000)
+
+        val label = when (normalizedMode) {
+            "up"        -> "Count from $actualStart to $actualEnd"
+            "down"      -> "Count down from $actualStart to $actualEnd"
+            "primes"    -> "Primes from $actualStart up to $actualEnd"
+            "odds"      -> "Odd numbers from $actualStart to $actualEnd"
+            "evens"     -> "Even numbers from $actualStart to $actualEnd"
+            "by_sevens" -> "Serial sevens from $actualStart to $actualEnd"
+            else -> "Count"
+        }
+        val totalSec = (count * safeInterval) / 1000
+
+        // Marker includes `end` so the client can reconstruct + display the
+        // full range even though the ViewHolder only needs count+start to
+        // regenerate.
+        val marker = "[counting:mode=$normalizedMode;start=$actualStart;end=$actualEnd;count=$count;interval=$safeInterval]"
+        return ActionResult.Success(
+            "$label — $count numbers, about ${totalSec}s. Breathe slowly between them. $marker"
+        )
+    }
+
+    /** Resolve (start, end) using caller-supplied values first, then
+     *  mode-specific defaults biased by the current hour. */
+    private fun resolveRange(mode: String, start: Int?, end: Int?): Pair<Int, Int> {
+        val hour = java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY)
+        val tier = when (hour) {
+            in 22..23, in 0..5 -> "night"      // shorter — aid sleep
+            in 6..10           -> "morning"    // moderate
+            in 11..17          -> "day"        // longer — full grounding
+            else               -> "evening"    // moderate
+        }
+
+        return when (mode) {
+            "up" -> {
+                val s = start ?: 1
+                val defaultEnd = when (tier) { "night" -> 10; "morning" -> 20; "day" -> 30; else -> 20 }
+                s to (end ?: (s + defaultEnd - 1))
+            }
+            "down" -> {
+                val defaultStart = when (tier) { "night" -> 30; "morning" -> 50; "day" -> 100; else -> 50 }
+                val s = start ?: defaultStart
+                s to (end ?: 0)
+            }
+            "primes" -> {
+                val s = start ?: 2
+                val defaultEnd = when (tier) { "night" -> 30; "morning" -> 60; "day" -> 100; else -> 60 }
+                s to (end ?: defaultEnd)
+            }
+            "odds", "evens" -> {
+                val s = start ?: (if (mode == "odds") 1 else 2)
+                val defaultEnd = when (tier) { "night" -> 20; "morning" -> 30; "day" -> 50; else -> 30 }
+                s to (end ?: defaultEnd)
+            }
+            "by_sevens" -> {
+                val s = start ?: 0
+                val defaultEnd = when (tier) { "night" -> 49; "morning" -> 70; "day" -> 98; else -> 70 }
+                s to (end ?: defaultEnd)
+            }
+            else -> (start ?: 100) to (end ?: 0)
+        }
+    }
+
+    /** Count of numbers the viewholder will emit, given mode + range. */
+    private fun sequenceLength(mode: String, start: Int, end: Int): Int {
+        return when (mode) {
+            "up" -> (end - start + 1).coerceAtLeast(1)
+            "down" -> (start - end + 1).coerceAtLeast(1)
+            "odds", "evens" -> ((end - start) / 2 + 1).coerceAtLeast(1)
+            "by_sevens" -> ((end - start) / 7 + 1).coerceAtLeast(1)
+            "primes" -> {
+                var n = maxOf(start, 2); var cnt = 0
+                while (n <= end) { if (isPrime(n)) cnt++; n++ }
+                cnt.coerceAtLeast(1)
+            }
+            else -> 10
+        }
+    }
+
+    private fun isPrime(n: Int): Boolean {
+        if (n < 2) return false
+        if (n < 4) return true
+        if (n % 2 == 0) return false
+        var i = 3
+        while (i.toLong() * i <= n) { if (n % i == 0) return false; i += 2 }
+        return true
+    }
+
     fun listRelaxingSounds(context: Context): ActionResult {
         val available = AmbientSoundPlayer.availableSounds(context)
         if (available.isEmpty()) {

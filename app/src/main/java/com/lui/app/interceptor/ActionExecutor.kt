@@ -130,6 +130,12 @@ object ActionExecutor {
                 context,
                 pattern = toolCall.params["pattern"] ?: "4-7-8",
                 cycles = toolCall.params["cycles"]?.toIntOrNull() ?: 4)
+            "start_counting_exercise" -> WellnessActions.startCountingExercise(
+                context,
+                mode = toolCall.params["mode"] ?: "down",
+                start = toolCall.params["start"]?.toIntOrNull(),
+                end = toolCall.params["end"]?.toIntOrNull(),
+                intervalMs = toolCall.params["interval_ms"]?.toIntOrNull() ?: 2500)
 
             "get_steps" -> SensorActions.getSteps(context)
             "get_proximity" -> SensorActions.getProximity(context)
