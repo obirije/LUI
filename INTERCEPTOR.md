@@ -35,7 +35,7 @@ Used for local/offline mode and for forcing live-state queries in cloud mode. Pa
 
 ---
 
-## All Tools (106)
+## All Tools (110)
 
 ### Hardware Controls
 
@@ -212,8 +212,19 @@ All readings persist to a local Room `health_readings` table with timestamps. Ba
 | `list_relaxing_sounds` | — | "what relaxing sounds are there" |
 | `start_wellness_mode` | `sound` (optional) | "help me calm down", "start wellness mode" |
 | `stop_wellness_mode` | — | "stop wellness mode", "exit wellness mode" |
+| `generate_relaxing_music` | `prompt` (optional), `duration` (optional) | "generate calming music", "make me a track" |
 
-11 bundled tracks (9 ambient + 2 music). If `start_wellness_mode` is called without a sound, LUI auto-picks based on time of day and current ring stress level. See [docs/ambient-sounds.md](docs/ambient-sounds.md) for the full lineup and licensing.
+11 bundled tracks (9 ambient + 2 music). If `start_wellness_mode` is called without a sound, LUI auto-picks based on time of day and current ring stress level. `generate_relaxing_music` requires a self-hosted [ACE-Step](https://github.com/ace-step/ACE-Step-1.5) endpoint configured in Connection Hub — generated tracks are saved to a local library (rename/favorite/delete) and loop with a two-player crossfade. Falls back to the bundled piano if unreachable. See [docs/ambient-sounds.md](docs/ambient-sounds.md) for the bundled lineup and licensing.
+
+### Proactive Wellbeing Scenarios
+
+| Tool | Params | Example phrases |
+|:-----|:-------|:----------------|
+| `morning_briefing` | — | "give me a morning briefing", "what's the day look like" |
+| `detect_stress_patterns` | — | "any stress patterns", "what are my stress peaks" |
+| `pre_meeting_check` | `event_title` (optional) | Normally fired by the scheduler, callable manually |
+
+These tools are also called automatically by the built-in scenario orchestrator (acute stress recovery, daily morning briefing, pre-meeting readiness, weekly pattern detection) without user input.
 
 ### Web
 

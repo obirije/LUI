@@ -1,6 +1,6 @@
 # lui-bridge
 
-Connect AI agents to LUI Android devices. 106 phone tools (including health ring + wellness mode), MCP protocol, bidirectional communication.
+Connect AI agents to LUI Android devices. 110 phone tools (including health ring, wellness mode, proactive scenarios, and generative music), MCP protocol, bidirectional communication.
 
 ## Install
 
@@ -51,6 +51,13 @@ console.log(await bridge.callTool('get_health_trend', { metric: 'stress', hours:
 // Wellness
 console.log(await bridge.callTool('play_relaxing_sound', { type: 'rain' }));
 console.log(await bridge.callTool('start_wellness_mode'));  // auto-picks sound by time/stress
+
+// Generative music (requires self-hosted ACE-Step endpoint)
+console.log(await bridge.callTool('generate_relaxing_music', { prompt: 'soft ambient piano', duration: '45' }));
+
+// Proactive wellbeing scenarios (normally fire on their own schedule)
+console.log(await bridge.callTool('morning_briefing'));
+console.log(await bridge.callTool('detect_stress_patterns'));
 
 // Device info
 console.log(await bridge.getDeviceState());

@@ -21,7 +21,7 @@
 
 Voice assistants like Siri and Google Assistant can answer questions, but they can't actually *use* your phone. AI chatbots sit in an app waiting for you to copy and paste. 
 
-LUI replaces your Android home screen with a conversational interface backed by real agency — 106 native tools, a full voice pipeline, an on-device LLM, and optional Colmi smart-ring integration for continuous health awareness. You speak, it acts.
+LUI replaces your Android home screen with a conversational interface backed by real agency — 110 native tools, a full voice pipeline, an on-device LLM, and optional Colmi smart-ring integration for continuous health awareness. You speak, it acts.
 
 For developers — your AI agents deserve better than a Telegram bot. 
 
@@ -74,12 +74,14 @@ All by voice. Say **"Hey LUI"** even when the phone is locked — it wakes up, g
 ## Features ⚡
 
 - 🏠 **Replaces your home screen** — no icons, no widgets, no noise. Just a clean chat interface.
-- 🛠 **106 native device tools** — hardware, calls, SMS, calendar, navigation, media, camera, notifications, screen control, sensors, web search, triggers, files, health ring, wellness, and more.
+- 🛠 **110 native device tools** — hardware, calls, SMS, calendar, navigation, media, camera, notifications, screen control, sensors, web search, triggers, files, health ring, wellness, music generation, and more.
 - 🎙 **Voice-first** — streaming voice pipeline with wake word ("Hey LUI"), conversation mode, and natural TTS. Hands-free. Experimental: full-duplex real-time audio conversation via GPU server.
 - 🧠 **On-device LLM** — Qwen2.5 1.5B Instruct runs locally via llama.cpp. No cloud, no API keys, fully private. Auto-downloads from Connection Hub.
 - ☁️ **Cloud LLM** — Gemma 4, Claude, OpenAI, or Ollama with native function calling.
 - 💍 **Health ring (Colmi R09)** — continuous BLE monitoring of heart rate, SpO2, stress, HRV, sleep, steps, temperature, with 24-hour trend history stored locally.
 - 🧘 **Wellness mode** — stress-aware intervention. 11 bundled ambient sounds and calming music (rain, ocean, forest, thunder, Debussy's Clair de Lune, meditation bell…) + DND + screen dim. Time and stress-aware sound picking, time-aware volume, proactive alerts when stress runs high.
+- 🧩 **Proactive wellbeing scenarios** — four always-watching rules: acute stress recovery (checks the calendar for imminent meetings before suggesting wellness mode), morning briefing after a rough night (sleep recap + today's schedule + reschedule draft), pre-meeting readiness (10-min-before breath offer when HRV/stress is off), weekly stress pattern detection (flags recurring peaks like "Mondays at 2pm"). Fire automatically in the background.
+- 🎼 **Generative music (BYOC)** — point LUI at a self-hosted ACE-Step endpoint and it generates bespoke calming tracks on demand, with auto-prompting from your current stress and time-of-day. Tracks persist in a local library (rename, favorite, delete) and loop with a two-player crossfade — no audible seams. Falls back to the bundled piano if the endpoint is unreachable.
 - 📸 **Vision** — camera capture and gallery picker with AI image analysis.
 - 🔍 **Web search & browse** — search DuckDuckGo and browse any URL, all by voice. No API key needed.
 - 🃏 **Rich cards** — search results show as clickable link cards, device status as color-coded panels. Not just text.
@@ -139,7 +141,7 @@ Requires JDK 17, Android SDK 35, NDK 28, CMake 3.31+.
 2. Open LUI on your phone. Complete the onboarding.
 
 3. **Get an LLM running** (pick one):
-   - **Easiest:** Tap the status dot → Connection Hub → select **Gemma 4** → paste a free API key from [aistudio.google.com](https://aistudio.google.com/apikey) → toggle Cloud-first on. Done — free tier with all 106 tools.
+   - **Easiest:** Tap the status dot → Connection Hub → select **Gemma 4** → paste a free API key from [aistudio.google.com](https://aistudio.google.com/apikey) → toggle Cloud-first on. Done — free tier with all 110 tools.
    - **Self-hosted:** Select **Ollama** → enter your machine's IP and model name. Any model with tool support works (Qwen 3.5, Llama 3.1, Mistral).
    - **Fully offline:** The on-device model auto-downloads from the Connection Hub. No API key needed.
 
@@ -160,7 +162,7 @@ Without cloud speech, LUI uses on-device TTS (Pocket TTS).
 
 ## Connect Your AI Agents 🤖
 
-LUI exposes all 106 phone tools over an MCP-compatible WebSocket bridge. Any agent framework can connect.
+LUI exposes all 110 phone tools over an MCP-compatible WebSocket bridge. Any agent framework can connect.
 
 ```bash
 pip install lui-bridge
@@ -192,7 +194,7 @@ Also available: `npm install -g lui-bridge` for Node.js.
 
 ---
 
-## Tools 🔧 (106)
+## Tools 🔧 (110)
 
 | Category | Count | Examples |
 |:---------|:------|:--------|
@@ -211,7 +213,8 @@ Also available: `npm install -g lui-bridge` for Node.js.
 | Clipboard & System | 8 | Copy, read, share, settings, Wi-Fi/BT settings, wallpaper, bedtime mode |
 | Vision | 3 | Take photo, pick image from gallery, analyze image |
 | **Health Ring** (Colmi R09) | **13** | Heart rate, SpO2, stress, HRV, sleep, activity/steps, temperature, battery, find ring, status, capabilities, health summary, trend history |
-| **Wellness** | **5** | Play/stop relaxing sound, list sounds, start/stop wellness mode (sound + DND + dim) |
+| **Wellness + Music Gen** | **6** | Play/stop relaxing sound, list sounds, start/stop wellness mode, generate relaxing music (ACE-Step BYOC) |
+| **Proactive Scenarios** | **3** | Morning briefing, pre-meeting check, weekly stress patterns |
 | Bridge | 7 | Start/stop bridge, status, list agents, instruct agent, passthrough start/end |
 | Meta | 4 | Undo, open LUI, keep screen on, screen timeout |
 
@@ -228,7 +231,7 @@ You (voice / text)
 ┌──────────────────────────────────┐
 │  Cloud LLM available?            │
 │  YES → Native function calling   │──▶ Gemma 4 / Claude / OpenAI / Ollama
-│        (106 tools, multi-turn)   │    Up to 5 rounds per request
+│        (110 tools, multi-turn)   │    Up to 5 rounds per request
 │  NO  → On-device LLM + keywords │──▶ Qwen2.5 1.5B Instruct (llama.cpp)
 └──────────┬───────────────────────┘
            │
@@ -271,7 +274,7 @@ You (voice / text)
 
 ## Roadmap 🗺️
 
-**Shipped:** On-device launcher + LLM, voice conversation, 106 device tools with native function calling, BYOS WebSocket bridge (MCP, event streaming, bidirectional, permission tiers, relay), agent passthrough, notification triage with full history, accessibility screen control, 28 app deep links, cloud TTS, camera/gallery vision, wake word, model auto-download, web search & browse (Jina Reader), ambient context, rich message cards, geofencing & scheduled triggers, Connection Hub, Colmi R09 health ring integration (13 health tools, 24h trend history, proactive stress alerts), wellness mode with 11 bundled ambient/music tracks, Gemma 4 cloud integration. Published to PyPI + npm as `lui-bridge` v0.2.1.
+**Shipped:** On-device launcher + LLM, voice conversation, 110 device tools with native function calling, BYOS WebSocket bridge (MCP, event streaming, bidirectional, permission tiers, relay), agent passthrough, notification triage with full history, accessibility screen control, 28 app deep links, cloud TTS, camera/gallery vision, wake word, model auto-download, web search & browse (Jina Reader), ambient context, rich message cards, geofencing & scheduled triggers, Connection Hub, Colmi R09 health ring integration (13 health tools, 24h trend history, proactive stress alerts), wellness mode with 11 bundled ambient/music tracks, four proactive wellbeing scenarios (acute stress recovery, morning briefing, pre-meeting readiness, weekly pattern detection), generative music via self-hosted ACE-Step endpoint with a persistent track library and seamless crossfade loops, Gemma 4 cloud integration. Published to PyPI + npm as `lui-bridge` v0.2.1.
 
 **Next:** Demo video + Kaggle submission for Gemma 4 Good Hackathon (May 18, 2026).
 
