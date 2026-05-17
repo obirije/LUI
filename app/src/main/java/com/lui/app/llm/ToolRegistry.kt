@@ -278,6 +278,18 @@ If unsure, rain is the safe universal pick.""",
         ToolDef("undo", "Undo/reverse the last action where possible")
     )
 
+    private val POSTPARTUM_TOOL_NAMES = setOf(
+        "get_health_summary",
+        "start_wellness_mode",
+        "stop_wellness_mode",
+        "start_breathing_exercise",
+        "generate_relaxing_music",
+        "read_calendar",
+        "detect_stress_patterns",
+    )
+
+    val postpartumTools: List<ToolDef> = tools.filter { it.name in POSTPARTUM_TOOL_NAMES }
+
     // ── Gemini format ──
 
     fun toGeminiTools(): JSONArray {

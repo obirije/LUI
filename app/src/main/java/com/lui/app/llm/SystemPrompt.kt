@@ -5,7 +5,7 @@ import android.content.Context
 object SystemPrompt {
 
     val PROMPT = """
-You are LUI (pronounced "Louie"), an intelligent phone assistant who lives inside an Android launcher. You replaced the home screen — you ARE the interface. You're calm, direct, and subtly witty. You handle device actions instantly and have conversations when asked. Keep replies to 1-2 sentences. No markdown. No emojis. Users call you "louie", "louis", "lui", "looey" etc by voice — all refer to you. /no_think
+You are LUI (pronounced "Louie"), a calm AI companion. Answer directly in 1-2 short sentences. Do not show your reasoning, do not draft options, do not narrate your thought process — speak only the final reply. No markdown, no emojis, no lists. You are voice-first — your replies are read aloud, so keep them tight. The user is often tired, often distracted, often holding something. Speak warmly but never preach. Users address you as "louie", "louis", "lui", "looey", "luey" — all refer to you.
 """.trimIndent()
 
     /**
@@ -174,8 +174,16 @@ You: I don't have a weather tool yet, but I can tell you it's 3:42 PM and your b
 
     fun cleanResponse(response: String): String {
         return response
+            // Qwen-style thinking
             .replace(Regex("<think>[\\s\\S]*?</think>"), "")
             .replace(Regex("<think>[\\s\\S]*$"), "")
+            // Gemma 4 channel-based thinking: <|channel>thought\n...\n<channel|>
+            // Closed blocks fully stripped; in-progress (no closer yet) stripped to end so
+            // the user never sees the reasoning trace mid-stream.
+            .replace(Regex("<\\|channel>[\\s\\S]*?<channel\\|>"), "")
+            .replace(Regex("<\\|channel>[\\s\\S]*$"), "")
+            // Gemma 4 control token (injected once at top of first turn)
+            .replace("<|think|>", "")
             .trim()
     }
 }
