@@ -3,6 +3,7 @@
 #include <iomanip>
 #include <cmath>
 #include <string>
+#include <atomic>
 #include <unistd.h>
 #include <sampling.h>
 
@@ -10,6 +11,16 @@
 #include "chat.h"
 #include "common.h"
 #include "llama.h"
+
+// Atomic load-progress (0.0 to 1.0) reported by llama.cpp during model load.
+// Polled from Kotlin via Java_..._getLoadProgress() so the UI can show a real
+// percentage bar instead of a static "loading…" message.
+static std::atomic<float> g_load_progress{0.0f};
+
+static bool ai_chat_load_progress_cb(float progress, void * /*user_data*/) {
+    g_load_progress.store(progress);
+    return true;  // returning false would abort the load
+}
 
 template<class T>
 static std::string join(const std::vector<T> &values, const std::string &delim) {
@@ -28,7 +39,7 @@ constexpr int   N_THREADS_MIN           = 2;
 constexpr int   N_THREADS_MAX           = 4;
 constexpr int   N_THREADS_HEADROOM      = 2;
 
-constexpr int   DEFAULT_CONTEXT_SIZE    = 8192;
+constexpr int   DEFAULT_CONTEXT_SIZE    = 2048;
 constexpr int   OVERFLOW_HEADROOM       = 4;
 constexpr int   BATCH_SIZE              = 512;
 constexpr float DEFAULT_SAMPLER_TEMP    = 0.3f;
@@ -60,6 +71,8 @@ extern "C"
 JNIEXPORT jint JNICALL
 Java_com_arm_aichat_internal_InferenceEngineImpl_load(JNIEnv *env, jobject, jstring jmodel_path) {
     llama_model_params model_params = llama_model_default_params();
+    g_load_progress.store(0.0f);
+    model_params.progress_callback = ai_chat_load_progress_cb;
 
     const auto *model_path = env->GetStringUTFChars(jmodel_path, 0);
     LOGd("%s: Loading model from: \n%s\n", __func__, model_path);
@@ -67,10 +80,18 @@ Java_com_arm_aichat_internal_InferenceEngineImpl_load(JNIEnv *env, jobject, jstr
     auto *model = llama_model_load_from_file(model_path, model_params);
     env->ReleaseStringUTFChars(jmodel_path, model_path);
     if (!model) {
+        g_load_progress.store(0.0f);
         return 1;
     }
     g_model = model;
+    g_load_progress.store(1.0f);
     return 0;
+}
+
+extern "C"
+JNIEXPORT jfloat JNICALL
+Java_com_arm_aichat_internal_InferenceEngineImpl_getLoadProgress(JNIEnv * /*env*/, jobject /*unused*/) {
+    return g_load_progress.load();
 }
 
 static llama_context *init_context(llama_model *model, const int n_ctx = DEFAULT_CONTEXT_SIZE) {

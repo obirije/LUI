@@ -32,6 +32,9 @@ class LocalModel(private val context: Context) : LlmProvider {
 
     fun isModelDownloaded(): Boolean = false
 
+    /** Cloud-only stub — no local load progress. */
+    fun loadProgress(): Float = 0f
+
     suspend fun initialize(): Result<Unit> {
         Log.i(TAG, "Local LLM unavailable in this build (cloud-only)")
         return Result.failure(

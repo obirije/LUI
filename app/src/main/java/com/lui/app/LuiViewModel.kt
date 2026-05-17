@@ -141,11 +141,12 @@ class LuiViewModel(application: Application) : AndroidViewModel(application) {
             prefs.edit().putBoolean("wallpaper_set", true).apply()
         }
 
-        // Initialize LLM (file I/O + model load on IO dispatcher).
-        // Cloud-first + cloud ready: skip local load entirely — saves RAM and
-        // avoids surfacing "failed to load" when the user doesn't need local.
-        // Local is loaded lazily via loadLocalModel() when cloud fails or the
-        // user toggles to local.
+        // Initialize LLM lazily. Only ensure the file is in place at startup —
+        // do NOT load it into llama.cpp yet. Gemma 4 E2B at 2.4GB causes load-time
+        // OOM crashes on mid-range devices (Moto Edge 40 Neo) when other apps are
+        // holding ~4GB. Deferring the actual load until the first chat send lets
+        // the app launch cleanly and gives the user a "model loading" indicator
+        // exactly when they need it.
         viewModelScope.launch {
             if (keyStore.isCloudFirst && cloudModel.isReady) {
                 _llmStatus.value = "cloud"
@@ -156,28 +157,15 @@ class LuiViewModel(application: Application) : AndroidViewModel(application) {
             val found = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
                 ModelManager.ensureModel(application)
             }
-            if (found) {
-                _llmStatus.value = "Loading model..."
-                val result = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-                    localModel.initialize()
+            _llmStatus.value = when {
+                found -> "ready"  // Model file is on disk; llama.cpp load deferred to first chat send.
+                cloudModel.isReady -> "cloud"
+                else -> "no_model".also {
+                    addMessage(ChatMessage(
+                        text = "No LLM model found. I'm in keyword mode — I can handle flashlight, alarms, timers, apps, calls, volume, brightness, DND, and rotation. For full AI chat, sideload the model or configure a cloud API key (tap the status dot).",
+                        sender = Sender.LUI
+                    ))
                 }
-                if (result.isSuccess) {
-                    _llmStatus.value = "ready"
-                } else if (cloudModel.isReady) {
-                    _llmStatus.value = "cloud"
-                    Log.e("LuiVM", "Local init failed, using cloud", result.exceptionOrNull())
-                } else {
-                    _llmStatus.value = "Model failed to load. Using keyword mode."
-                    Log.e("LuiVM", "Model init failed", result.exceptionOrNull())
-                }
-            } else if (cloudModel.isReady) {
-                _llmStatus.value = "cloud"
-            } else {
-                _llmStatus.value = "no_model"
-                addMessage(ChatMessage(
-                    text = "No LLM model found. I'm in keyword mode — I can handle flashlight, alarms, timers, apps, calls, volume, brightness, DND, and rotation. For full AI chat, sideload the model or configure a cloud API key (tap the status dot).",
-                    sender = Sender.LUI
-                ))
             }
         }
 
@@ -429,11 +417,11 @@ class LuiViewModel(application: Application) : AndroidViewModel(application) {
         }
         LuiLogger.interceptorMiss(text)
 
-        if (localModel.isReady) {
+        if (localModel.isReady || localModel.isModelDownloaded()) {
+            // Either ready, OR file is on disk and generateWithLocalLlm will lazy-load it.
             generateWithLlm(text)
         } else if (cloudModel.isReady) {
-            // Local model not ready but cloud is — use cloud
-            LuiLogger.i("ROUTE", "Local not ready, falling back to cloud")
+            LuiLogger.i("ROUTE", "Local not ready and no model file, falling back to cloud")
             generateWithLlm(text)
         } else {
             val msg = "I heard you, but my brain isn't loaded yet. For now I can do: flashlight, alarms, timers, open apps, make calls, wifi/bluetooth settings."
@@ -1261,6 +1249,51 @@ class LuiViewModel(application: Application) : AndroidViewModel(application) {
 
     /** Local model fallback — no native tool use, just text streaming */
     private suspend fun generateWithLocalLlm(userText: String) {
+        // Lazy load: model file is on disk but llama.cpp hasn't loaded it into RAM
+        // yet (we defer the load to avoid OOM at app startup on mid-range devices).
+        // First chat send pays the ~30s load cost; subsequent chats are instant.
+        if (!localModel.isReady && localModel.isModelDownloaded()) {
+            LuiLogger.i("LLM", "Lazy-loading Gemma 4 E2B (first chat send)...")
+            val loadStartMs = System.currentTimeMillis()
+            // Poll llama.cpp's progress_callback in a side coroutine and update the UI.
+            // Update only when the percentage actually changed (or every 2s for elapsed
+            // time) so the Main thread isn't fighting allocation + LiveData notifies
+            // against the load thread's page-fault storm.
+            val progressJob = viewModelScope.launch(kotlinx.coroutines.Dispatchers.Main.immediate) {
+                var lastPct = -1
+                var lastElapsedShown = -1L
+                while (true) {
+                    val pct = (localModel.loadProgress() * 100).toInt().coerceIn(0, 99)
+                    val elapsed = (System.currentTimeMillis() - loadStartMs) / 1000
+                    if (pct != lastPct || elapsed - lastElapsedShown >= 2) {
+                        val filled = pct / 5  // 20-char bar
+                        val bar = "[" + "█".repeat(filled) + "░".repeat(20 - filled) + "]"
+                        replaceLastWithLui("Loading Gemma 4 on-device\n$bar  $pct%  ·  ${elapsed}s", streaming = true)
+                        lastPct = pct
+                        lastElapsedShown = elapsed
+                    }
+                    kotlinx.coroutines.delay(1000)
+                }
+            }
+            _llmStatus.value = "loading"
+            val loaded = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                localModel.initialize()
+            }
+            progressJob.cancel()
+            if (loaded.isFailure) {
+                val err = loaded.exceptionOrNull()?.message ?: "unknown error"
+                LuiLogger.e("LLM", "Lazy load failed: $err", loaded.exceptionOrNull())
+                replaceLastWithLui("Couldn't load the on-device model: $err. Try closing other apps and tapping again.", streaming = false)
+                _llmStatus.value = "Model failed to load"
+                return
+            }
+            _llmStatus.value = "ready"
+            LuiLogger.i("LLM", "Lazy load complete in ${(System.currentTimeMillis() - loadStartMs) / 1000}s")
+            // Replace the loading message with a fresh thinking placeholder so the
+            // first real response token replaces it cleanly.
+            replaceLastWithLui("", streaming = true)
+        }
+
         val responseBuilder = StringBuilder()
         var lastSpokenIndex = 0
         var pipelineStarted = false
@@ -1270,7 +1303,12 @@ class LuiViewModel(application: Application) : AndroidViewModel(application) {
                 .collect { token ->
                     responseBuilder.append(token)
                     val cleaned = SystemPrompt.cleanResponse(responseBuilder.toString())
-                    if (cleaned.isNotBlank()) {
+                    // If the output looks like a tool-call JSON, suppress display + voice \u2014
+                    // the post-stream parser will route to executeToolCall once the JSON is
+                    // complete. Showing the raw `{"tool":...}` to the user looks like leaked
+                    // internals.
+                    val looksLikeToolCall = cleaned.trimStart().startsWith("{")
+                    if (cleaned.isNotBlank() && !looksLikeToolCall) {
                         replaceLastWithLui(cleaned, streaming = true)
 
                         if (voiceEngine.conversationMode) {
@@ -1304,6 +1342,22 @@ class LuiViewModel(application: Application) : AndroidViewModel(application) {
 
         val fullResponse = SystemPrompt.cleanResponse(responseBuilder.toString())
         LuiLogger.llmResponse(fullResponse)
+
+        // Postpartum local tool-call: if the model emitted a {"tool":...} JSON line,
+        // intercept it and route to executeToolCall instead of showing as chat text.
+        val localToolCall = SystemPrompt.parseLocalToolCall(fullResponse)
+        if (localToolCall != null) {
+            LuiLogger.i("LLM", "Local tool-call detected: ${localToolCall.tool}")
+            // Drop the THINKING placeholder that generateWithLlm added — executeToolCall
+            // will write its own messages.
+            val current = _messages.value.orEmpty().toMutableList()
+            if (current.isNotEmpty() && current.last().sender == Sender.THINKING) {
+                current.removeAt(current.size - 1)
+                _messages.value = current
+            }
+            executeToolCall(localToolCall)
+            return
+        }
 
         // Fallback: if local model produced only <think> content, try cloud or show fallback
         if (fullResponse.isBlank() && responseBuilder.isNotEmpty()) {

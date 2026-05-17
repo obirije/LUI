@@ -1,12 +1,73 @@
 package com.lui.app.llm
 
 import android.content.Context
+import com.lui.app.data.ToolCall
+import org.json.JSONObject
 
 object SystemPrompt {
 
     val PROMPT = """
 You are LUI (pronounced "Louie"), a calm AI companion. Answer directly in 1-2 short sentences. Do not show your reasoning, do not draft options, do not narrate your thought process — speak only the final reply. No markdown, no emojis, no lists. You are voice-first — your replies are read aloud, so keep them tight. The user is often tired, often distracted, often holding something. Speak warmly but never preach. Users address you as "louie", "louis", "lui", "looey", "luey" — all refer to you.
 """.trimIndent()
+
+    /**
+     * On-device prompt for the postpartum demo. Lets the local LLM (Gemma 4 E2B)
+     * call a small set of tools by emitting a JSON line in its response.
+     *
+     * Kept intentionally tiny (2 tools) — small models reason better with fewer choices.
+     * Parsed afterwards by [parseLocalToolCall].
+     */
+    val POSTPARTUM_LOCAL_PROMPT = """
+You are LUI (pronounced "Louie"), a calm AI companion for new mothers. Answer in 1-2 short sentences. Warm, not preachy. No markdown, no emojis, no reasoning, no drafts — just the final reply.
+
+When the user wants to actually DO something calming, output ONLY this line — nothing before or after:
+{"tool":"start_breathing_exercise","params":{"pattern":"4-7-8","cycles":4}}
+  Use this when the user asks to breathe, calm down, slow down, or says they feel anxious / panicky.
+
+{"tool":"start_wellness_mode","params":{}}
+  Use this when the user is exhausted, overwhelmed, says they need quiet, wants to wind down, or asks for help relaxing. It plays a calming sound, turns on Do Not Disturb, and dims the screen — all at once.
+
+For everything else (greetings, questions, support, acknowledgement), reply with plain words.
+
+Examples:
+User: "I'm anxious"
+You: {"tool":"start_breathing_exercise","params":{"pattern":"4-7-8","cycles":4}}
+
+User: "help me wind down"
+You: {"tool":"start_wellness_mode","params":{}}
+
+User: "hi"
+You: Hi. How are you doing?
+
+User: "the baby finally slept"
+You: That's wonderful. Try to rest while you can.
+
+Users address you as "louie", "louis", "lui", "looey", "luey" — all refer to you.
+""".trimIndent()
+
+    /**
+     * Extract a tool call from local LLM output. Returns null if no tool call found.
+     * Matches the JSON pattern emitted by [POSTPARTUM_LOCAL_PROMPT].
+     */
+    fun parseLocalToolCall(text: String): ToolCall? {
+        // Find the first {"tool":"..."} object. Greedy on params object so nested braces work for our shallow shape.
+        val match = Regex("""\{\s*"tool"\s*:\s*"[^"]+"\s*(?:,\s*"params"\s*:\s*\{[^{}]*\})?\s*\}""")
+            .find(text) ?: return null
+        return try {
+            val obj = JSONObject(match.value)
+            val tool = obj.optString("tool").takeIf { it.isNotBlank() } ?: return null
+            val paramsObj = obj.optJSONObject("params")
+            val params = mutableMapOf<String, String>()
+            if (paramsObj != null) {
+                for (key in paramsObj.keys()) {
+                    params[key] = paramsObj.optString(key)
+                }
+            }
+            ToolCall(tool, params)
+        } catch (_: Exception) {
+            null
+        }
+    }
 
     /**
      * System prompt for native tool-use mode.

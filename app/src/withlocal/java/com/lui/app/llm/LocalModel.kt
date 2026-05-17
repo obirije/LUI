@@ -31,6 +31,9 @@ class LocalModel(private val context: Context) : LlmProvider {
         return file.exists() && file.length() > 1_000_000
     }
 
+    /** Current model-load progress 0.0–1.0 (only meaningful during initialize()). */
+    fun loadProgress(): Float = try { engine.getLoadProgress() } catch (_: Exception) { 0f }
+
     suspend fun initialize(): Result<Unit> = withContext(Dispatchers.IO) {
         try {
             val modelPath = getModelPath()
@@ -40,8 +43,8 @@ class LocalModel(private val context: Context) : LlmProvider {
 
             Log.d(TAG, "Loading model from $modelPath")
             engine.loadModel(modelPath)
-            engine.setSystemPrompt(SystemPrompt.PROMPT)
-            Log.d(TAG, "Model loaded and system prompt set")
+            engine.setSystemPrompt(SystemPrompt.POSTPARTUM_LOCAL_PROMPT)
+            Log.d(TAG, "Model loaded and postpartum system prompt set")
             Result.success(Unit)
         } catch (e: Exception) {
             Log.e(TAG, "Failed to initialize LLM", e)
