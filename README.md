@@ -10,6 +10,11 @@
 </p>
 
 <p align="center">
+  🤱 <strong>Kaggle Gemma 4 For Good submission:</strong> <a href="./FOR-JUDGES.md">FOR-JUDGES.md</a> · <a href="https://luios.xyz/health.html">luios.xyz/health</a><br>
+  <sub>For judges: start with the entry doc. For developers: scroll down.</sub>
+</p>
+
+<p align="center">
   <img src="https://9e6506kiss.ufs.sh/f/pxElMO0C7LRyJhYXB6OBhokPza1yg6Y2SqZE5iV3CQfltpWs" width="150" alt="Lock screen">
   <img src="https://9e6506kiss.ufs.sh/f/pxElMO0C7LRyOlzwCum1Ng1c3UWYwnT2QR6E9OXfaBD4A8Kx" width="150" alt="Home screen">
   <img src="https://9e6506kiss.ufs.sh/f/pxElMO0C7LRy7FuizMlqoOaedHgJT5XSUxtA3rDVzGyQWm7C" width="150" alt="App drawer">
