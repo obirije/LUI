@@ -80,6 +80,8 @@ On a flagship 12 GB+ phone (Pixel 8 Pro, Galaxy S24, OnePlus 12), the same model
 
 ---
 
-## License
+## License + attribution
 
 GPLv3 for the app code. CC-BY 4.0 for the submission materials (per Kaggle requirement).
+
+Gemma is a trademark of Google LLC.

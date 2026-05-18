@@ -303,9 +303,11 @@ See [DOCS.md](DOCS.md) for the bridge protocol reference and [INTERCEPTOR.md](IN
 
 ---
 
-## License
+## License + attribution
 
-GPLv3
+GPLv3 for the app code.
+
+Gemma is a trademark of Google LLC.
 
 ---
 
