@@ -36,7 +36,7 @@ Every flow runs entirely on-device when the phone is offline. Gemma 4 E2B for re
 
 **Cloud (Gemma 4 26B-A4B via Google AI Studio)** handles rich conversation, the full 112-tool toolset, and multi-turn reasoning. This is the "full assistant" mode for when the user is online and wants depth.
 
-**On-device (Gemma 4 E2B IQ3_XXS, 2.4 GB)** handles the postpartum-mode demo with 7 tools curated for the first year (`get_health_summary`, `start_wellness_mode`, `stop_wellness_mode`, `start_breathing_exercise`, `generate_relaxing_music`, `read_calendar`, `detect_stress_patterns`). Tight system prompt, JSON tool-call output, no thinking traces shown to the user. **This is the privacy mode** — when the device is offline the cloud path is unreachable by design and the on-device path handles everything.
+**On-device (Gemma 4 E2B IQ3_XXS, 2.4 GB)** handles the postpartum-mode demo with 8 tools curated for the first year (`get_health_summary`, `get_sleep`, `start_wellness_mode`, `stop_wellness_mode`, `start_breathing_exercise`, `generate_relaxing_music`, `read_calendar`, `detect_stress_patterns`). Tight system prompt, JSON tool-call output, no thinking traces shown to the user. **This is the privacy mode** — when the device is offline the cloud path is unreachable by design and the on-device path handles everything.
 
 The router picks based on network state and user preference, satisfying the Cactus Prize criterion of *"intelligently routes tasks between models"*. The model is loaded lazily on first chat send, so app startup is instant and mid-range hardware doesn't OOM during launch.
 
@@ -73,7 +73,7 @@ On a flagship 12 GB+ phone (Pixel 8 Pro, Galaxy S24, OnePlus 12), the same model
 ## What you're looking at in the code
 
 - `app/src/main/java/com/lui/app/llm/SystemPrompt.kt` — `POSTPARTUM_LOCAL_PROMPT` and `parseLocalToolCall()`. The on-device tool-call format.
-- `app/src/main/java/com/lui/app/llm/ToolRegistry.kt` — `postpartumTools` filtered list (7 tools).
+- `app/src/main/java/com/lui/app/llm/ToolRegistry.kt` — `postpartumTools` filtered list (8 tools).
 - `app/src/main/java/com/lui/app/LuiViewModel.kt` — `generateWithLocalLlm()`. Lazy load with real progress bar, JSON tool-call interception during streaming, route to `executeToolCall()`.
 - `llama/src/main/cpp/ai_chat.cpp` — JNI shim: `progress_callback` wiring, 2K context size.
 - `app/src/main/java/com/lui/app/scenarios/ProactiveScenarios.kt` — Four proactive flows including `morning_briefing` and `detect_stress_patterns`.

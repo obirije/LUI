@@ -31,6 +31,7 @@ PLAY_STORE_SUBMISSION.md
 docs/article-postpartum.md
 docs/demo-video-script.md
 docs/kaggle-writeup.md
+docs/kaggle-notebook.ipynb
 .claude/
 *.aar
 *.jks

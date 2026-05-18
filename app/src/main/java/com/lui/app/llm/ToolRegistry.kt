@@ -280,6 +280,7 @@ If unsure, rain is the safe universal pick.""",
 
     private val POSTPARTUM_TOOL_NAMES = setOf(
         "get_health_summary",
+        "get_sleep",
         "start_wellness_mode",
         "stop_wellness_mode",
         "start_breathing_exercise",
