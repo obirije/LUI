@@ -30,6 +30,7 @@ LUI_IDEA.md
 PLAY_STORE_SUBMISSION.md
 docs/article-postpartum.md
 docs/demo-video-script.md
+docs/demo-video-script-v2.md
 docs/kaggle-writeup.md
 docs/kaggle-notebook.ipynb
 .claude/
@@ -46,3 +47,9 @@ __pycache__/
 # Node
 node_modules/
 *.tgz
+
+# Secrets + demo artifacts (kaggle 3am-mother + future hackathons)
+.env
+.env.*
+demo/
+*.log
