@@ -1,0 +1,592 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LUI — For the 3am mother. Postpartum stress, handled.</title>
+    <meta name="description" content="An AI companion for the first year. LUI reads postpartum stress, sleep, and HRV from a smart ring — then quiets your phone, dims the room, and breathes with you. On-device. Private.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #050505;
+            --ink: #0b0b0d;
+            --surface: #101012;
+            --border: #1d1d20;
+            --text: #f1efea;
+            --text-soft: #9a9894;
+            --text-dim: #55534f;
+            --pulse: #ff6b6b;      /* warm coral — heartbeat */
+            --calm: #9ec9a5;       /* sage — protection */
+            --deep: #6b93c0;       /* muted blue — data */
+            --warm: #f5b85c;       /* amber — dawn */
+            --accent: #e9e4d8;     /* off-white highlight */
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html { scroll-behavior: smooth; }
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+            overflow-x: hidden;
+            font-weight: 400;
+            letter-spacing: -0.01em;
+        }
+        a { color: inherit; text-decoration: none; }
+        img, video { display: block; max-width: 100%; }
+
+        .serif { font-family: 'Instrument Serif', 'DM Serif Display', serif; font-weight: 400; letter-spacing: -0.02em; font-feature-settings: 'liga', 'ss01'; }
+        .italic { font-style: italic; }
+        .mono { font-family: 'JetBrains Mono', monospace; font-feature-settings: 'tnum'; }
+
+        /* ------------- NAV ------------- */
+        nav { position: fixed; top: 0; left: 0; right: 0; z-index: 100; padding: 20px 32px; display: flex; align-items: center; justify-content: space-between; transition: background 0.3s, backdrop-filter 0.3s, border-color 0.3s; border-bottom: 1px solid transparent; }
+        nav.scrolled { background: rgba(5,5,5,0.75); backdrop-filter: blur(20px); border-bottom-color: var(--border); }
+        nav .brand { font-family: 'Inter', sans-serif; font-weight: 700; font-size: 16px; letter-spacing: 0.22em; }
+        nav .nav-right { display: flex; gap: 28px; align-items: center; font-size: 13px; }
+        nav .nav-right a { color: var(--text-soft); transition: color 0.2s; }
+        nav .nav-right a:hover { color: var(--text); }
+        nav .nav-cta { background: var(--text); color: var(--bg); padding: 9px 18px; border-radius: 999px; font-weight: 500; font-size: 12px; letter-spacing: 0.02em; }
+
+        /* ------------- HERO ------------- */
+        .hero { position: relative; height: 100vh; min-height: 720px; display: flex; flex-direction: column; align-items: center; justify-content: center; overflow: hidden; }
+        .hero-video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; z-index: 0; }
+        .hero-overlay { position: absolute; inset: 0; background: radial-gradient(ellipse at center, rgba(5,5,5,0.5) 0%, rgba(5,5,5,0.85) 70%, var(--bg) 100%); z-index: 1; }
+        .hero-grain { position: absolute; inset: 0; opacity: 0.04; mix-blend-mode: overlay; pointer-events: none; z-index: 2; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence baseFrequency='0.9'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.6'/%3E%3C/svg%3E"); }
+        .hero-inner { position: relative; z-index: 3; text-align: center; padding: 0 24px; max-width: 920px; }
+        .hero-kicker { font-size: 11px; letter-spacing: 0.35em; text-transform: uppercase; color: var(--text-soft); margin-bottom: 36px; opacity: 0; animation: fadeUp 1.2s ease 0.3s forwards; }
+        .hero h1 { font-size: clamp(56px, 11vw, 168px); line-height: 0.92; margin-bottom: 28px; opacity: 0; animation: fadeUp 1.4s cubic-bezier(0.2,0.7,0.2,1) 0.5s forwards; }
+        .hero h1 .line2 { display: block; color: var(--text-soft); font-style: italic; }
+        .hero .tagline { font-size: clamp(16px, 1.6vw, 19px); color: var(--text-soft); max-width: 540px; margin: 0 auto 52px; line-height: 1.55; opacity: 0; animation: fadeUp 1.2s ease 1.0s forwards; }
+        .hero .cta-row { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; opacity: 0; animation: fadeUp 1.2s ease 1.3s forwards; }
+        .btn-primary { background: var(--text); color: var(--bg); padding: 14px 28px; border-radius: 999px; font-weight: 500; font-size: 14px; letter-spacing: 0.01em; transition: transform 0.3s, opacity 0.3s; display: inline-flex; align-items: center; gap: 8px; }
+        .btn-primary:hover { transform: translateY(-1px); opacity: 0.92; }
+        .btn-ghost { color: var(--text); padding: 14px 24px; border-radius: 999px; font-weight: 500; font-size: 14px; border: 1px solid rgba(255,255,255,0.15); transition: border-color 0.3s, background 0.3s; display: inline-flex; align-items: center; gap: 8px; }
+        .btn-ghost:hover { border-color: rgba(255,255,255,0.3); background: rgba(255,255,255,0.04); }
+        .scroll-hint { position: absolute; bottom: 40px; left: 50%; transform: translateX(-50%); z-index: 3; font-size: 11px; letter-spacing: 0.25em; text-transform: uppercase; color: var(--text-dim); display: flex; flex-direction: column; align-items: center; gap: 10px; opacity: 0; animation: fadeUp 1.2s ease 1.8s forwards; }
+        .scroll-hint::after { content: ''; width: 1px; height: 40px; background: linear-gradient(to bottom, var(--text-soft) 0%, transparent 100%); animation: scrollHint 2s ease-in-out infinite; }
+        @keyframes scrollHint { 0%, 100% { opacity: 0.3; transform: scaleY(0.7); transform-origin: top; } 50% { opacity: 1; transform: scaleY(1); } }
+        @keyframes fadeUp { from { opacity: 0; transform: translateY(24px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* ------------- SECTIONS SHARED ------------- */
+        section { position: relative; padding: 180px 32px; }
+        .container { max-width: 1200px; margin: 0 auto; }
+        .narrow { max-width: 820px; margin: 0 auto; }
+        .eyebrow { font-size: 11px; letter-spacing: 0.3em; text-transform: uppercase; color: var(--text-soft); margin-bottom: 36px; display: flex; align-items: center; gap: 14px; }
+        .eyebrow::before { content: ''; width: 24px; height: 1px; background: var(--text-soft); }
+        h2.display { font-size: clamp(42px, 7vw, 104px); line-height: 0.98; margin-bottom: 32px; font-weight: 400; }
+        .lede { font-size: clamp(18px, 2vw, 24px); line-height: 1.45; color: var(--text-soft); max-width: 680px; }
+
+        .reveal { opacity: 0; transform: translateY(40px); transition: opacity 1s cubic-bezier(0.2,0.7,0.2,1), transform 1s cubic-bezier(0.2,0.7,0.2,1); }
+        .reveal.visible { opacity: 1; transform: translateY(0); }
+        .reveal.delay-1 { transition-delay: 0.15s; }
+        .reveal.delay-2 { transition-delay: 0.3s; }
+        .reveal.delay-3 { transition-delay: 0.45s; }
+
+        /* ------------- ACT 1: THE WEIGHT ------------- */
+        .act-weight { padding: 220px 32px 180px; text-align: center; }
+        .act-weight .big { font-size: clamp(48px, 7vw, 96px); line-height: 1.05; letter-spacing: -0.02em; }
+        .act-weight .big .soft { color: var(--text-soft); font-style: italic; }
+        .act-weight .pulse-ring { display: inline-block; width: 12px; height: 12px; border-radius: 50%; background: var(--pulse); box-shadow: 0 0 30px rgba(255,107,107,0.6); margin: 80px 0 40px; animation: heartbeat 1.4s ease-in-out infinite; position: relative; }
+        .act-weight .pulse-ring::before, .act-weight .pulse-ring::after { content: ''; position: absolute; inset: 0; border-radius: 50%; border: 1px solid var(--pulse); animation: pulseExpand 2.5s ease-out infinite; }
+        .act-weight .pulse-ring::after { animation-delay: 1.25s; }
+        @keyframes heartbeat { 0%, 70%, 100% { transform: scale(1); } 15% { transform: scale(1.3); } 30% { transform: scale(1); } 45% { transform: scale(1.2); } }
+        @keyframes pulseExpand { 0% { transform: scale(1); opacity: 1; } 100% { transform: scale(8); opacity: 0; } }
+
+        /* ------------- ACT 2: THE RING ------------- */
+        .act-ring { padding: 180px 32px; position: relative; overflow: hidden; }
+        .ring-stage { display: grid; grid-template-columns: 1fr 1fr; gap: 80px; align-items: center; max-width: 1200px; margin: 0 auto; }
+        .ring-photo-wrap { position: relative; display: flex; align-items: center; justify-content: center; height: 480px; }
+        .ring-photo-wrap::before { content: ''; position: absolute; inset: -40px; background: radial-gradient(circle, rgba(255,107,107,0.08) 0%, transparent 60%); animation: orbBreath 6s ease-in-out infinite; }
+        @keyframes orbBreath { 0%, 100% { transform: scale(1); opacity: 0.9; } 50% { transform: scale(1.15); opacity: 0.5; } }
+        .ring-photo { width: 360px; mix-blend-mode: lighten; filter: drop-shadow(0 40px 60px rgba(0,0,0,0.6)) drop-shadow(0 0 40px rgba(255,107,107,0.15)); animation: ringSlowRotate 20s linear infinite; position: relative; z-index: 2; }
+        @keyframes ringSlowRotate { from { transform: rotate(-8deg); } 50% { transform: rotate(4deg); } to { transform: rotate(-8deg); } }
+        .ring-sensor { position: absolute; top: 50%; left: 50%; width: 14px; height: 14px; border-radius: 50%; background: var(--pulse); box-shadow: 0 0 20px rgba(255,107,107,0.8); transform: translate(-80px, -130px); z-index: 3; animation: sensorBlink 1.6s ease-in-out infinite; }
+        @keyframes sensorBlink { 0%, 100% { opacity: 1; transform: translate(-80px, -130px) scale(1); } 50% { opacity: 0.5; transform: translate(-80px, -130px) scale(1.4); } }
+        .ring-specs .eyebrow { color: var(--pulse); }
+        .ring-specs .eyebrow::before { background: var(--pulse); }
+        .ring-specs h3 { font-size: clamp(36px, 5vw, 64px); line-height: 1.02; margin-bottom: 24px; font-weight: 400; }
+        .ring-specs .desc { font-size: 17px; color: var(--text-soft); line-height: 1.6; margin-bottom: 36px; max-width: 440px; }
+        .spec-list { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; font-size: 14px; color: var(--text-soft); max-width: 440px; }
+        .spec-list .spec { display: flex; gap: 12px; align-items: center; }
+        .spec-list .spec-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--pulse); flex-shrink: 0; }
+
+        /* ------------- ACT 3: THE ASSISTANT ------------- */
+        .act-assistant { background: var(--ink); padding: 200px 32px; position: relative; overflow: hidden; }
+        .act-assistant::before { content: ''; position: absolute; top: -50%; right: -20%; width: 80%; height: 200%; background: radial-gradient(ellipse, rgba(156,197,160,0.08) 0%, transparent 50%); pointer-events: none; }
+        .assistant-stage { display: grid; grid-template-columns: 1fr 1fr; gap: 100px; align-items: center; max-width: 1200px; margin: 0 auto; position: relative; z-index: 1; }
+        .assistant-text .eyebrow { color: var(--calm); }
+        .assistant-text .eyebrow::before { background: var(--calm); }
+        .assistant-text h3 { font-size: clamp(36px, 5vw, 64px); line-height: 1.02; margin-bottom: 24px; font-weight: 400; }
+        .assistant-text .desc { font-size: 17px; color: var(--text-soft); line-height: 1.6; margin-bottom: 28px; max-width: 460px; }
+        .assistant-phone { position: relative; display: flex; justify-content: center; }
+        .chat-frame { width: 340px; background: #050505; border-radius: 36px; padding: 20px 16px; border: 1px solid var(--border); box-shadow: 0 50px 100px rgba(0,0,0,0.6), 0 0 60px rgba(156,197,160,0.08); }
+        .chat-frame .status-bar { display: flex; justify-content: space-between; font-family: 'Inter', sans-serif; font-size: 12px; color: var(--text-soft); padding: 4px 10px 16px; }
+        .chat-msg { padding: 12px 16px; border-radius: 18px; margin-bottom: 8px; font-size: 14px; line-height: 1.4; max-width: 85%; opacity: 0; transform: translateY(8px); }
+        .chat-msg.user { background: #1a3a5a; color: #e9edf3; align-self: flex-end; margin-left: auto; border-bottom-right-radius: 6px; }
+        .chat-msg.lui { background: #161618; color: var(--text); border-bottom-left-radius: 6px; }
+        .chat-msg.action { background: linear-gradient(135deg, rgba(156,197,160,0.1), rgba(156,197,160,0.04)); border: 1px solid rgba(156,197,160,0.25); color: var(--calm); font-size: 13px; display: flex; align-items: center; gap: 10px; }
+        .chat-msg.action::before { content: '✓'; color: var(--calm); font-weight: 700; }
+        .chat-list { display: flex; flex-direction: column; min-height: 440px; padding: 8px; }
+        .chat-frame.playing .chat-msg { animation: chatIn 0.5s cubic-bezier(0.2,0.7,0.2,1) forwards; }
+        .chat-frame.playing .chat-msg:nth-child(1) { animation-delay: 0.2s; }
+        .chat-frame.playing .chat-msg:nth-child(2) { animation-delay: 1.4s; }
+        .chat-frame.playing .chat-msg:nth-child(3) { animation-delay: 2.0s; }
+        .chat-frame.playing .chat-msg:nth-child(4) { animation-delay: 2.6s; }
+        .chat-frame.playing .chat-msg:nth-child(5) { animation-delay: 3.2s; }
+        .chat-frame.playing .chat-msg:nth-child(6) { animation-delay: 4.2s; }
+        @keyframes chatIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* ------------- LIVE STRIP ------------- */
+        .live { padding: 140px 32px; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); position: relative; overflow: hidden; }
+        .live::before { content: ''; position: absolute; inset: 0; background: radial-gradient(circle at 50% 0%, rgba(107,147,192,0.08) 0%, transparent 50%); }
+        .live-head { text-align: center; margin-bottom: 60px; }
+        .live-head .mono { color: var(--deep); font-size: 13px; letter-spacing: 0.15em; }
+        .live-head h3 { font-size: clamp(28px, 3.5vw, 44px); line-height: 1.05; margin-top: 12px; font-weight: 400; }
+        .live-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; max-width: 1100px; margin: 0 auto; position: relative; z-index: 1; }
+        .vital { background: rgba(16,16,18,0.6); backdrop-filter: blur(10px); border: 1px solid var(--border); border-radius: 20px; padding: 28px 24px; position: relative; transition: border-color 0.4s, transform 0.4s; }
+        .vital:hover { border-color: rgba(107,147,192,0.4); transform: translateY(-3px); }
+        .vital .vlabel { font-size: 11px; letter-spacing: 0.15em; text-transform: uppercase; color: var(--text-soft); margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
+        .vital .vlabel .vdot { width: 6px; height: 6px; border-radius: 50%; animation: heartbeat 1.4s ease-in-out infinite; }
+        .vital .vvalue { font-family: 'Instrument Serif', serif; font-size: 58px; line-height: 1; letter-spacing: -0.02em; transition: opacity 0.3s; font-feature-settings: 'tnum'; }
+        .vital .vunit { font-size: 14px; color: var(--text-soft); margin-left: 4px; font-family: 'Inter', sans-serif; letter-spacing: 0.02em; }
+        .vital .vcontext { font-size: 12px; color: var(--text-dim); margin-top: 10px; letter-spacing: 0.02em; }
+
+        /* ------------- SCENARIOS ------------- */
+        .scenarios { padding: 180px 32px; }
+        .scene-head { text-align: center; margin-bottom: 100px; }
+        .scene-head .eyebrow { justify-content: center; }
+        .scene-head .eyebrow::before { display: none; }
+        .scene { max-width: 1100px; margin: 0 auto 140px; display: grid; grid-template-columns: 1fr 1fr; gap: 80px; align-items: center; }
+        .scene:last-child { margin-bottom: 0; }
+        .scene:nth-child(even) .scene-art { order: 2; }
+        .scene-tag { font-family: 'JetBrains Mono', monospace; font-size: 12px; letter-spacing: 0.1em; color: var(--pulse); margin-bottom: 16px; }
+        .scene h3 { font-family: 'Instrument Serif', serif; font-size: clamp(32px, 4.5vw, 56px); line-height: 1.05; margin-bottom: 20px; font-weight: 400; }
+        .scene .action-list { list-style: none; padding: 0; margin-top: 28px; display: flex; flex-direction: column; gap: 14px; font-size: 15px; color: var(--text-soft); }
+        .scene .action-list li { display: flex; align-items: baseline; gap: 14px; padding-left: 2px; }
+        .scene .action-list li::before { content: ''; width: 18px; height: 1px; background: var(--calm); flex-shrink: 0; transform: translateY(-4px); }
+        .scene-art { position: relative; height: 400px; border-radius: 28px; overflow: hidden; background: var(--ink); border: 1px solid var(--border); }
+        .scene-art video, .scene-art img { width: 100%; height: 100%; object-fit: cover; opacity: 0.6; filter: hue-rotate(var(--hue, 0deg)) saturate(0.8); }
+        .scene-art .art-overlay { position: absolute; inset: 0; background: linear-gradient(180deg, rgba(5,5,5,0.3) 0%, rgba(5,5,5,0.7) 100%); }
+        .scene-art .art-mono { position: absolute; bottom: 24px; left: 24px; right: 24px; font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.08em; color: var(--text-soft); display: flex; justify-content: space-between; }
+
+        /* ------------- AMBIENT DIVIDER ------------- */
+        .ambient { position: relative; height: 50vh; min-height: 420px; overflow: hidden; display: flex; align-items: center; justify-content: center; }
+        .ambient-video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0.35; filter: brightness(0.6) contrast(0.95); }
+        .ambient::before { content: ''; position: absolute; inset: 0; background: linear-gradient(180deg, var(--bg) 0%, transparent 25%, transparent 75%, var(--bg) 100%), radial-gradient(ellipse, transparent 30%, rgba(0,0,0,0.6) 100%); z-index: 1; }
+        .ambient-words { position: relative; z-index: 2; text-align: center; padding: 0 24px; }
+        .ambient-words h3 { font-family: 'Instrument Serif', serif; font-size: clamp(40px, 7vw, 96px); line-height: 1.02; font-weight: 400; }
+        .ambient-words h3 .italic { font-style: italic; color: var(--text-soft); }
+
+        /* ------------- CAPABILITIES ------------- */
+        .capabilities { padding: 180px 32px; background: var(--ink); }
+        .caps-head { text-align: center; max-width: 640px; margin: 0 auto 80px; }
+        .caps-head h3 { font-size: clamp(36px, 5vw, 64px); line-height: 1.02; font-weight: 400; font-family: 'Instrument Serif', serif; margin-bottom: 20px; }
+        .caps-head p { color: var(--text-soft); font-size: 17px; line-height: 1.5; }
+        .caps-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1px; background: var(--border); border: 1px solid var(--border); border-radius: 24px; overflow: hidden; max-width: 1100px; margin: 0 auto; }
+        .cap-tile { background: var(--ink); padding: 36px 28px; transition: background 0.4s; position: relative; }
+        .cap-tile:hover { background: #18181b; }
+        .cap-tile .cap-icon { width: 28px; height: 28px; margin-bottom: 20px; color: var(--calm); }
+        .cap-tile .cap-name { font-size: 15px; font-weight: 500; margin-bottom: 6px; }
+        .cap-tile .cap-sub { font-size: 13px; color: var(--text-soft); line-height: 1.45; }
+
+        /* ------------- PROTECTION ------------- */
+        .protection { padding: 200px 32px; text-align: center; position: relative; overflow: hidden; }
+        .protection::before { content: ''; position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); width: 900px; height: 900px; border-radius: 50%; background: radial-gradient(circle, rgba(156,197,160,0.06) 0%, transparent 60%); animation: orbBreath 8s ease-in-out infinite; pointer-events: none; }
+        .protection h3 { font-family: 'Instrument Serif', serif; font-size: clamp(44px, 7vw, 104px); line-height: 1; font-weight: 400; max-width: 900px; margin: 0 auto 40px; letter-spacing: -0.02em; }
+        .protection h3 .strike { color: var(--text-dim); text-decoration: line-through; text-decoration-thickness: 2px; text-decoration-color: var(--pulse); }
+        .protection p { font-size: 18px; color: var(--text-soft); max-width: 560px; margin: 0 auto; line-height: 1.55; }
+
+        /* ------------- PRIVACY ------------- */
+        .privacy { padding: 160px 32px; }
+        .privacy-wrap { max-width: 1100px; margin: 0 auto; display: grid; grid-template-columns: 1fr 2fr; gap: 80px; align-items: start; }
+        .privacy-lead h3 { font-family: 'Instrument Serif', serif; font-size: clamp(32px, 4.5vw, 56px); line-height: 1.02; font-weight: 400; }
+        .privacy-lead .eyebrow { color: var(--calm); }
+        .privacy-lead .eyebrow::before { background: var(--calm); }
+        .privacy-modes { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .privacy-mode { background: var(--surface); border: 1px solid var(--border); border-radius: 20px; padding: 32px 28px; transition: border-color 0.3s; }
+        .privacy-mode:hover { border-color: #2a2a2d; }
+        .privacy-mode .pmode-head { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.15em; text-transform: uppercase; color: var(--text-soft); }
+        .privacy-mode .pmode-dot { width: 8px; height: 8px; border-radius: 50%; }
+        .privacy-mode h4 { font-family: 'Instrument Serif', serif; font-size: 28px; font-weight: 400; margin-bottom: 12px; }
+        .privacy-mode p { color: var(--text-soft); font-size: 14px; line-height: 1.6; }
+
+        /* ------------- FINAL CTA ------------- */
+        .final { position: relative; padding: 220px 32px; text-align: center; overflow: hidden; }
+        .final-video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0.25; filter: brightness(0.5); z-index: 0; }
+        .final::after { content: ''; position: absolute; inset: 0; background: radial-gradient(ellipse, transparent 20%, var(--bg) 90%); z-index: 1; }
+        .final-inner { position: relative; z-index: 2; max-width: 760px; margin: 0 auto; }
+        .final h3 { font-family: 'Instrument Serif', serif; font-size: clamp(48px, 8vw, 120px); line-height: 0.98; font-weight: 400; margin-bottom: 24px; }
+        .final h3 .italic { font-style: italic; color: var(--text-soft); }
+        .final p { font-size: 18px; color: var(--text-soft); margin-bottom: 48px; line-height: 1.5; }
+        .final .cta-row { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+        .final .footnote { margin-top: 48px; font-size: 12px; color: var(--text-dim); letter-spacing: 0.05em; }
+
+        footer { border-top: 1px solid var(--border); padding: 40px 32px; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 16px; font-size: 13px; color: var(--text-dim); }
+        footer a { color: var(--text-soft); transition: color 0.2s; }
+        footer a:hover { color: var(--text); }
+        footer .fl { display: flex; gap: 28px; }
+
+        /* ------------- RESPONSIVE ------------- */
+        @media (max-width: 900px) {
+            nav { padding: 14px 20px; }
+            nav .nav-right { gap: 16px; }
+            nav .nav-right a:not(.nav-cta) { display: none; }
+            section { padding: 100px 20px; }
+            .ring-stage, .assistant-stage, .scene, .privacy-wrap { grid-template-columns: 1fr; gap: 40px; }
+            .scene:nth-child(even) .scene-art { order: -1; }
+            .ring-photo { width: 240px; }
+            .ring-photo-wrap { height: 320px; }
+            .chat-frame { width: 300px; }
+            .live-grid { grid-template-columns: 1fr 1fr; }
+            .privacy-modes { grid-template-columns: 1fr; }
+            .caps-grid { grid-template-columns: 1fr 1fr; }
+            .scene-art { height: 280px; }
+            .act-weight { padding: 120px 20px; }
+        }
+        @media (max-width: 520px) {
+            .live-grid { grid-template-columns: 1fr; }
+            .caps-grid { grid-template-columns: 1fr; }
+            .vital .vvalue { font-size: 44px; }
+        }
+    </style>
+</head>
+<body>
+
+<nav id="nav">
+    <div class="brand">LUI</div>
+    <div class="nav-right">
+        <a href="/">Home</a>
+        <a href="#ring">The Ring</a>
+        <a href="#assistant">The Assistant</a>
+        <a href="#privacy">Privacy</a>
+        <a href="#get" class="nav-cta">Get LUI</a>
+    </div>
+</nav>
+
+<!-- ============= HERO ============= -->
+<section class="hero">
+    <video class="hero-video" autoplay muted loop playsinline poster="assets/demo-offline-poster.jpg">
+        <source src="https://videos.pexels.com/video-files/3571264/3571264-hd_1920_1080_30fps.mp4" type="video/mp4">
+    </video>
+    <div class="hero-overlay"></div>
+    <div class="hero-grain"></div>
+    <div class="hero-inner">
+        <div class="hero-kicker">Postpartum maternal wellness · On-device AI</div>
+        <h1 class="serif">For the<span class="line2">3am mother.</span></h1>
+        <p class="tagline">An AI companion for the first year. Stress, sleep, and the weight you carry at 3am — met by the phone in your hand.</p>
+        <div class="cta-row">
+            <a href="#get" class="btn-primary">Install LUI</a>
+            <a href="#ring" class="btn-ghost">How it works</a>
+        </div>
+    </div>
+    <div class="scroll-hint">Scroll</div>
+</section>
+
+<!-- ============= ACT 1: THE WEIGHT ============= -->
+<section class="act-weight">
+    <div class="narrow">
+        <p class="eyebrow reveal" style="justify-content:center">First</p>
+        <h3 class="serif big reveal">Your body has been<br><span class="soft italic">carrying more</span><br>than you know.</h3>
+        <div class="pulse-ring reveal delay-1" aria-hidden="true"></div>
+        <p class="lede reveal delay-2" style="margin: 0 auto">HRV crashing after every night feed. Cortisol still elevated at noon. A week of cluster feeds erasing the line between Tuesday and Saturday.</p>
+        <p class="lede reveal delay-3" style="margin: 60px auto 0; color: var(--text)">Every other wearable tells you about it. LUI does something about it — while one hand is full.</p>
+    </div>
+</section>
+
+<!-- ============= ACT 2: THE RING ============= -->
+<section class="act-ring" id="ring">
+    <div class="ring-stage">
+        <div class="ring-photo-wrap reveal">
+            <img src="https://9e6506kiss.ufs.sh/f/pxElMO0C7LRyKZ8J8UTrGilv687fX0SYQE5zyADkuVjdhpUI" alt="LUI Ring" class="ring-photo">
+            <div class="ring-sensor"></div>
+        </div>
+        <div class="ring-specs">
+            <p class="eyebrow reveal">The Ring</p>
+            <h3 class="serif reveal delay-1">A ring that <span class="italic">doesn't beep, buzz, or ask</span>.</h3>
+            <p class="desc reveal delay-1" style="font-size:17px;color:var(--text-soft);line-height:1.6;margin-bottom:28px;max-width:440px">Because your hands are full. It reads your body in the background and lets the phone do the noticing.</p>
+            <div class="spec-list reveal delay-2">
+                <div class="spec"><span class="spec-dot"></span>Heart rate</div>
+                <div class="spec"><span class="spec-dot"></span>HRV</div>
+                <div class="spec"><span class="spec-dot"></span>Blood oxygen</div>
+                <div class="spec"><span class="spec-dot"></span>Stress score</div>
+                <div class="spec"><span class="spec-dot"></span>Sleep stages</div>
+                <div class="spec"><span class="spec-dot"></span>Temperature</div>
+                <div class="spec"><span class="spec-dot"></span>Steps, activity</div>
+                <div class="spec"><span class="spec-dot"></span>Double-tap gesture</div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ============= ACT 3: THE ASSISTANT ============= -->
+<section class="act-assistant" id="assistant">
+    <div class="assistant-stage">
+        <div class="assistant-text">
+            <p class="eyebrow reveal">The Assistant</p>
+            <h3 class="serif reveal delay-1">An AI that <span class="italic">does something</span> about it.</h3>
+            <p class="desc reveal delay-2">LUI Assistant lives on your phone — an AI companion that doesn't just talk, it acts. It watches your vitals, knows you were up five times last night, and moves before you ask. Dim the screen. Silence the world. Start the white noise. Push the 9am pediatric call by an hour.</p>
+            <p class="desc reveal delay-3" style="color: var(--calm)">Voice-first. Hands-free. Built for the feed, the float, the 3am.</p>
+        </div>
+        <div class="assistant-phone reveal">
+            <div class="chat-frame" id="chatFrame">
+                <div class="status-bar"><span>3:14</span><span>● ● ●</span></div>
+                <div class="chat-list">
+                    <div class="chat-msg user">I'm wrecked.</div>
+                    <div class="chat-msg lui">You've been up five times since 11. Stress is 84, HRV is 22ms.</div>
+                    <div class="chat-msg lui">Your 9am pediatric is the only thing on tomorrow.</div>
+                    <div class="chat-msg action">Notifications muted until 7</div>
+                    <div class="chat-msg action">White noise started</div>
+                    <div class="chat-msg lui">Want me to push the 9am to 11?</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ============= LIVE ============= -->
+<section class="live" id="live">
+    <div class="live-head reveal">
+        <div class="mono">LIVE · RIGHT NOW</div>
+        <h3 class="serif">Your body, broadcasting.</h3>
+    </div>
+    <div class="live-grid">
+        <div class="vital reveal">
+            <div class="vlabel"><span class="vdot" style="background:var(--pulse)"></span>Heart rate</div>
+            <div class="vvalue" id="live-hr">108<span class="vunit">BPM</span></div>
+            <div class="vcontext">Elevated since week 3 postpartum</div>
+        </div>
+        <div class="vital reveal delay-1">
+            <div class="vlabel"><span class="vdot" style="background:var(--warm)"></span>HRV</div>
+            <div class="vvalue" id="live-hrv">22<span class="vunit">ms</span></div>
+            <div class="vcontext">Below your pre-pregnancy baseline</div>
+        </div>
+        <div class="vital reveal delay-2">
+            <div class="vlabel"><span class="vdot" style="background:var(--deep)"></span>SpO₂</div>
+            <div class="vvalue" id="live-spo2">97<span class="vunit">%</span></div>
+            <div class="vcontext">Healthy range</div>
+        </div>
+        <div class="vital reveal delay-3">
+            <div class="vlabel"><span class="vdot" style="background:var(--calm)"></span>Stress</div>
+            <div class="vvalue">82<span class="vunit">/ 100</span></div>
+            <div class="vcontext">High — intervention suggested</div>
+        </div>
+    </div>
+</section>
+
+<!-- ============= AMBIENT BREAK ============= -->
+<div class="ambient">
+    <video class="ambient-video" autoplay muted loop playsinline>
+        <source src="https://videos.pexels.com/video-files/2499611/2499611-uhd_2560_1440_30fps.mp4" type="video/mp4">
+    </video>
+    <div class="ambient-words">
+        <h3 class="serif">Built for the first year.<br><span class="italic">Not benchmarks.</span></h3>
+    </div>
+</div>
+
+<!-- ============= SCENARIOS ============= -->
+<section class="scenarios">
+    <div class="scene-head reveal">
+        <p class="eyebrow">Moments</p>
+        <h2 class="serif display">Where metrics only isn't enough.</h2>
+    </div>
+
+    <div class="scene reveal">
+        <div class="scene-copy">
+            <div class="scene-tag">01 · THE 3AM FEED</div>
+            <h3 class="serif">HRV crashes the moment you sit up.</h3>
+            <ul class="action-list">
+                <li>Screen dimmed, blue light cut</li>
+                <li>White noise on — gentle, hands-free</li>
+                <li>A breath reset paced to your inhale</li>
+                <li>Tomorrow's 9am offered for a push</li>
+            </ul>
+        </div>
+        <div class="scene-art" style="--hue: 340deg">
+            <video autoplay muted loop playsinline poster="assets/demo-offline-poster.jpg">
+                <source src="https://videos.pexels.com/video-files/2499611/2499611-uhd_2560_1440_30fps.mp4" type="video/mp4">
+            </video>
+            <div class="art-overlay"></div>
+            <div class="art-mono"><span>HRV ↓ 18ms</span><span>STRESS ↑ 84</span></div>
+        </div>
+    </div>
+
+    <div class="scene reveal">
+        <div class="scene-copy">
+            <div class="scene-tag">02 · THE CLUSTER FEED WEEK</div>
+            <h3 class="serif">Three nights, six wakings, the same shape.</h3>
+            <ul class="action-list">
+                <li>The pattern named, not buried in a chart</li>
+                <li>Daytime nap windows proposed around it</li>
+                <li>Pediatric appointments flagged as low-energy</li>
+                <li>Partner notified — only if you want them to be</li>
+            </ul>
+        </div>
+        <div class="scene-art">
+            <video autoplay muted loop playsinline poster="assets/demo-offline-poster.jpg">
+                <source src="https://videos.pexels.com/video-files/3571264/3571264-hd_1920_1080_30fps.mp4" type="video/mp4">
+            </video>
+            <div class="art-overlay"></div>
+            <div class="art-mono"><span>WAKINGS · 3 NIGHTS</span><span>DEEP 11%</span></div>
+        </div>
+    </div>
+
+    <div class="scene reveal">
+        <div class="scene-copy">
+            <div class="scene-tag">03 · MENTAL LOAD OVERFLOW</div>
+            <h3 class="serif">Twenty-three tabs open. Stress climbing.</h3>
+            <ul class="action-list">
+                <li>Notifications triaged — only the pediatrician and your partner come through</li>
+                <li>Generative music started — calm, never the same loop twice</li>
+                <li>A 4-7-8 breath offered, paced visually</li>
+                <li>The 4pm Zoom drafted as "feeling under the weather"</li>
+            </ul>
+        </div>
+        <div class="scene-art">
+            <video autoplay muted loop playsinline poster="assets/demo-offline-poster.jpg">
+                <source src="https://videos.pexels.com/video-files/4782135/4782135-uhd_2560_1440_30fps.mp4" type="video/mp4">
+            </video>
+            <div class="art-overlay"></div>
+            <div class="art-mono"><span>STRESS ↑ 78</span><span>TABS · 23 OPEN</span></div>
+        </div>
+    </div>
+</section>
+
+<!-- ============= CAPABILITIES ============= -->
+<section class="capabilities">
+    <div class="caps-head reveal">
+        <p class="eyebrow" style="justify-content:center">A hundred small levers</p>
+        <h3 class="serif">Pulled only when your body asks.</h3>
+        <p>An AI agent with hands on the wheel. Not just talk — actual quieting, dimming, breathing, scheduling. Hands-free. Voice-first.</p>
+    </div>
+    <div class="caps-grid reveal">
+        <div class="cap-tile"><svg class="cap-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg><div class="cap-name">Mute notifications</div><div class="cap-sub">Slack, email, the rest</div></div>
+        <div class="cap-tile"><svg class="cap-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 12c3-3 6-3 9 0s6 3 9 0M3 18c3-3 6-3 9 0s6 3 9 0M3 6c3-3 6-3 9 0s6 3 9 0"/></svg><div class="cap-name">Ambient sound</div><div class="cap-sub">Rain, forest, white noise</div></div>
+        <div class="cap-tile"><svg class="cap-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4"/></svg><div class="cap-name">Guided breathing</div><div class="cap-sub">4-7-8, box, 5-5 — paced visually</div></div>
+        <div class="cap-tile"><svg class="cap-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M5 19V5h3M11 19V5h3M17 19V5h3"/><path d="M5 12h3M11 12h3M17 12h3"/></svg><div class="cap-name">Guided counting</div><div class="cap-sub">Down from 100 to zero, primes, sevens</div></div>
+        <div class="cap-tile"><svg class="cap-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg><div class="cap-name">AI generative music</div><div class="cap-sub">A fresh track every wellness mode, never the same loop twice</div></div>
+        <div class="cap-tile"><svg class="cap-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M8 2v4M16 2v4M3 10h18"/></svg><div class="cap-name">Read your calendar</div><div class="cap-sub">What's ahead</div></div>
+        <div class="cap-tile"><svg class="cap-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M15 17h5l-1.4-1.4A7 7 0 0 0 19 12V8a7 7 0 1 0-14 0v4a7 7 0 0 0 .4 3.6L4 17h5M9 17a3 3 0 0 0 6 0"/></svg><div class="cap-name">Scan notifications</div><div class="cap-sub">Urgent vs noise</div></div>
+        <div class="cap-tile"><svg class="cap-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 20l9-16 9 16H3z"/><path d="M12 10v5M12 18v.01"/></svg><div class="cap-name">Check trends</div><div class="cap-sub">HRV over 7 days</div></div>
+        <div class="cap-tile"><svg class="cap-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 12h2M10 12h2"/><circle cx="18" cy="12" r="2"/></svg><div class="cap-name">Draft a message</div><div class="cap-sub">Sent on your ok</div></div>
+        <div class="cap-tile"><svg class="cap-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg><div class="cap-name">Find a park</div><div class="cap-sub">Navigation ready</div></div>
+    </div>
+</section>
+
+<!-- ============= PROTECTION POSITIONING ============= -->
+<section class="protection">
+    <h3 class="serif reveal">A <span class="italic">protection</span> layer<br>for the first year.<br>Not a <span class="strike">performance</span> tracker.</h3>
+    <p class="reveal delay-1">Whoop and Oura optimise for PRs. That's the wrong question for someone running on three hours of fragmented sleep and a body still healing. LUI is built for postpartum — intervention, not just measurement. A calm layer between your vitals and the day that's already started.</p>
+</section>
+
+<!-- ============= PRIVACY ============= -->
+<section class="privacy" id="privacy">
+    <div class="privacy-wrap">
+        <div class="privacy-lead">
+            <p class="eyebrow reveal">Privacy</p>
+            <h3 class="serif reveal delay-1">Postpartum data does not belong in someone else's database.</h3>
+            <p class="reveal delay-2" style="margin-top:24px;color:var(--text-soft);font-size:15px;line-height:1.6">Not your sleep. Not your stress. Not the words you typed at 4am. The on-device build is the default — and it has no cloud code at all.</p>
+        </div>
+        <div class="privacy-modes">
+            <div class="privacy-mode reveal delay-2">
+                <div class="pmode-head"><span class="pmode-dot" style="background:var(--calm)"></span>On-device · Default</div>
+                <h4 class="serif">Nothing leaves.</h4>
+                <p>Gemma 4 runs entirely on your phone. The F-Droid build has no network code at all — your vitals, your sleep, your stress live on this device and only this device.</p>
+            </div>
+            <div class="privacy-mode reveal delay-3">
+                <div class="pmode-head"><span class="pmode-dot" style="background:var(--deep)"></span>Cloud · Optional</div>
+                <h4 class="serif">Richer answers, if you want them.</h4>
+                <p>Larger Gemma 4 for complex questions. Encrypted in flight, nothing stored. Off by default. You decide.</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ============= FINAL CTA ============= -->
+<section class="final" id="get">
+    <video class="final-video" autoplay muted loop playsinline>
+        <source src="https://videos.pexels.com/video-files/2499611/2499611-uhd_2560_1440_30fps.mp4" type="video/mp4">
+    </video>
+    <div class="final-inner reveal">
+        <h3 class="serif">For the<br><span class="italic">3am mother.</span></h3>
+        <p>Free. Open source. On-device by default. Pair any Colmi ring.</p>
+        <div class="cta-row">
+            <a href="https://github.com/obirije/LUI/releases/latest" class="btn-primary">Install LUI</a>
+            <a href="https://github.com/obirije/LUI#hardware" class="btn-ghost">Compatible rings</a>
+        </div>
+        <div class="footnote">Postpartum maternal wellness · Gemma 4 "For Good" hackathon · May 18 2026</div>
+    </div>
+</section>
+
+<footer>
+    <div class="copyright">© 2026 LUI — an AI companion for the first year</div>
+    <div class="fl">
+        <a href="/">Home</a>
+        <a href="/privacy.html">Privacy policy</a>
+        <a href="https://github.com/obirije/LUI">GitHub</a>
+    </div>
+</footer>
+
+<script>
+    // Nav scroll effect
+    const nav = document.getElementById('nav');
+    window.addEventListener('scroll', () => {
+        nav.classList.toggle('scrolled', window.scrollY > 40);
+    });
+
+    // Reveal on scroll
+    const io = new IntersectionObserver(entries => {
+        entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('visible'); });
+    }, { threshold: 0.12, rootMargin: '0px 0px -80px 0px' });
+    document.querySelectorAll('.reveal').forEach(el => io.observe(el));
+
+    // Chat animation — play when frame scrolls into view
+    const chatFrame = document.getElementById('chatFrame');
+    if (chatFrame) {
+        const chatIo = new IntersectionObserver(entries => {
+            entries.forEach(e => {
+                if (e.isIntersecting) chatFrame.classList.add('playing');
+            });
+        }, { threshold: 0.3 });
+        chatIo.observe(chatFrame);
+    }
+
+    // Live vital tickers — subtle breathing, don't distract
+    function tick(id, formatter, min, max, delay) {
+        const el = document.getElementById(id);
+        if (!el) return;
+        setInterval(() => {
+            const next = min + Math.floor(Math.random() * (max - min + 1));
+            el.style.opacity = '0.5';
+            setTimeout(() => {
+                el.innerHTML = formatter(next);
+                el.style.opacity = '1';
+            }, 180);
+        }, delay);
+    }
+    tick('live-hr', v => `${v}<span class="vunit">BPM</span>`, 104, 114, 2600);
+    tick('live-hrv', v => `${v}<span class="vunit">ms</span>`, 19, 28, 3400);
+    tick('live-spo2', v => `${v}<span class="vunit">%</span>`, 96, 99, 4200);
+
+    // Parallax ring — subtle, follows cursor
+    const ringPhoto = document.querySelector('.ring-photo');
+    const ringWrap = document.querySelector('.ring-photo-wrap');
+    if (ringWrap && ringPhoto) {
+        ringWrap.addEventListener('mousemove', e => {
+            const r = ringWrap.getBoundingClientRect();
+            const x = (e.clientX - r.left - r.width / 2) / r.width;
+            const y = (e.clientY - r.top - r.height / 2) / r.height;
+            ringPhoto.style.transform = `translate(${x * 14}px, ${y * 14}px)`;
+        });
+        ringWrap.addEventListener('mouseleave', () => {
+            ringPhoto.style.transform = '';
+        });
+    }
+</script>
+
+</body>
+</html>

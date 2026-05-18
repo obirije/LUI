@@ -39,21 +39,44 @@ class MainActivity : AppCompatActivity() {
                 }
             }
         })
+
+        // Cold-start path for wake word / ring-gesture activation — onCreate
+        // fires instead of onNewIntent when LUI wasn't already running.
+        //
+        // Guard on `savedInstanceState == null` so a config-change or
+        // low-memory recreate doesn't replay the original wake-word intent
+        // every time the user returns from background. We also consume the
+        // extras after reading so getIntent() won't re-trigger on later
+        // reads.
+        if (savedInstanceState == null && consumeVoiceTrigger(intent)) {
+            val vm = androidx.lifecycle.ViewModelProvider(this)[LuiViewModel::class.java]
+            window.decorView.postDelayed({ vm.onWakeWordActivated() }, 800)
+        }
     }
 
     override fun onNewIntent(intent: android.content.Intent?) {
         super.onNewIntent(intent)
+        setIntent(intent)           // so getIntent() reflects the new intent
         if (navController.currentDestination?.id != R.id.canvasFragment) {
             navController.popBackStack(R.id.canvasFragment, false)
         }
 
-        // Wake word triggered — greet and start conversation mode
-        if (intent?.getBooleanExtra("wake_word", false) == true) {
+        // Wake word / ring gesture triggered — greet and start conversation mode.
+        // Consume the flags immediately so a subsequent recreate doesn't replay.
+        if (consumeVoiceTrigger(intent)) {
             val vm = androidx.lifecycle.ViewModelProvider(this)[LuiViewModel::class.java]
-            window.decorView.postDelayed({
-                // LUI responds to wake word with a greeting, then listens
-                vm.onWakeWordActivated()
-            }, 500)
+            window.decorView.postDelayed({ vm.onWakeWordActivated() }, 500)
         }
+    }
+
+    /** Read and clear the wake_word / ring_gesture extras. Returns true if
+     *  either was set. */
+    private fun consumeVoiceTrigger(intent: android.content.Intent?): Boolean {
+        if (intent == null) return false
+        val wake = intent.getBooleanExtra("wake_word", false)
+        val ring = intent.getBooleanExtra("ring_gesture", false)
+        if (wake) intent.removeExtra("wake_word")
+        if (ring) intent.removeExtra("ring_gesture")
+        return wake || ring
     }
 }

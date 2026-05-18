@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:lottie="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:paddingTop="4dp"
+    android:paddingBottom="4dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="start"
+        android:layout_marginEnd="40dp"
+        android:background="@drawable/card_breathing_bg"
+        android:orientation="vertical"
+        android:padding="20dp">
+
+        <!-- Header -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <TextView
+                android:id="@+id/breathingTitle"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Breathing exercise"
+                android:textColor="#E8DFCF"
+                android:textSize="14sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/breathingPattern"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:letterSpacing="0.12"
+                android:textColor="#C9B78A"
+                android:textSize="11sp"
+                android:textStyle="bold" />
+        </LinearLayout>
+
+        <!-- Pacer — square, centered, larger breathing room -->
+        <FrameLayout
+            android:layout_width="match_parent"
+            android:layout_height="240dp"
+            android:layout_marginTop="12dp">
+
+            <com.airbnb.lottie.LottieAnimationView
+                android:id="@+id/breathingLottie"
+                android:layout_width="240dp"
+                android:layout_height="240dp"
+                android:layout_gravity="center"
+                lottie:lottie_autoPlay="false"
+                lottie:lottie_loop="false"
+                lottie:lottie_rawRes="@raw/breathing_pacer" />
+        </FrameLayout>
+
+        <!-- Phase label -->
+        <TextView
+            android:id="@+id/breathingPhase"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:gravity="center"
+            android:letterSpacing="0.04"
+            android:text="Ready"
+            android:textColor="#F3EBD8"
+            android:textSize="22sp" />
+
+        <!-- Countdown number -->
+        <TextView
+            android:id="@+id/breathingCount"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="2dp"
+            android:gravity="center"
+            android:text="—"
+            android:textColor="#9E9480"
+            android:textSize="13sp" />
+
+        <!-- Cycle progress -->
+        <TextView
+            android:id="@+id/breathingProgress"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="14dp"
+            android:gravity="center"
+            android:textColor="#6E6554"
+            android:textSize="11sp" />
+    </LinearLayout>
+</FrameLayout>

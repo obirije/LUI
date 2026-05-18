@@ -109,6 +109,14 @@ internal class InferenceEngineImpl private constructor(
     @FastNative
     private external fun shutdown()
 
+    /**
+     * Returns the current model-load progress (0.0–1.0).
+     * Updated by llama.cpp's progress_callback during loadModel().
+     * Safe to poll from any thread.
+     */
+    @FastNative
+    external override fun getLoadProgress(): Float
+
     private val _state =
         MutableStateFlow<InferenceEngine.State>(InferenceEngine.State.Uninitialized)
     override val state: StateFlow<InferenceEngine.State> = _state.asStateFlow()

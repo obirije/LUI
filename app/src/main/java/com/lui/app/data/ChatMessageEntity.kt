@@ -71,6 +71,10 @@ data class ChatMessageEntity(
                 ChatMessage.CardType.LINK_PREVIEW -> null
                 ChatMessage.CardType.HEALTH_TREND_CHART -> deriveHealthTrend(text)
                 ChatMessage.CardType.NOTIFICATIONS -> deriveNotifications(text)
+                ChatMessage.CardType.SLEEP -> deriveSleep(text)
+                ChatMessage.CardType.BREATHING -> deriveBreathing(text)
+                ChatMessage.CardType.NOW_PLAYING -> deriveNowPlaying(text)
+                ChatMessage.CardType.COUNTING -> deriveCounting(text)
             }
         }
 
@@ -78,6 +82,48 @@ data class ChatMessageEntity(
         // is shared between live build and Room rehydration.
         fun deriveHealthTrendForBuilder(text: String) = deriveHealthTrend(text)
         fun deriveNotificationsForBuilder(text: String) = deriveNotifications(text)
+        fun deriveSleepForBuilder(text: String) = deriveSleep(text)
+        fun deriveBreathingForBuilder(text: String) = deriveBreathing(text)
+        fun deriveNowPlayingForBuilder(text: String) = deriveNowPlaying(text)
+        fun deriveCountingForBuilder(text: String) = deriveCounting(text)
+
+        /** Parses [counting:mode=…;start=…;count=…;interval=…] into a single
+         *  row. The ViewHolder generates the number sequence from this. */
+        private fun deriveCounting(text: String): List<Map<String, String>>? {
+            val match = Regex("""\[counting:([^]]+)]""").find(text) ?: return null
+            val parts = match.groupValues[1].split(';').mapNotNull {
+                val kv = it.split('=', limit = 2)
+                if (kv.size == 2) kv[0].trim() to kv[1].trim() else null
+            }.toMap()
+            if (parts.isEmpty()) return null
+            return listOf(parts)
+        }
+
+        /** Parses [playing:kind=…;sound=…;label=…;file=…] into a single
+         *  row. Tells the card which audio is active so the ViewHolder
+         *  can reconcile against AmbientSoundPlayer live state. */
+        private fun deriveNowPlaying(text: String): List<Map<String, String>>? {
+            val match = Regex("""\[playing:([^]]+)]""").find(text) ?: return null
+            val parts = match.groupValues[1].split(';').mapNotNull {
+                val kv = it.split('=', limit = 2)
+                if (kv.size == 2) kv[0].trim() to kv[1].trim() else null
+            }.toMap()
+            if (parts.isEmpty()) return null
+            return listOf(parts)
+        }
+
+        /** Parses [breath:pattern=478;cycles=4;in=4;hold=7;out=8;hold2=0]
+         *  into a single-row map the BreathingCardViewHolder consumes. */
+        private fun deriveBreathing(text: String): List<Map<String, String>>? {
+            val match = Regex("""\[breath:([^]]+)]""").find(text) ?: return null
+            val parts = match.groupValues[1].split(';')
+                .mapNotNull {
+                    val kv = it.split('=', limit = 2)
+                    if (kv.size == 2) kv[0].trim() to kv[1].trim() else null
+                }.toMap()
+            if (parts.isEmpty()) return null
+            return listOf(parts)
+        }
 
         private fun deriveHealthTrend(text: String): List<Map<String, String>>? {
             val rows = mutableListOf<Map<String, String>>()
@@ -149,6 +195,52 @@ data class ChatMessageEntity(
                 }
             }
             return if (rows.size > 1) rows else null
+        }
+
+        private fun deriveSleep(text: String): List<Map<String, String>>? {
+            // Source: HealthActions.getSleep — lines of the form
+            //   Last night's sleep: 7h 42m
+            //   Quality: Good (68/100)
+            //   Deep sleep: 1h 30m (19%)
+            //   Light sleep: 4h 10m (54%)
+            //   REM sleep: 1h 45m (23%)
+            //   Awake: 17m (4%)
+            //   [stages:02=20;03=15;02=40;04=25;05=5;...]
+            val rows = mutableListOf<Map<String, String>>()
+            val meta = mutableMapOf<String, String>()
+
+            Regex("""Last night's sleep:\s*(.+?)$""", RegexOption.MULTILINE).find(text)?.let {
+                meta["duration"] = it.groupValues[1].trim()
+            }
+            Regex("""Quality:\s*(\w+)\s*\((\d+)""", RegexOption.MULTILINE).find(text)?.let {
+                meta["qualityLevel"] = it.groupValues[1]
+                meta["quality"] = "${it.groupValues[1]} · ${it.groupValues[2]}/100"
+            }
+            Regex("""Deep sleep:\s*(.+?)$""", RegexOption.MULTILINE).find(text)?.let {
+                meta["deep"] = it.groupValues[1].substringBefore(" (").trim()
+            }
+            Regex("""Light sleep:\s*(.+?)$""", RegexOption.MULTILINE).find(text)?.let {
+                meta["light"] = it.groupValues[1].substringBefore(" (").trim()
+            }
+            Regex("""REM sleep:\s*(.+?)$""", RegexOption.MULTILINE).find(text)?.let {
+                meta["rem"] = it.groupValues[1].substringBefore(" (").trim()
+            }
+            Regex("""Awake:\s*(.+?)$""", RegexOption.MULTILINE).find(text)?.let {
+                meta["awake"] = it.groupValues[1].substringBefore(" (").trim()
+            }
+
+            if (meta.isEmpty()) return null
+            rows.add(meta)
+
+            // Timeline marker: [stages:02=20;03=15;...]
+            val stages = Regex("""\[stages:([^]]+)]""").find(text)
+            if (stages != null) {
+                for (pair in stages.groupValues[1].split(';')) {
+                    val (st, m) = pair.split('=').takeIf { it.size == 2 } ?: continue
+                    rows.add(mapOf("stage" to st, "mins" to m))
+                }
+            }
+            return rows
         }
     }
 }

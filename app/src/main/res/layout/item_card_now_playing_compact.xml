@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Compact layout used for music tracks (PIANO, MEDITATION, generated).
+     Mirrors the breathing-card's warm dark surface — music gets the
+     meditation aesthetic, sound-effects get the neon-equalizer one. -->
+<FrameLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:lottie="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:paddingTop="4dp"
+    android:paddingBottom="4dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="start"
+        android:layout_marginEnd="40dp"
+        android:background="@drawable/card_breathing_bg"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:padding="14dp">
+
+        <com.airbnb.lottie.LottieAnimationView
+            android:id="@+id/nowPlayingLottie"
+            android:layout_width="64dp"
+            android:layout_height="64dp"
+            lottie:lottie_autoPlay="false"
+            lottie:lottie_loop="true"
+            lottie:lottie_rawRes="@raw/ai_music_2" />
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="14dp"
+            android:layout_weight="1"
+            android:orientation="vertical">
+
+            <TextView
+                android:id="@+id/nowPlayingKind"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:letterSpacing="0.12"
+                android:text="PLAYING"
+                android:textColor="#C9B78A"
+                android:textSize="10sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/nowPlayingName"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="2dp"
+                android:ellipsize="end"
+                android:maxLines="2"
+                android:text="—"
+                android:textColor="#F3EBD8"
+                android:textSize="15sp" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="2dp"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:id="@+id/nowPlayingStatus"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:textColor="#9E9480"
+                    android:textSize="11sp" />
+
+                <TextView
+                    android:id="@+id/nowPlayingElapsed"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="6dp"
+                    android:fontFamily="monospace"
+                    android:textColor="#6E6554"
+                    android:textSize="11sp" />
+            </LinearLayout>
+        </LinearLayout>
+
+        <ImageButton
+            android:id="@+id/nowPlayingStop"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:background="@drawable/btn_outlined"
+            android:contentDescription="Stop"
+            android:padding="10dp"
+            android:scaleType="centerInside"
+            android:src="@drawable/ic_stop_small" />
+    </LinearLayout>
+</FrameLayout>

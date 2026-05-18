@@ -29,6 +29,34 @@ object HealthActions {
                     LuiLogger.e("Health", "Failed to persist reading: ${e.message}")
                 }
             }
+            // Gesture events: broadcast intra-app (so any future observer can
+            // bind) AND trigger a default action per gesture type. For now
+            // double-tap opens LUI in conversation mode — "tap to talk".
+            ringService!!.onGesture = { gesture ->
+                try {
+                    val appCtx = context.applicationContext
+                    val intent = android.content.Intent("com.lui.app.RING_GESTURE").apply {
+                        putExtra("gesture", gesture)
+                        setPackage(appCtx.packageName)
+                    }
+                    appCtx.sendBroadcast(intent)
+                    LuiLogger.i("Health", "Broadcast ring gesture: $gesture")
+
+                    if (gesture == "double_tap") {
+                        val launch = android.content.Intent(appCtx, com.lui.app.MainActivity::class.java).apply {
+                            addFlags(
+                                android.content.Intent.FLAG_ACTIVITY_NEW_TASK or
+                                android.content.Intent.FLAG_ACTIVITY_SINGLE_TOP
+                            )
+                            putExtra("conversation_mode", true)
+                            putExtra("ring_gesture", true)
+                        }
+                        appCtx.startActivity(launch)
+                    }
+                } catch (e: Exception) {
+                    LuiLogger.e("Health", "Gesture handling failed: ${e.message}")
+                }
+            }
         }
         return ringService!!
     }
@@ -115,17 +143,20 @@ object HealthActions {
             sb.appendLine("Heart Rate: couldn't measure — ensure ring is worn snugly")
         }
 
-        // Include any cached metrics from prior syncs
+        // Always render the full vital panel. Metrics still syncing in the
+        // current cycle show "—" rather than being silently hidden, so the
+        // card's shape is consistent and the user knows the value will
+        // arrive shortly.
         val spO2 = ring.spO2.value
-        if (spO2 > 0) sb.appendLine("SpO2: $spO2%")
+        sb.appendLine("SpO2: ${if (spO2 > 0) "$spO2%" else "—"}")
         val stress = ring.stress.value
-        if (stress > 0) sb.appendLine("Stress: $stress")
+        sb.appendLine("Stress: ${if (stress > 0) "$stress" else "—"}")
         val hrvVal = ring.hrv.value
-        if (hrvVal > 0) sb.appendLine("HRV: $hrvVal ms")
+        sb.appendLine("HRV: ${if (hrvVal > 0) "$hrvVal ms" else "—"}")
         val temp = ring.temperature.value
-        if (temp > 0f) sb.appendLine("Temperature: ${"%.1f".format(temp)}°C")
+        sb.appendLine("Temperature: ${if (temp > 0f) "%.1f".format(temp) + "°C" else "—"}")
         val steps = ring.steps.value
-        if (steps >= 0) sb.appendLine("Steps: $steps")
+        sb.appendLine("Steps: ${if (steps >= 0) "$steps" else "—"}")
 
         return ActionResult.Success(sb.toString().trim())
     }
@@ -231,12 +262,42 @@ object HealthActions {
             if (sleep.totalMinutes > 0) {
                 val hours = sleep.totalMinutes / 60
                 val mins = sleep.totalMinutes % 60
+                // Simple sleep-quality heuristic widely used by wearables:
+                //   (deep * 2 + rem * 1.5) / total, normalized to 0-100. Weights
+                //   deep heavier than REM, penalizes being all light-sleep.
+                val deepPct = if (sleep.totalMinutes > 0) sleep.deepMinutes * 100f / sleep.totalMinutes else 0f
+                val remPct = if (sleep.totalMinutes > 0) sleep.remMinutes * 100f / sleep.totalMinutes else 0f
+                val lightPct = if (sleep.totalMinutes > 0) sleep.lightMinutes * 100f / sleep.totalMinutes else 0f
+                val awakePct = if (sleep.totalMinutes > 0) sleep.awakeMinutes * 100f / sleep.totalMinutes else 0f
+                val quality = ((deepPct * 2 + remPct * 1.5f).coerceAtMost(100f)).toInt()
+                val qualityLabel = when {
+                    quality >= 75 -> "Excellent"
+                    quality >= 60 -> "Good"
+                    quality >= 45 -> "Fair"
+                    else -> "Poor"
+                }
+
                 val sb = StringBuilder()
                 sb.appendLine("Last night's sleep: ${hours}h ${mins}m")
-                if (sleep.deepMinutes > 0) sb.appendLine("Deep sleep: ${sleep.deepMinutes / 60}h ${sleep.deepMinutes % 60}m")
-                if (sleep.lightMinutes > 0) sb.appendLine("Light sleep: ${sleep.lightMinutes / 60}h ${sleep.lightMinutes % 60}m")
-                if (sleep.remMinutes > 0) sb.appendLine("REM sleep: ${sleep.remMinutes / 60}h ${sleep.remMinutes % 60}m")
-                if (sleep.awakeMinutes > 0) sb.appendLine("Awake: ${sleep.awakeMinutes}m")
+                sb.appendLine("Quality: $qualityLabel ($quality/100)")
+                if (sleep.deepMinutes > 0) sb.appendLine("Deep sleep: ${sleep.deepMinutes / 60}h ${sleep.deepMinutes % 60}m (${"%.0f".format(deepPct)}%)")
+                if (sleep.lightMinutes > 0) sb.appendLine("Light sleep: ${sleep.lightMinutes / 60}h ${sleep.lightMinutes % 60}m (${"%.0f".format(lightPct)}%)")
+                if (sleep.remMinutes > 0) sb.appendLine("REM sleep: ${sleep.remMinutes / 60}h ${sleep.remMinutes % 60}m (${"%.0f".format(remPct)}%)")
+                if (sleep.awakeMinutes > 0) sb.appendLine("Awake: ${sleep.awakeMinutes}m (${"%.0f".format(awakePct)}%)")
+
+                // Embed the stage timeline for the SLEEP_CARD renderer. Format:
+                //   [stages:02=20;03=15;02=40;04=25;...]
+                // where each pair is stage_hex=minutes. Kept on a single line
+                // so it persists into Room via the text column and survives
+                // rehydration.
+                if (sleep.stages.isNotEmpty()) {
+                    sb.append("[stages:")
+                    sleep.stages.forEachIndexed { i, (st, m) ->
+                        if (i > 0) sb.append(';')
+                        sb.append(String.format("%02X", st)).append('=').append(m)
+                    }
+                    sb.append(']')
+                }
                 return ActionResult.Success(sb.toString().trim())
             }
             Thread.sleep(300)

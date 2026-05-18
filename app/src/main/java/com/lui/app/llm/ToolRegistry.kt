@@ -171,6 +171,17 @@ If unsure, rain is the safe universal pick.""",
         ToolDef("start_wellness_mode", "Enter wellness mode: plays a calming sound, enables Do Not Disturb, dims the screen. Use when the user is stressed or needs to wind down. If you don't specify a sound, LUI auto-picks based on time of day and current stress level.",
             listOf(ParamDef("sound", description = "optional sound type (same list as play_relaxing_sound). Omit to let LUI auto-pick based on time and stress."))),
         ToolDef("stop_wellness_mode", "Exit wellness mode: stops ambient sound, restores normal notifications and brightness"),
+        ToolDef("generate_relaxing_music", "Generate a bespoke calming instrumental track via ACE-Step (requires the endpoint to be configured in Connection Hub) and play it on loop. Use when the user asks for 'generate music', 'make me a track', or when bundled sounds don't fit the moment. Takes 10-60s to generate. Falls back to bundled piano if ACE-Step isn't reachable.",
+            listOf(ParamDef("prompt", description = "Free-text description of the desired music — mood, tempo, instruments. Leave blank to auto-compose from current stress + time of day."),
+                   ParamDef("duration", description = "Length in seconds (default 45)"))),
+        ToolDef("start_breathing_exercise", "Open a guided breathing exercise card with an animated pacer. Use when the user asks to 'breathe', 'do a breath reset', 'help me calm down quickly', or proactively when stress is high. Pairs naturally with start_wellness_mode (chain them: ambient + breathwork). Pattern picks: '4-7-8' (deep parasympathetic, default), 'box' (focusing), '5-5' (gentle paced).",
+            listOf(ParamDef("pattern", description = "Breathing pattern", enum = listOf("4-7-8", "box", "5-5")),
+                   ParamDef("cycles", description = "Number of breath cycles (default 4)"))),
+        ToolDef("start_counting_exercise", "Open a guided counting-exercise card — a grounding technique for acute stress/panic. The card cycles through numbers with gentle fade transitions while the user follows along. Use when the user asks to 'count down', 'help me calm down with numbers', or proactively when stress spikes and breathwork isn't a fit. The `start` and `end` define the full range — 'count down from 100' sets start=100 and counts all the way to end=0. Leave `start`/`end` blank to let LUI pick sensibly based on time of day (shorter at night, longer midday).",
+            listOf(ParamDef("mode", description = "Counting mode", enum = listOf("down", "up", "primes", "odds", "evens", "by_sevens")),
+                   ParamDef("start", description = "First number in the range (optional — auto-picked by time of day)"),
+                   ParamDef("end", description = "Last number — for 'down' this is typically 0; for 'up' it's the max. Optional — auto-picked by time of day."),
+                   ParamDef("interval_ms", description = "Milliseconds per number (default 2500)"))),
 
         // Sensors
         ToolDef("get_steps", "Get step count from the pedometer sensor"),
@@ -257,9 +268,27 @@ If unsure, rain is the safe universal pick.""",
             listOf(ParamDef("metric", description = "Metric to check: heart_rate, spo2, stress, hrv, temperature, steps", required = true),
                    ParamDef("hours", description = "How many hours back to look (default 24)", required = false))),
 
+        // Proactive wellbeing scenarios
+        ToolDef("morning_briefing", "Compose a morning briefing: last night's sleep recap, today's calendar, and a reschedule offer when the night was short or restless. Safe to call any time — the user can ask for their briefing on demand."),
+        ToolDef("detect_stress_patterns", "Analyze the last three weeks of stress readings and surface recurring peaks (e.g. 'Monday 2pm'), with a suggested calendar block. Has an internal 7-day cooldown so repeated calls within a week return a no-op."),
+        ToolDef("pre_meeting_check", "Quick readiness check ~10 min before a calendar event — reads current stress + HRV and offers a breath reset if either looks elevated. Normally fired by the scheduler; can be called manually with an event title.",
+            listOf(ParamDef("event_title", description = "Name of the upcoming meeting (optional)"))),
+
         // Meta
         ToolDef("undo", "Undo/reverse the last action where possible")
     )
+
+    private val POSTPARTUM_TOOL_NAMES = setOf(
+        "get_health_summary",
+        "start_wellness_mode",
+        "stop_wellness_mode",
+        "start_breathing_exercise",
+        "generate_relaxing_music",
+        "read_calendar",
+        "detect_stress_patterns",
+    )
+
+    val postpartumTools: List<ToolDef> = tools.filter { it.name in POSTPARTUM_TOOL_NAMES }
 
     // ── Gemini format ──
 

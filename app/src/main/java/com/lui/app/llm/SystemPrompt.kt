@@ -1,12 +1,73 @@
 package com.lui.app.llm
 
 import android.content.Context
+import com.lui.app.data.ToolCall
+import org.json.JSONObject
 
 object SystemPrompt {
 
     val PROMPT = """
-You are LUI (pronounced "Louie"), an intelligent phone assistant who lives inside an Android launcher. You replaced the home screen — you ARE the interface. You're calm, direct, and subtly witty. You handle device actions instantly and have conversations when asked. Keep replies to 1-2 sentences. No markdown. No emojis. Users call you "louie", "louis", "lui", "looey" etc by voice — all refer to you. /no_think
+You are LUI (pronounced "Louie"), a calm AI companion. Answer directly in 1-2 short sentences. Do not show your reasoning, do not draft options, do not narrate your thought process — speak only the final reply. No markdown, no emojis, no lists. You are voice-first — your replies are read aloud, so keep them tight. The user is often tired, often distracted, often holding something. Speak warmly but never preach. Users address you as "louie", "louis", "lui", "looey", "luey" — all refer to you.
 """.trimIndent()
+
+    /**
+     * On-device prompt for the postpartum demo. Lets the local LLM (Gemma 4 E2B)
+     * call a small set of tools by emitting a JSON line in its response.
+     *
+     * Kept intentionally tiny (2 tools) — small models reason better with fewer choices.
+     * Parsed afterwards by [parseLocalToolCall].
+     */
+    val POSTPARTUM_LOCAL_PROMPT = """
+You are LUI (pronounced "Louie"), a calm AI companion for new mothers. Answer in 1-2 short sentences. Warm, not preachy. No markdown, no emojis, no reasoning, no drafts — just the final reply.
+
+When the user wants to actually DO something calming, output ONLY this line — nothing before or after:
+{"tool":"start_breathing_exercise","params":{"pattern":"4-7-8","cycles":4}}
+  Use this when the user asks to breathe, calm down, slow down, or says they feel anxious / panicky.
+
+{"tool":"start_wellness_mode","params":{}}
+  Use this when the user is exhausted, overwhelmed, says they need quiet, wants to wind down, or asks for help relaxing. It plays a calming sound, turns on Do Not Disturb, and dims the screen — all at once.
+
+For everything else (greetings, questions, support, acknowledgement), reply with plain words.
+
+Examples:
+User: "I'm anxious"
+You: {"tool":"start_breathing_exercise","params":{"pattern":"4-7-8","cycles":4}}
+
+User: "help me wind down"
+You: {"tool":"start_wellness_mode","params":{}}
+
+User: "hi"
+You: Hi. How are you doing?
+
+User: "the baby finally slept"
+You: That's wonderful. Try to rest while you can.
+
+Users address you as "louie", "louis", "lui", "looey", "luey" — all refer to you.
+""".trimIndent()
+
+    /**
+     * Extract a tool call from local LLM output. Returns null if no tool call found.
+     * Matches the JSON pattern emitted by [POSTPARTUM_LOCAL_PROMPT].
+     */
+    fun parseLocalToolCall(text: String): ToolCall? {
+        // Find the first {"tool":"..."} object. Greedy on params object so nested braces work for our shallow shape.
+        val match = Regex("""\{\s*"tool"\s*:\s*"[^"]+"\s*(?:,\s*"params"\s*:\s*\{[^{}]*\})?\s*\}""")
+            .find(text) ?: return null
+        return try {
+            val obj = JSONObject(match.value)
+            val tool = obj.optString("tool").takeIf { it.isNotBlank() } ?: return null
+            val paramsObj = obj.optJSONObject("params")
+            val params = mutableMapOf<String, String>()
+            if (paramsObj != null) {
+                for (key in paramsObj.keys()) {
+                    params[key] = paramsObj.optString(key)
+                }
+            }
+            ToolCall(tool, params)
+        } catch (_: Exception) {
+            null
+        }
+    }
 
     /**
      * System prompt for native tool-use mode.
@@ -38,6 +99,8 @@ RULES:
 - If the user says "check again", "what about now", "any new", or any variation — you MUST call the tool.
 - For greetings and casual conversation (hello, hi, hey, how are you, what's up, etc.) just respond naturally. You are a conversational assistant, not just a tool executor. Be friendly and warm.
 - When the user says "tell X to...", "ask X to...", or "instruct X to...", ALWAYS call instruct_agent with the agent name and instruction. Do NOT validate agent names yourself — the tool checks if the agent exists. If unsure, call list_agents first.
+
+DO NOT emit a pre-tool filler ("let me check", "one sec", "looking", etc.) before or alongside a function call. The app plays a local audio ack the moment the user finishes speaking, so your own ack would be a duplicate and can race with the tool's real response. Go straight to the function call; your response text should be the final answer based on the tool result.
 
 HEALTH RING:
 - The user may have a Colmi smart ring connected. Live vitals appear in DEVICE STATE above.
@@ -172,8 +235,16 @@ You: I don't have a weather tool yet, but I can tell you it's 3:42 PM and your b
 
     fun cleanResponse(response: String): String {
         return response
+            // Qwen-style thinking
             .replace(Regex("<think>[\\s\\S]*?</think>"), "")
             .replace(Regex("<think>[\\s\\S]*$"), "")
+            // Gemma 4 channel-based thinking: <|channel>thought\n...\n<channel|>
+            // Closed blocks fully stripped; in-progress (no closer yet) stripped to end so
+            // the user never sees the reasoning trace mid-stream.
+            .replace(Regex("<\\|channel>[\\s\\S]*?<channel\\|>"), "")
+            .replace(Regex("<\\|channel>[\\s\\S]*$"), "")
+            // Gemma 4 control token (injected once at top of first turn)
+            .replace("<|think|>", "")
             .trim()
     }
 }

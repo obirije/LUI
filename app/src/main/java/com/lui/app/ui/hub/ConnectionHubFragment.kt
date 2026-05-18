@@ -321,6 +321,9 @@ class ConnectionHubFragment : Fragment() {
 
         updatePersonaPlexStatus()
 
+        // ACE-Step music generation
+        setupAceStep()
+
         // Bridge
         setupBridgeSwitchListener()
 
@@ -698,6 +701,148 @@ class ConnectionHubFragment : Fragment() {
         }
     }
 
+    private fun setupAceStep() {
+        binding.aceStepEndpointField.setText(keyStore.aceStepEndpoint ?: "")
+        binding.aceStepKeyField.setText(keyStore.aceStepApiKey ?: "")
+        binding.aceStepEndpointField.addTextChangedListener(watcher {
+            keyStore.aceStepEndpoint = binding.aceStepEndpointField.text.toString()
+            updateAceStepStatus(null)
+        })
+        binding.aceStepKeyField.addTextChangedListener(watcher {
+            keyStore.aceStepApiKey = binding.aceStepKeyField.text.toString()
+        })
+        updateAceStepStatus(null)
+        setupMusicLibrary()
+    }
+
+    // ── Music library ──
+
+    private var libraryAdapter: MusicLibraryAdapter? = null
+    private var playingTrackId: Long? = null
+
+    private fun setupMusicLibrary() {
+        val adapter = MusicLibraryAdapter(
+            onPlayToggle = ::onPlayToggle,
+            onFavoriteToggle = ::onFavoriteToggle,
+            onDelete = ::onDeleteTrack,
+            onRename = ::onRenameTrack,
+            playingIdProvider = { playingTrackId }
+        )
+        libraryAdapter = adapter
+        binding.musicLibraryList.layoutManager =
+            androidx.recyclerview.widget.LinearLayoutManager(requireContext())
+        binding.musicLibraryList.adapter = adapter
+
+        val dao = com.lui.app.data.LuiDatabase.getInstance(requireContext()).generatedTrackDao()
+        viewLifecycleOwner.lifecycleScope.launch {
+            dao.observeAll().collect { tracks ->
+                // Reconcile: if a track is playing on the singleton, highlight it here.
+                val playingFilename = com.lui.app.audio.AmbientSoundPlayer.currentlyPlayingFile?.name
+                playingTrackId = tracks.firstOrNull { it.filename == playingFilename }?.id
+                adapter.submitList(tracks)
+                binding.musicLibraryEmpty.visibility = if (tracks.isEmpty()) View.VISIBLE else View.GONE
+                binding.musicLibraryList.visibility = if (tracks.isEmpty()) View.GONE else View.VISIBLE
+            }
+        }
+    }
+
+    private fun onPlayToggle(track: com.lui.app.data.GeneratedTrackEntity) {
+        val file = File(
+            File(requireContext().filesDir, "generated_music"),
+            track.filename
+        )
+        if (playingTrackId == track.id) {
+            com.lui.app.audio.AmbientSoundPlayer.stop(requireContext())
+            playingTrackId = null
+            libraryAdapter?.notifyDataSetChanged()
+            return
+        }
+        if (!file.exists()) {
+            binding.aceStepStatus.text = "Track file missing — generate again?"
+            binding.aceStepStatus.setTextColor(ContextCompat.getColor(requireContext(), R.color.lui_amber))
+            return
+        }
+        com.lui.app.audio.AmbientSoundPlayer.playFromFile(requireContext(), file).fold(
+            onSuccess = {
+                playingTrackId = track.id
+                libraryAdapter?.notifyDataSetChanged()
+            },
+            onFailure = { e ->
+                binding.aceStepStatus.text = "Playback failed: ${e.message?.take(80)}"
+                binding.aceStepStatus.setTextColor(ContextCompat.getColor(requireContext(), R.color.lui_amber))
+            }
+        )
+    }
+
+    private fun onFavoriteToggle(track: com.lui.app.data.GeneratedTrackEntity) {
+        val dao = com.lui.app.data.LuiDatabase.getInstance(requireContext()).generatedTrackDao()
+        viewLifecycleOwner.lifecycleScope.launch(Dispatchers.IO) {
+            dao.setFavorite(track.id, !track.favorite)
+        }
+    }
+
+    private fun onDeleteTrack(track: com.lui.app.data.GeneratedTrackEntity) {
+        android.app.AlertDialog.Builder(requireContext())
+            .setTitle("Delete track?")
+            .setMessage("\"${track.displayName}\" will be removed from your library.")
+            .setNegativeButton("Cancel", null)
+            .setPositiveButton("Delete") { _, _ ->
+                if (playingTrackId == track.id) {
+                    com.lui.app.audio.AmbientSoundPlayer.stop(requireContext())
+                    playingTrackId = null
+                }
+                viewLifecycleOwner.lifecycleScope.launch(Dispatchers.IO) {
+                    val dao = com.lui.app.data.LuiDatabase.getInstance(requireContext()).generatedTrackDao()
+                    dao.deleteById(track.id)
+                    try {
+                        File(File(requireContext().filesDir, "generated_music"), track.filename).delete()
+                    } catch (_: Exception) {}
+                }
+            }
+            .show()
+    }
+
+    private fun onRenameTrack(track: com.lui.app.data.GeneratedTrackEntity) {
+        val input = android.widget.EditText(requireContext()).apply {
+            setText(track.displayName)
+            setSelection(track.displayName.length)
+        }
+        android.app.AlertDialog.Builder(requireContext())
+            .setTitle("Rename track")
+            .setView(input)
+            .setNegativeButton("Cancel", null)
+            .setPositiveButton("Save") { _, _ ->
+                val newName = input.text.toString().trim().ifBlank { track.displayName }
+                viewLifecycleOwner.lifecycleScope.launch(Dispatchers.IO) {
+                    val dao = com.lui.app.data.LuiDatabase.getInstance(requireContext()).generatedTrackDao()
+                    dao.rename(track.id, newName)
+                }
+            }
+            .show()
+    }
+
+    private fun updateAceStepStatus(reachable: Boolean?) {
+        val endpoint = keyStore.aceStepEndpoint
+        when {
+            endpoint.isNullOrBlank() -> {
+                binding.aceStepStatus.text = "No endpoint set — music gen will fall back to bundled piano"
+                binding.aceStepStatus.setTextColor(ContextCompat.getColor(requireContext(), R.color.lui_gray_dark))
+            }
+            reachable == true -> {
+                binding.aceStepStatus.text = "Reachable — ready to generate"
+                binding.aceStepStatus.setTextColor(ContextCompat.getColor(requireContext(), R.color.lui_green))
+            }
+            reachable == false -> {
+                binding.aceStepStatus.text = "Not reachable — check endpoint and that the server is running"
+                binding.aceStepStatus.setTextColor(ContextCompat.getColor(requireContext(), R.color.lui_amber))
+            }
+            else -> {
+                binding.aceStepStatus.text = "Tap Test to verify"
+                binding.aceStepStatus.setTextColor(ContextCompat.getColor(requireContext(), R.color.lui_gray))
+            }
+        }
+    }
+
     private fun updatePersonaPlexStatus() {
         val enabled = keyStore.personaPlexEnabled
         val url = keyStore.personaPlexUrl
@@ -737,6 +882,13 @@ class ConnectionHubFragment : Fragment() {
                 val cloudTts = CloudTts(keyStore)
                 val ok = cloudTts.testConnection()
                 results.add(if (ok) "green:${keyStore.speechProvider.displayName} connected" else "red:${keyStore.speechProvider.displayName} failed")
+            }
+
+            // Test music generation endpoint (only if configured)
+            if (keyStore.hasAceStepConfigured) {
+                val ok = com.lui.app.audio.AceStepClient.ping(requireContext())
+                results.add(if (ok) "green:Music gen reachable" else "red:Music gen unreachable")
+                updateAceStepStatus(ok)
             }
 
             binding.btnTest.isEnabled = true

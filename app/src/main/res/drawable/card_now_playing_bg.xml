@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Matches the AI-music Lottie's dark #272727 fill so the animation
+     dissolves into the card with no visible seam. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <solid android:color="#272727" />
+    <corners android:radius="18dp" />
+</shape>

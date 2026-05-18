@@ -162,6 +162,9 @@ dependencies {
     // WebSocket server (BYOS bridge)
     implementation 'org.java-websocket:Java-WebSocket:1.5.7'
 
+    // Lottie animations (used by the breathing exercise card)
+    implementation 'com.airbnb.android:lottie:6.6.0'
+
     // Testing
     testImplementation 'junit:junit:4.13.2'
 

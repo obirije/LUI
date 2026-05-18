@@ -46,6 +46,12 @@ interface InferenceEngine {
     fun destroy()
 
     /**
+     * Current model-load progress (0.0 to 1.0). Polled from llama.cpp's
+     * progress_callback during loadModel(). Returns 1.0 once load is complete.
+     */
+    fun getLoadProgress(): Float
+
+    /**
      * States of the inference engine
      */
     sealed class State {

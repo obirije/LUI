@@ -172,6 +172,10 @@ object TriggerManager {
 
     // ── Alarm scheduling ──
 
+    /** Re-register the alarm for an already-persisted trigger — used by
+     *  [TriggerReceiver] after rolling a recurring trigger forward. */
+    fun rescheduleAlarm(context: Context, trigger: TriggerEntity) = scheduleAlarm(context, trigger)
+
     private fun scheduleAlarm(context: Context, trigger: TriggerEntity) {
         val time = trigger.triggerTimeMs ?: return
         val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager

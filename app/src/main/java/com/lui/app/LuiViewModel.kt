@@ -2,6 +2,7 @@ package com.lui.app
 
 import android.app.Application
 import android.content.Context
+import android.os.Build
 import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.LiveData
@@ -140,11 +141,12 @@ class LuiViewModel(application: Application) : AndroidViewModel(application) {
             prefs.edit().putBoolean("wallpaper_set", true).apply()
         }
 
-        // Initialize LLM (file I/O + model load on IO dispatcher).
-        // Cloud-first + cloud ready: skip local load entirely — saves RAM and
-        // avoids surfacing "failed to load" when the user doesn't need local.
-        // Local is loaded lazily via loadLocalModel() when cloud fails or the
-        // user toggles to local.
+        // Initialize LLM lazily. Only ensure the file is in place at startup —
+        // do NOT load it into llama.cpp yet. Gemma 4 E2B at 2.4GB causes load-time
+        // OOM crashes on mid-range devices (Moto Edge 40 Neo) when other apps are
+        // holding ~4GB. Deferring the actual load until the first chat send lets
+        // the app launch cleanly and gives the user a "model loading" indicator
+        // exactly when they need it.
         viewModelScope.launch {
             if (keyStore.isCloudFirst && cloudModel.isReady) {
                 _llmStatus.value = "cloud"
@@ -155,28 +157,15 @@ class LuiViewModel(application: Application) : AndroidViewModel(application) {
             val found = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
                 ModelManager.ensureModel(application)
             }
-            if (found) {
-                _llmStatus.value = "Loading model..."
-                val result = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-                    localModel.initialize()
+            _llmStatus.value = when {
+                found -> "ready"  // Model file is on disk; llama.cpp load deferred to first chat send.
+                cloudModel.isReady -> "cloud"
+                else -> "no_model".also {
+                    addMessage(ChatMessage(
+                        text = "No LLM model found. I'm in keyword mode — I can handle flashlight, alarms, timers, apps, calls, volume, brightness, DND, and rotation. For full AI chat, sideload the model or configure a cloud API key (tap the status dot).",
+                        sender = Sender.LUI
+                    ))
                 }
-                if (result.isSuccess) {
-                    _llmStatus.value = "ready"
-                } else if (cloudModel.isReady) {
-                    _llmStatus.value = "cloud"
-                    Log.e("LuiVM", "Local init failed, using cloud", result.exceptionOrNull())
-                } else {
-                    _llmStatus.value = "Model failed to load. Using keyword mode."
-                    Log.e("LuiVM", "Model init failed", result.exceptionOrNull())
-                }
-            } else if (cloudModel.isReady) {
-                _llmStatus.value = "cloud"
-            } else {
-                _llmStatus.value = "no_model"
-                addMessage(ChatMessage(
-                    text = "No LLM model found. I'm in keyword mode — I can handle flashlight, alarms, timers, apps, calls, volume, brightness, DND, and rotation. For full AI chat, sideload the model or configure a cloud API key (tap the status dot).",
-                    sender = Sender.LUI
-                ))
             }
         }
 
@@ -211,47 +200,18 @@ class LuiViewModel(application: Application) : AndroidViewModel(application) {
             }
         }
 
-        // Proactive stress alert — watch ring stress readings
+        // Proactive wellbeing scenarios — acute stress watcher, morning briefing,
+        // pre-meeting readiness, weekly pattern detection.
+        com.lui.app.scenarios.ProactiveScenarios.conversationModeProvider = { voiceEngine.conversationMode }
+        com.lui.app.scenarios.ProactiveScenarios.start(application, viewModelScope)
+
+        // Forward proactive messages (from background triggers + stress watcher)
+        // onto the canvas.
         viewModelScope.launch {
-            val ring = com.lui.app.interceptor.actions.HealthActions.getRingService(application)
-            ring.stress.collect { level ->
-                if (level > 0) onStressReading(level)
+            com.lui.app.scenarios.ProactiveBus.messages.collect { msg ->
+                addMessage(msg)
             }
         }
-    }
-
-    // ── Proactive stress alert ──
-    // Fire when we see N consecutive high readings and we haven't alerted recently.
-
-    private var consecutiveHighStress = 0
-    private var lastStressAlertAt = 0L
-
-    private fun onStressReading(level: Int) {
-        val HIGH_THRESHOLD = 75
-        val REQUIRED_CONSECUTIVE = 3          // ~45 min given 15-min sync cycle
-        val COOLDOWN_MS = 2 * 60 * 60 * 1000L // 2 hours between alerts
-
-        if (level >= HIGH_THRESHOLD) {
-            consecutiveHighStress += 1
-        } else {
-            consecutiveHighStress = 0
-            return
-        }
-
-        if (consecutiveHighStress < REQUIRED_CONSECUTIVE) return
-
-        val now = System.currentTimeMillis()
-        if (now - lastStressAlertAt < COOLDOWN_MS) return
-
-        // Don't interrupt if the user is mid-conversation with voice mode
-        if (voiceEngine.conversationMode) return
-
-        lastStressAlertAt = now
-        consecutiveHighStress = 0
-
-        val text = "Your stress has been elevated (around $level) for the last while. Want me to start wellness mode? I'll play something calming, mute notifications, and dim the screen."
-        addMessage(ChatMessage(text = text, sender = Sender.LUI))
-        LuiLogger.i("STRESS", "Proactive alert fired at level $level")
     }
 
     fun handleUserInput(text: String) {
@@ -457,11 +417,11 @@ class LuiViewModel(application: Application) : AndroidViewModel(application) {
         }
         LuiLogger.interceptorMiss(text)
 
-        if (localModel.isReady) {
+        if (localModel.isReady || localModel.isModelDownloaded()) {
+            // Either ready, OR file is on disk and generateWithLocalLlm will lazy-load it.
             generateWithLlm(text)
         } else if (cloudModel.isReady) {
-            // Local model not ready but cloud is — use cloud
-            LuiLogger.i("ROUTE", "Local not ready, falling back to cloud")
+            LuiLogger.i("ROUTE", "Local not ready and no model file, falling back to cloud")
             generateWithLlm(text)
         } else {
             val msg = "I heard you, but my brain isn't loaded yet. For now I can do: flashlight, alarms, timers, open apps, make calls, wifi/bluetooth settings."
@@ -725,15 +685,29 @@ class LuiViewModel(application: Application) : AndroidViewModel(application) {
     /** Called when wake word "Hey LUI" activates the app */
     fun onWakeWordActivated() {
         LuiLogger.i("WAKE", "Wake word activated — greeting user")
+        // Haptic pulse — non-auditory confirmation that LUI heard the wake
+        // trigger (Hey LUI OR ring double-tap). Matters especially when
+        // cloud TTS is unavailable and the greeting would otherwise be silent.
+        try {
+            val appCtx = getApplication<Application>()
+            val vibrator = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                (appCtx.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as? android.os.VibratorManager)?.defaultVibrator
+            } else {
+                @Suppress("DEPRECATION")
+                appCtx.getSystemService(Context.VIBRATOR_SERVICE) as? android.os.Vibrator
+            }
+            vibrator?.vibrate(android.os.VibrationEffect.createOneShot(60, android.os.VibrationEffect.DEFAULT_AMPLITUDE))
+        } catch (_: Exception) {}
+
+        // Enable conversation mode BEFORE speaking so VoiceEngine.autoListen
+        // fires exactly when TTS (cloud or local fallback) finishes. The old
+        // fixed 2.5s delay raced with TTS and opened the mic mid-playback,
+        // producing an echo loop where LUI transcribed its own greeting.
+        voiceEngine.conversationMode = true
+
         val greeting = "Hey, I'm here. What can I do for you?"
         addMessage(ChatMessage(text = greeting, sender = Sender.LUI))
         voiceEngine.speak(greeting)
-        // After greeting finishes, start listening in conversation mode
-        viewModelScope.launch {
-            // Wait for TTS to finish (estimate based on greeting length)
-            kotlinx.coroutines.delay(2500)
-            startVoiceInput(conversationMode = true)
-        }
     }
 
     fun startVoiceInput(conversationMode: Boolean = false) {
@@ -845,7 +819,121 @@ class LuiViewModel(application: Application) : AndroidViewModel(application) {
             }
         }
         voiceBubbleAdded = false
+
+        // Cancel any leftover filler job from a previous turn.
+        stopProgressiveFillers()
+
+        // Immediate audio ack — kicks off BEFORE the LLM round-trip so the
+        // user isn't sitting in silence while cloud inference + any tool run.
+        // The filler queues into the same cloud TTS pipeline as the response
+        // that will follow, so state stays SPEAKING throughout and no
+        // autoListen race can open the mic between them. Skipped for short
+        // chit-chat ("yes", "ok") where a filler feels silly.
+        if (voiceEngine.conversationMode && shouldImmediateAck(text)) {
+            voiceEngine.speakSentence(pickFiller(text))
+        }
+
         processAfterVoice(text)
+    }
+
+    /**
+     * Gate the immediate filler behind "likely to trigger a tool call" —
+     * conversational replies ("tell me a joke", "what do you think about X")
+     * don't need an audio ack because the LLM answers those in ~1s of text
+     * anyway. The filler only earns its keep when we're about to wait for
+     * a real tool (health ring, web search, screen control, app open, etc.).
+     *
+     * Heuristic: input must contain a tool-triggering keyword/pattern AND
+     * not be trivially short/chitty.
+     */
+    private fun shouldImmediateAck(text: String): Boolean {
+        val t = text.trim().lowercase()
+        if (t.length < 8) return false
+
+        // Skip obvious conversational chit-chat (short greetings, thanks).
+        val chitChatPatterns = listOf(
+            "\\byes\\b", "\\bno\\b", "\\byeah\\b", "\\bnope\\b",
+            "\\bokay\\b", "\\bok\\b", "\\bthanks\\b", "thank you",
+            "\\bstop\\b", "\\bcancel\\b", "nevermind", "never mind",
+            "\\bbye\\b", "goodbye",
+            "^hi\\b", "^hello\\b", "^hey\\b", "what'?s up",
+            "how are you", "good (morning|afternoon|evening|night)",
+            "tell me a joke", "what do you think", "do you think"
+        )
+        if (chitChatPatterns.any { Regex(it).containsMatchIn(t) }) return false
+
+        // Positive: verbs/patterns that usually route through a tool. Kept
+        // broad because we tolerate false positives (cheap filler) more than
+        // false negatives (awkward 15s silence during a real tool call).
+        val toolPatterns = listOf(
+            "\\bcheck\\b", "what'?s my", "what is my", "how'?s my",
+            "show me", "\\bfind\\b", "search for", "search the",
+            "\\bread\\b", "\\bget my\\b", "\\bget the\\b",
+            "\\bsend\\b", "\\btext\\b", "\\bmessage\\b", "\\bcall\\b",
+            "\\bopen\\b", "\\blaunch\\b", "\\bplay\\b",
+            "set (a |an |the )?(alarm|timer|reminder)",
+            "turn (on|off)", "\\btoggle\\b",
+            "how many", "how much",
+            "list (my|the|all)", "what notifications", "notifications?\\?",
+            "\\bbrowse\\b", "\\bweather\\b", "\\bnavigate\\b", "\\bdirections\\b",
+            "\\bsleep\\b", "heart rate", "\\bspo2\\b", "\\bstress\\b",
+            "\\bhrv\\b", "\\bsteps\\b", "temperature",
+            "health (summary|status|data|details)"
+        )
+        return toolPatterns.any { Regex(it).containsMatchIn(t) }
+    }
+
+    private val fillerPhrases = listOf(
+        "Mhm.", "Okay.", "Alright.", "Got it.", "Sure.",
+        "Let me check.", "One sec.", "Looking now.", "On it."
+    )
+    /** Followup fillers that play while a tool is still running. Ordered from
+     *  short to slightly more patient — rotating through as the wait drags on. */
+    private val progressiveFillers = listOf(
+        "Still looking.",
+        "Almost there.",
+        "Bear with me.",
+        "Nearly done.",
+        "Just a moment longer."
+    )
+    private var lastFillerIdx = -1
+    private fun pickFiller(userText: String): String {
+        // Rotate with a bias against repeating the previous filler — feels
+        // less robotic than pure random over short sessions.
+        val choices = fillerPhrases.indices.filter { it != lastFillerIdx }
+        val idx = choices.random()
+        lastFillerIdx = idx
+        return fillerPhrases[idx]
+    }
+
+    private var progressiveFillerJob: Job? = null
+
+    /** Start queueing follow-up fillers while a tool is pending. Cancelled as
+     *  soon as the LLM starts streaming the real response. Keeps the audio
+     *  channel alive through 15-30s tool runs (e.g. ring PPG reads). */
+    private fun startProgressiveFillers() {
+        progressiveFillerJob?.cancel()
+        progressiveFillerJob = viewModelScope.launch {
+            // Initial wait — give the first filler + LLM round-trip a chance
+            // to complete before stacking more audio. If the response arrives
+            // quickly, no follow-ups needed.
+            kotlinx.coroutines.delay(6000)
+            var idx = 0
+            while (true) {
+                if (!voiceEngine.conversationMode) return@launch
+                val phrase = progressiveFillers[idx % progressiveFillers.size]
+                voiceEngine.speakSentence(phrase)
+                idx++
+                // Spacing widens slightly so we don't over-talk at the end of
+                // a long tool run.
+                kotlinx.coroutines.delay(8000L + (idx * 1000L).coerceAtMost(4000L))
+            }
+        }
+    }
+
+    private fun stopProgressiveFillers() {
+        progressiveFillerJob?.cancel()
+        progressiveFillerJob = null
     }
 
     private fun processAfterVoice(text: String) {
@@ -913,6 +1001,10 @@ class LuiViewModel(application: Application) : AndroidViewModel(application) {
                 ).collect { result ->
                     when (result) {
                         is GenerationResult.TextToken -> {
+                            // Real response is streaming in — stop padding with
+                            // progressive fillers so they don't pile up behind
+                            // the answer.
+                            stopProgressiveFillers()
                             responseBuilder.append(result.token)
                             val cleaned = SystemPrompt.cleanResponse(responseBuilder.toString())
                             if (cleaned.isNotBlank()) {
@@ -948,6 +1040,24 @@ class LuiViewModel(application: Application) : AndroidViewModel(application) {
                         }
                         is GenerationResult.ToolUse -> {
                             pendingToolCall = result.toolCall
+                            // Start progressive fillers — keeps audio going
+                            // through long tool runs (ring PPG, web scrape).
+                            if (voiceEngine.conversationMode) {
+                                startProgressiveFillers()
+                            }
+                            // Flush any pre-tool ack text the LLM may have
+                            // slipped in (despite the prompt telling it not
+                            // to). Short phrases don't hit the 60-char
+                            // cloud sentence-split threshold and would sit
+                            // unspoken otherwise.
+                            if (voiceEngine.conversationMode && pipelineStarted) {
+                                val cleaned = SystemPrompt.cleanResponse(responseBuilder.toString())
+                                val remaining = cleaned.substring(lastSpokenIndex).trim()
+                                if (remaining.isNotBlank()) {
+                                    voiceEngine.speakSentence(remaining)
+                                    lastSpokenIndex = cleaned.length
+                                }
+                            }
                         }
                         is GenerationResult.Done -> {
                             // Final text response — display and finish
@@ -971,6 +1081,7 @@ class LuiViewModel(application: Application) : AndroidViewModel(application) {
                 }
             } catch (e: Exception) {
                 LuiLogger.error("LLM", "Generation error: ${e.message}", e)
+                stopProgressiveFillers()
                 val friendly = friendlyCloudError(e)
                 replaceLastWithLui(friendly, streaming = false)
                 maybeLoadLocalAfterCloudFailure(e)
@@ -1017,7 +1128,10 @@ class LuiViewModel(application: Application) : AndroidViewModel(application) {
                 else -> null
             }
 
-            // Update UI on main thread, then yield so it actually renders
+            // Update UI on main thread. We deliberately do NOT speak the
+            // statusHint — TTS triggered here completes between rounds and
+            // flips state to IDLE, which lets autoListen open the mic right
+            // before round 2's TTS streams in → echo loop.
             kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
                 if (statusHint != null) {
                     replaceLastWithLui(statusHint, streaming = true)
@@ -1135,6 +1249,51 @@ class LuiViewModel(application: Application) : AndroidViewModel(application) {
 
     /** Local model fallback — no native tool use, just text streaming */
     private suspend fun generateWithLocalLlm(userText: String) {
+        // Lazy load: model file is on disk but llama.cpp hasn't loaded it into RAM
+        // yet (we defer the load to avoid OOM at app startup on mid-range devices).
+        // First chat send pays the ~30s load cost; subsequent chats are instant.
+        if (!localModel.isReady && localModel.isModelDownloaded()) {
+            LuiLogger.i("LLM", "Lazy-loading Gemma 4 E2B (first chat send)...")
+            val loadStartMs = System.currentTimeMillis()
+            // Poll llama.cpp's progress_callback in a side coroutine and update the UI.
+            // Update only when the percentage actually changed (or every 2s for elapsed
+            // time) so the Main thread isn't fighting allocation + LiveData notifies
+            // against the load thread's page-fault storm.
+            val progressJob = viewModelScope.launch(kotlinx.coroutines.Dispatchers.Main.immediate) {
+                var lastPct = -1
+                var lastElapsedShown = -1L
+                while (true) {
+                    val pct = (localModel.loadProgress() * 100).toInt().coerceIn(0, 99)
+                    val elapsed = (System.currentTimeMillis() - loadStartMs) / 1000
+                    if (pct != lastPct || elapsed - lastElapsedShown >= 2) {
+                        val filled = pct / 5  // 20-char bar
+                        val bar = "[" + "█".repeat(filled) + "░".repeat(20 - filled) + "]"
+                        replaceLastWithLui("Loading Gemma 4 on-device\n$bar  $pct%  ·  ${elapsed}s", streaming = true)
+                        lastPct = pct
+                        lastElapsedShown = elapsed
+                    }
+                    kotlinx.coroutines.delay(1000)
+                }
+            }
+            _llmStatus.value = "loading"
+            val loaded = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                localModel.initialize()
+            }
+            progressJob.cancel()
+            if (loaded.isFailure) {
+                val err = loaded.exceptionOrNull()?.message ?: "unknown error"
+                LuiLogger.e("LLM", "Lazy load failed: $err", loaded.exceptionOrNull())
+                replaceLastWithLui("Couldn't load the on-device model: $err. Try closing other apps and tapping again.", streaming = false)
+                _llmStatus.value = "Model failed to load"
+                return
+            }
+            _llmStatus.value = "ready"
+            LuiLogger.i("LLM", "Lazy load complete in ${(System.currentTimeMillis() - loadStartMs) / 1000}s")
+            // Replace the loading message with a fresh thinking placeholder so the
+            // first real response token replaces it cleanly.
+            replaceLastWithLui("", streaming = true)
+        }
+
         val responseBuilder = StringBuilder()
         var lastSpokenIndex = 0
         var pipelineStarted = false
@@ -1144,7 +1303,12 @@ class LuiViewModel(application: Application) : AndroidViewModel(application) {
                 .collect { token ->
                     responseBuilder.append(token)
                     val cleaned = SystemPrompt.cleanResponse(responseBuilder.toString())
-                    if (cleaned.isNotBlank()) {
+                    // If the output looks like a tool-call JSON, suppress display + voice \u2014
+                    // the post-stream parser will route to executeToolCall once the JSON is
+                    // complete. Showing the raw `{"tool":...}` to the user looks like leaked
+                    // internals.
+                    val looksLikeToolCall = cleaned.trimStart().startsWith("{")
+                    if (cleaned.isNotBlank() && !looksLikeToolCall) {
                         replaceLastWithLui(cleaned, streaming = true)
 
                         if (voiceEngine.conversationMode) {
@@ -1178,6 +1342,22 @@ class LuiViewModel(application: Application) : AndroidViewModel(application) {
 
         val fullResponse = SystemPrompt.cleanResponse(responseBuilder.toString())
         LuiLogger.llmResponse(fullResponse)
+
+        // Postpartum local tool-call: if the model emitted a {"tool":...} JSON line,
+        // intercept it and route to executeToolCall instead of showing as chat text.
+        val localToolCall = SystemPrompt.parseLocalToolCall(fullResponse)
+        if (localToolCall != null) {
+            LuiLogger.i("LLM", "Local tool-call detected: ${localToolCall.tool}")
+            // Drop the THINKING placeholder that generateWithLlm added — executeToolCall
+            // will write its own messages.
+            val current = _messages.value.orEmpty().toMutableList()
+            if (current.isNotEmpty() && current.last().sender == Sender.THINKING) {
+                current.removeAt(current.size - 1)
+                _messages.value = current
+            }
+            executeToolCall(localToolCall)
+            return
+        }
 
         // Fallback: if local model produced only <think> content, try cloud or show fallback
         if (fullResponse.isBlank() && responseBuilder.isNotEmpty()) {
@@ -1299,9 +1479,33 @@ class LuiViewModel(application: Application) : AndroidViewModel(application) {
                     cardData = listOf(mapOf("label" to "SpO2", "value" to "${pct ?: "?"}%", "color" to color)))
             }
             "get_sleep" -> {
-                val cardData = parseHealthToCards(text)
-                if (cardData.isNotEmpty()) {
-                    ChatMessage(text = text, sender = Sender.LUI, cardType = ChatMessage.CardType.DEVICE_STATUS, cardData = cardData)
+                val sleepData = com.lui.app.data.ChatMessageEntity.deriveSleepForBuilder(text)
+                if (sleepData != null && sleepData.isNotEmpty()) {
+                    ChatMessage(text = text, sender = Sender.LUI, cardType = ChatMessage.CardType.SLEEP, cardData = sleepData)
+                } else {
+                    ChatMessage(text = text, sender = Sender.LUI)
+                }
+            }
+            "start_breathing_exercise" -> {
+                val data = com.lui.app.data.ChatMessageEntity.deriveBreathingForBuilder(text)
+                if (data != null && data.isNotEmpty()) {
+                    ChatMessage(text = text, sender = Sender.LUI, cardType = ChatMessage.CardType.BREATHING, cardData = data)
+                } else {
+                    ChatMessage(text = text, sender = Sender.LUI)
+                }
+            }
+            "start_wellness_mode", "play_relaxing_sound", "generate_relaxing_music" -> {
+                val data = com.lui.app.data.ChatMessageEntity.deriveNowPlayingForBuilder(text)
+                if (data != null && data.isNotEmpty()) {
+                    ChatMessage(text = text, sender = Sender.LUI, cardType = ChatMessage.CardType.NOW_PLAYING, cardData = data)
+                } else {
+                    ChatMessage(text = text, sender = Sender.LUI)
+                }
+            }
+            "start_counting_exercise" -> {
+                val data = com.lui.app.data.ChatMessageEntity.deriveCountingForBuilder(text)
+                if (data != null && data.isNotEmpty()) {
+                    ChatMessage(text = text, sender = Sender.LUI, cardType = ChatMessage.CardType.COUNTING, cardData = data)
                 } else {
                     ChatMessage(text = text, sender = Sender.LUI)
                 }

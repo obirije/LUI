@@ -40,7 +40,6 @@ object NotificationActions {
         // Read directly from Android's active notifications — not our cache
         return try {
             val active = listener.activeNotifications ?: emptyArray()
-            val timeFormat = SimpleDateFormat("h:mm a", Locale.getDefault())
             val entries = active
                 .filter { sbn ->
                     val extras = sbn.notification.extras
@@ -53,17 +52,11 @@ object NotificationActions {
 
             if (entries.isEmpty()) return ActionResult.Success("No active notifications.")
 
-            val sb = StringBuilder()
-            for (sbn in entries) {
-                val extras = sbn.notification.extras
-                val title = extras.getCharSequence("android.title")?.toString() ?: ""
-                val text = extras.getCharSequence("android.text")?.toString() ?: ""
-                val appName = getAppName(context, sbn.packageName)
-                val time = timeFormat.format(Date(sbn.postTime))
-                sb.appendLine("$appName ($time): ${title}${if (text.isNotBlank()) " — $text" else ""}")
-            }
-
-            ActionResult.Success(sb.toString().trim())
+            // Render in the grouped "AppName (count):\n  HH:MM: Title — snippet"
+            // shape that the NOTIFICATIONS card parser expects. Same look as
+            // get_digest / get_notification_history — so "list my notifications"
+            // lands in the card UI, not a plain text bubble.
+            ActionResult.Success(renderGroupedActive(context, entries))
         } catch (e: Exception) {
             // Fallback to in-memory cache
             val notifications = synchronized(LuiNotificationListener.recentNotifications) {
@@ -71,15 +64,59 @@ object NotificationActions {
             }
             if (notifications.isEmpty()) return ActionResult.Success("No recent notifications.")
 
-            val timeFormat = SimpleDateFormat("h:mm a", Locale.getDefault())
-            val sb = StringBuilder()
-            for (n in notifications) {
-                val appName = getAppName(context, n.app)
-                val time = timeFormat.format(Date(n.timestamp))
-                sb.appendLine("$appName ($time): ${n.title}${if (n.text.isNotBlank()) " — ${n.text}" else ""}")
-            }
-            ActionResult.Success(sb.toString().trim())
+            ActionResult.Success(renderGroupedCache(context, notifications))
         }
+    }
+
+    /** Grouped-by-app render for active StatusBarNotification entries. */
+    private fun renderGroupedActive(
+        context: Context,
+        entries: List<android.service.notification.StatusBarNotification>
+    ): String {
+        val timeFormat = SimpleDateFormat("h:mm a", Locale.getDefault())
+        data class Row(val time: String, val title: String, val text: String)
+        val byApp = linkedMapOf<String, MutableList<Row>>()
+        for (sbn in entries) {
+            val extras = sbn.notification.extras
+            val title = extras.getCharSequence("android.title")?.toString() ?: ""
+            val text = extras.getCharSequence("android.text")?.toString() ?: ""
+            val appName = getAppName(context, sbn.packageName)
+            val time = timeFormat.format(Date(sbn.postTime))
+            byApp.getOrPut(appName) { mutableListOf() }.add(Row(time, title, text))
+        }
+        val sb = StringBuilder("Active notifications (${entries.size}):\n")
+        for ((app, rows) in byApp) {
+            sb.appendLine("\n$app (${rows.size}):")
+            for (r in rows) {
+                val snippet = if (r.text.isNotBlank()) " — ${r.text.take(80)}" else ""
+                sb.appendLine("  ${r.time}: ${r.title}$snippet")
+            }
+        }
+        return sb.toString().trim()
+    }
+
+    /** Same shape from the in-memory cache fallback. */
+    private fun renderGroupedCache(
+        context: Context,
+        notifications: List<com.lui.app.helper.LuiNotificationListener.Companion.NotificationInfo>
+    ): String {
+        val timeFormat = SimpleDateFormat("h:mm a", Locale.getDefault())
+        data class Row(val time: String, val title: String, val text: String)
+        val byApp = linkedMapOf<String, MutableList<Row>>()
+        for (n in notifications) {
+            val appName = getAppName(context, n.app)
+            val time = timeFormat.format(Date(n.timestamp))
+            byApp.getOrPut(appName) { mutableListOf() }.add(Row(time, n.title, n.text))
+        }
+        val sb = StringBuilder("Recent notifications (${notifications.size}):\n")
+        for ((app, rows) in byApp) {
+            sb.appendLine("\n$app (${rows.size}):")
+            for (r in rows) {
+                val snippet = if (r.text.isNotBlank()) " — ${r.text.take(80)}" else ""
+                sb.appendLine("  ${r.time}: ${r.title}$snippet")
+            }
+        }
+        return sb.toString().trim()
     }
 
     fun clearNotifications(context: Context): ActionResult {

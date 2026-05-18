@@ -19,12 +19,14 @@ object ModelDownloader {
 
     private const val TAG = "ModelDownloader"
 
-    // Default model — Qwen2.5 1.5B Instruct Q4_K_M (~940MB, bartowski)
-    // Switched from Qwen3.5 0.8B (2026-04-13) — that model has a thinking mode that
-    // produced empty/canned chat responses on this size class.
+    // Default model — Gemma 4 E2B IQ3_XXS (~2.37GB, unsloth dynamic 3-bit)
+    // Switched from Qwen 2.5 1.5B (2026-05-17) for the Gemma 4 For Good hackathon
+    // submission: postpartum on-device mode. Gemma 4 E2B is Google's Edge variant
+    // with native function calling. Tight fit on Dimensity 7030 — premium devices
+    // (12GB+ RAM) will run smoother.
     const val DEFAULT_MODEL_URL =
-        "https://huggingface.co/bartowski/Qwen2.5-1.5B-Instruct-GGUF/resolve/main/Qwen2.5-1.5B-Instruct-Q4_K_M.gguf"
-    const val DEFAULT_MODEL_FILENAME = "Qwen2.5-1.5B-Instruct-Q4_K_M.gguf"
+        "https://huggingface.co/unsloth/gemma-4-E2B-it-GGUF/resolve/main/gemma-4-E2B-it-UD-IQ3_XXS.gguf"
+    const val DEFAULT_MODEL_FILENAME = "gemma-4-E2B-it-UD-IQ3_XXS.gguf"
 
     data class Progress(
         val bytesDownloaded: Long,

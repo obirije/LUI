@@ -6,6 +6,13 @@ import android.media.AudioAttributes
 import android.media.AudioManager
 import android.media.MediaPlayer
 import com.lui.app.helper.LuiLogger
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 import java.util.Calendar
 
 /**
@@ -46,7 +53,11 @@ object AmbientSoundPlayer {
     }
 
     private var player: MediaPlayer? = null
+    private var crossfadePlayer: MediaPlayer? = null
+    private var crossfadeJob: Job? = null
+    private val crossfadeScope = CoroutineScope(Dispatchers.Default + SupervisorJob())
     private var currentSound: Sound? = null
+    private var currentFile: java.io.File? = null
     private var priorSystemVolume: Int? = null
     private var inWellnessMode = false
 
@@ -139,21 +150,143 @@ object AmbientSoundPlayer {
         }
     }
 
+    /**
+     * Play an arbitrary audio file as a seamless loop using a two-player
+     * crossfade. The DiT trim means generated tracks have no natural fade,
+     * so hard-looping produces an audible click at the seam. We overlap
+     * the last [crossfadeMs] of each pass with the next pass at zero
+     * volume, then ramp one down while the other ramps up.
+     *
+     * If [crossfadeMs] is 0 or the track is shorter than 4× the crossfade,
+     * falls back to [MediaPlayer.setLooping] to avoid overrun.
+     */
+    @Synchronized
+    fun playFromFile(
+        context: Context,
+        file: java.io.File,
+        wellnessMode: Boolean = false,
+        crossfadeMs: Int = 1500
+    ): Result<Unit> {
+        stop(context)
+        return try {
+            val p1 = buildFilePlayer(file)
+            val durationMs = p1.duration
+            val cfMs = if (crossfadeMs <= 0 || durationMs < crossfadeMs * 4) 0
+                       else crossfadeMs.coerceAtMost(durationMs / 4)
+            val vol = pickVolume(Sound.PIANO, wellnessMode)
+
+            if (cfMs == 0) {
+                // Too short to crossfade — fall back to hard loop
+                p1.isLooping = true
+                p1.setVolume(vol, vol)
+                p1.start()
+                player = p1
+            } else {
+                val p2 = buildFilePlayer(file)
+                p1.setVolume(vol, vol)
+                p2.setVolume(0f, 0f)
+                p1.start()
+                player = p1
+                crossfadePlayer = p2
+                crossfadeJob = crossfadeScope.launch {
+                    runCrossfadeLoop(p1, p2, durationMs, cfMs, vol)
+                }
+            }
+            ensureSystemVolumeAudible(context)
+            currentSound = null
+            currentFile = file
+            inWellnessMode = wellnessMode
+            LuiLogger.i(TAG, "Playing generated track: ${file.name} (${durationMs}ms, crossfade=${cfMs}ms)")
+            Result.success(Unit)
+        } catch (e: Exception) {
+            LuiLogger.e(TAG, "playFromFile failed: ${e.message}", e)
+            player = null
+            crossfadePlayer = null
+            Result.failure(e)
+        }
+    }
+
+    private fun buildFilePlayer(file: java.io.File): MediaPlayer {
+        return MediaPlayer().apply {
+            setDataSource(file.absolutePath)
+            setAudioAttributes(
+                AudioAttributes.Builder()
+                    .setUsage(AudioAttributes.USAGE_MEDIA)
+                    .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+                    .build()
+            )
+            isLooping = false                // crossfader controls iteration
+            prepare()
+        }
+    }
+
+    /** Ping-pongs between [primaryIn] and [secondaryIn], overlapping the
+     *  last [cfMs] of each pass. Exits when the coroutine is cancelled. */
+    private suspend fun runCrossfadeLoop(
+        primaryIn: MediaPlayer,
+        secondaryIn: MediaPlayer,
+        durationMs: Int,
+        cfMs: Int,
+        targetVol: Float
+    ) {
+        var primary = primaryIn
+        var secondary = secondaryIn
+        val triggerAt = durationMs - cfMs
+        while (kotlin.coroutines.coroutineContext[Job]?.isActive == true) {
+            // Wait until primary's playback head is near the end.
+            while (kotlin.coroutines.coroutineContext[Job]?.isActive == true) {
+                val pos = try { primary.currentPosition } catch (_: Exception) { durationMs }
+                if (pos >= triggerAt) break
+                delay(50)
+            }
+            if (kotlin.coroutines.coroutineContext[Job]?.isActive != true) break
+
+            // Prime the secondary player at volume 0 and start it.
+            try { secondary.seekTo(0) } catch (_: Exception) {}
+            try { secondary.setVolume(0f, 0f) } catch (_: Exception) {}
+            try { secondary.start() } catch (_: Exception) {}
+
+            // Ramp: fade primary out while secondary fades in.
+            val steps = 30
+            val stepMs = (cfMs / steps).toLong().coerceAtLeast(15L)
+            for (i in 1..steps) {
+                val t = i.toFloat() / steps
+                try { primary.setVolume(targetVol * (1 - t), targetVol * (1 - t)) } catch (_: Exception) {}
+                try { secondary.setVolume(targetVol * t, targetVol * t) } catch (_: Exception) {}
+                delay(stepMs)
+            }
+
+            // Primary is now silent — park it at 0 and swap roles.
+            try { primary.pause() } catch (_: Exception) {}
+            try { primary.seekTo(0) } catch (_: Exception) {}
+            val swap = primary; primary = secondary; secondary = swap
+        }
+    }
+
     @Synchronized
     fun stop(context: Context? = null): Boolean {
-        val was = currentSound
+        val was = currentSound != null || currentFile != null
+        crossfadeJob?.cancel()
+        crossfadeJob = null
         player?.let {
             try { it.stop() } catch (_: Exception) {}
             try { it.release() } catch (_: Exception) {}
         }
+        crossfadePlayer?.let {
+            try { it.stop() } catch (_: Exception) {}
+            try { it.release() } catch (_: Exception) {}
+        }
         player = null
+        crossfadePlayer = null
         currentSound = null
+        currentFile = null
         inWellnessMode = false
         if (context != null) restoreSystemVolume(context)
-        return was != null
+        return was
     }
 
     val currentlyPlaying: Sound? get() = currentSound
+    val currentlyPlayingFile: java.io.File? get() = currentFile
 
     fun availableSounds(context: Context): List<Sound> = Sound.entries.filter {
         context.resources.getIdentifier(it.rawName, "raw", context.packageName) != 0

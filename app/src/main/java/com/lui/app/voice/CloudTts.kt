@@ -23,23 +23,27 @@ class CloudTts(private val keyStore: SecureKeyStore) {
 
     val isEnabled: Boolean get() = keyStore.hasCloudSpeechConfigured
 
-    suspend fun speakStreaming(text: String, audioTrackRef: (AudioTrack?) -> Unit) = withContext(Dispatchers.IO) {
+    /** @return `true` if audio was streamed successfully, `false` on auth/network
+     *  failure so the caller can fall back to local TTS. */
+    suspend fun speakStreaming(text: String, audioTrackRef: (AudioTrack?) -> Unit): Boolean = withContext(Dispatchers.IO) {
         val provider = keyStore.speechProvider
-        val key = keyStore.getSpeechKey(provider) ?: return@withContext
+        val key = keyStore.getSpeechKey(provider) ?: return@withContext false
 
         try {
             com.lui.app.helper.LuiLogger.i("TTS", "Cloud TTS: provider=$provider, voice=${keyStore.selectedVoiceId}, text=${text.take(40)}")
-            when (provider) {
+            val ok = when (provider) {
                 SpeechProvider.DEEPGRAM -> speakDeepgram(text, key, audioTrackRef)
                 SpeechProvider.ELEVENLABS -> speakElevenLabs(text, key, audioTrackRef)
             }
-            com.lui.app.helper.LuiLogger.i("TTS", "Cloud TTS completed")
+            com.lui.app.helper.LuiLogger.i("TTS", "Cloud TTS ${if (ok) "completed" else "failed (fallback expected)"}")
+            ok
         } catch (e: Exception) {
             com.lui.app.helper.LuiLogger.e("TTS", "Cloud TTS failed: ${e.message}", e)
+            false
         }
     }
 
-    private fun speakDeepgram(text: String, key: String, audioTrackRef: (AudioTrack?) -> Unit) {
+    private fun speakDeepgram(text: String, key: String, audioTrackRef: (AudioTrack?) -> Unit): Boolean {
         val voice = keyStore.selectedVoiceId ?: "aura-2-thalia-en"
         val url = URL("https://api.deepgram.com/v1/speak?model=$voice&encoding=linear16&sample_rate=24000")
         val conn = (url.openConnection() as HttpURLConnection).apply {
@@ -57,11 +61,12 @@ class CloudTts(private val keyStore: SecureKeyStore) {
             val err = conn.errorStream?.bufferedReader()?.readText()
             com.lui.app.helper.LuiLogger.e("TTS", "Deepgram TTS error $code: ${err?.take(200)}")
             conn.disconnect()
-            return
+            return false
         }
 
         streamPcmResponse(conn.inputStream, 24000, audioTrackRef)
         conn.disconnect()
+        return true
     }
 
     private var elevenLabsVoiceId: String? = null
@@ -111,7 +116,7 @@ class CloudTts(private val keyStore: SecureKeyStore) {
         return elevenLabsVoiceId ?: "JBFqnCBsd6RMkjVDRZzb"
     }
 
-    private fun speakElevenLabs(text: String, key: String, audioTrackRef: (AudioTrack?) -> Unit) {
+    private fun speakElevenLabs(text: String, key: String, audioTrackRef: (AudioTrack?) -> Unit): Boolean {
         val trimmedKey = key.trim()
         val voiceId = keyStore.selectedVoiceId ?: getElevenLabsVoiceId(trimmedKey)
         val url = URL("https://api.elevenlabs.io/v1/text-to-speech/$voiceId/stream?output_format=pcm_24000")
@@ -133,11 +138,12 @@ class CloudTts(private val keyStore: SecureKeyStore) {
             val err = conn.errorStream?.bufferedReader()?.readText()
             com.lui.app.helper.LuiLogger.e("TTS", "ElevenLabs TTS error $code: ${err?.take(200)}")
             conn.disconnect()
-            return
+            return false
         }
 
         streamPcmResponse(conn.inputStream, 24000, audioTrackRef)
         conn.disconnect()
+        return true
     }
 
     private fun streamPcmResponse(input: InputStream, sampleRate: Int, audioTrackRef: (AudioTrack?) -> Unit) {

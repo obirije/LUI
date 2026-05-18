@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:paddingTop="4dp"
+    android:paddingBottom="4dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="start"
+        android:layout_marginEnd="40dp"
+        android:background="@drawable/card_counting_bg"
+        android:orientation="vertical"
+        android:padding="20dp">
+
+        <!-- Eyebrow -->
+        <TextView
+            android:id="@+id/countingEyebrow"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:letterSpacing="0.14"
+            android:text="COUNTING"
+            android:textColor="#C9B78A"
+            android:textSize="10sp"
+            android:textStyle="bold" />
+
+        <!-- Big number stage -->
+        <FrameLayout
+            android:layout_width="match_parent"
+            android:layout_height="140dp"
+            android:layout_marginTop="8dp">
+
+            <TextView
+                android:id="@+id/countingNumber"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center"
+                android:fontFamily="serif"
+                android:text="—"
+                android:textColor="#F3EBD8"
+                android:textSize="96sp" />
+        </FrameLayout>
+
+        <!-- Label — "Count down from 100" etc -->
+        <TextView
+            android:id="@+id/countingLabel"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center"
+            android:textColor="#9E9480"
+            android:textSize="13sp" />
+
+        <!-- Progress "3 of 10" -->
+        <TextView
+            android:id="@+id/countingProgress"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:gravity="center"
+            android:textColor="#6E6554"
+            android:textSize="11sp" />
+    </LinearLayout>
+</FrameLayout>

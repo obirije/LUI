@@ -22,7 +22,7 @@ class LocalModel(private val context: Context) : LlmProvider {
         private const val TAG = "LuiLLM"
         // Kept so ConnectionHubFragment / ModelManager / ModelDownloader compile unchanged.
         // The lite UI hides the model-management section, so this value is never user-visible.
-        const val MODEL_FILENAME = "Qwen2.5-1.5B-Instruct-Q4_K_M.gguf"
+        const val MODEL_FILENAME = "gemma-4-E2B-it-UD-IQ3_XXS.gguf"
     }
 
     override val isReady: Boolean get() = false
@@ -31,6 +31,9 @@ class LocalModel(private val context: Context) : LlmProvider {
         File(context.filesDir, "models/$MODEL_FILENAME").absolutePath
 
     fun isModelDownloaded(): Boolean = false
+
+    /** Cloud-only stub — no local load progress. */
+    fun loadProgress(): Float = 0f
 
     suspend fun initialize(): Result<Unit> {
         Log.i(TAG, "Local LLM unavailable in this build (cloud-only)")

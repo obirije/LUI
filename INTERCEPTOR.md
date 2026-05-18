@@ -35,7 +35,7 @@ Used for local/offline mode and for forcing live-state queries in cloud mode. Pa
 
 ---
 
-## All Tools (106)
+## All Tools (112)
 
 ### Hardware Controls
 
@@ -212,8 +212,25 @@ All readings persist to a local Room `health_readings` table with timestamps. Ba
 | `list_relaxing_sounds` | — | "what relaxing sounds are there" |
 | `start_wellness_mode` | `sound` (optional) | "help me calm down", "start wellness mode" |
 | `stop_wellness_mode` | — | "stop wellness mode", "exit wellness mode" |
+| `generate_relaxing_music` | `prompt` (optional), `duration` (optional) | "generate calming music", "make me a track" |
+| `start_breathing_exercise` | `pattern` (4-7-8 / box / 5-5), `cycles` | "do a breath reset", "give me a 4-7-8" |
+| `start_counting_exercise` | `mode` (down / up / primes / odds / evens / by_sevens), `start`, `end`, `interval_ms` | "count down from 100", "name some primes" |
 
-11 bundled tracks (9 ambient + 2 music). If `start_wellness_mode` is called without a sound, LUI auto-picks based on time of day and current ring stress level. See [docs/ambient-sounds.md](docs/ambient-sounds.md) for the full lineup and licensing.
+11 bundled tracks (9 ambient + 2 music). If `start_wellness_mode` is called without a sound, LUI auto-picks based on time of day and current ring stress level. `generate_relaxing_music` requires a self-hosted [ACE-Step](https://github.com/ace-step/ACE-Step-1.5) endpoint configured in Connection Hub — generated tracks are saved to a local library (rename/favorite/delete) and loop with a two-player crossfade. Falls back to the bundled piano if unreachable. See [docs/ambient-sounds.md](docs/ambient-sounds.md) for the bundled lineup and licensing.
+
+`start_breathing_exercise` opens a card with a Lottie pacer whose inhale/hold/exhale frames are stretched to match the chosen pattern 1-for-1 with the on-screen countdown. `start_counting_exercise` shows large fading typography per number — the range is `start..end` (so "down from 100" reaches 0), and if both are omitted LUI picks defaults from time of day (shorter at night, longer midday).
+
+Audio playback (wellness mode, ambient sound, generated music) opens a **Now-playing card** with a live elapsed timer and stop button. Sound effects render as an immersive neon Lottie that fills the card edge-to-edge; music renders as a compact warm-meditation card. When playback ends the card switches to "Played for X:XX".
+
+### Proactive Wellbeing Scenarios
+
+| Tool | Params | Example phrases |
+|:-----|:-------|:----------------|
+| `morning_briefing` | — | "give me a morning briefing", "what's the day look like" |
+| `detect_stress_patterns` | — | "any stress patterns", "what are my stress peaks" |
+| `pre_meeting_check` | `event_title` (optional) | Normally fired by the scheduler, callable manually |
+
+These tools are also called automatically by the built-in scenario orchestrator (acute stress recovery, daily morning briefing, pre-meeting readiness, weekly pattern detection) without user input.
 
 ### Web
 
